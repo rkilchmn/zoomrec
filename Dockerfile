@@ -93,7 +93,6 @@ RUN apt-get update && \
     apt-get install --no-install-recommends -y \
         intel-media-va-driver-non-free \
         vainfo && \
-    
 # Install support for Intel GPU hardware accelerators for ffmpeg encoding
     apt-get install --no-install-recommends -y \
         ffmpeg \
