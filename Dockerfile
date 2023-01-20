@@ -9,7 +9,9 @@ ENV HOME=/home/zoomrec \
     VNC_COL_DEPTH=24 \
     VNC_PW=zoomrec \
     VNC_PORT=5901 \
-    DISPLAY=:1
+    DISPLAY=:1 \
+    FFMPEG_ENCODE="-acodec pcm_s16le -vcodec libx264rgb -preset ultrafast -crf 0" \
+    LIBVA_DRIVER_NAME=i965
 
 # Add user
 RUN useradd -ms /bin/bash zoomrec -d ${HOME}
@@ -88,6 +90,11 @@ RUN apt-get update && \
     apt-get -f install -y && \
     rm -rf zoom_amd64.deb && \
 # Install FFmpeg
+    apt-get install --no-install-recommends -y \
+        intel-media-va-driver-non-free \
+        vainfo && \
+    
+# Install support for Intel GPU hardware accelerators for ffmpeg encoding
     apt-get install --no-install-recommends -y \
         ffmpeg \
         libavcodec-extra && \

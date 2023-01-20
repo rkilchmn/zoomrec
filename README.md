@@ -3,6 +3,22 @@
 </h1>
 
 <h4 align="center">
+    Changes in this fork
+</h4>
+
+<li>FFmpeg enoding paramters moved to environment var: FFMPEG_ENCODE="-acodec pcm_s16le -vcodec libx264rgb -preset ultrafast -crf 0"</li>
+
+<h4 align="center">
+   Usefull commands
+</h4>
+
+<li>build container: docker build -t rkilchmn/zoomrec zoomrec/</li>
+<li>stop container sudo docker kill $(sudo docker ps | grep rkilchmn/zoomrec:latest | awk '{print $1}')</li>
+<li>start root shell: sudo docker container exec -u 0 -it $(sudo docker ps | grep rkilchmn/zoomrec:latest | awk '{print $1}') /bin/bash</li>
+<li>remove container: sudo docker rmi -f rkilchmn/zoomrec:latest</li>
+
+
+<h4 align="center">
 	A all-in-one solution to automatically join and record Zoom meetings.
 </h4>
 
