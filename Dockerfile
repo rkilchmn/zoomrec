@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:20.04
 
 ENV HOME=/home/zoomrec \
     TZ=Europe/Berlin \
@@ -28,7 +28,7 @@ RUN apt-get update && \
         publicsuffix \
         libapt-pkg6.0 \
         libpsl5 \
-        libssl3 \
+        libssl1.1 \
         libnss3 \
         openssl \
         wget \
