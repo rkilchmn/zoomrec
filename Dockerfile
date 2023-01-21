@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 ENV HOME=/home/zoomrec \
     TZ=Europe/Berlin \
@@ -11,7 +11,7 @@ ENV HOME=/home/zoomrec \
     VNC_PORT=5901 \
     DISPLAY=:1 \
     FFMPEG_ENCODE="-acodec pcm_s16le -vcodec libx264rgb -preset ultrafast -crf 0" \
-    LIBVA_DRIVER_NAME=i965
+    LIBVA_DRIVER_NAME=iHD
 
 # Add user
 RUN useradd -ms /bin/bash zoomrec -d ${HOME}
@@ -28,7 +28,7 @@ RUN apt-get update && \
         publicsuffix \
         libapt-pkg6.0 \
         libpsl5 \
-        libssl1.1 \
+        libssl3 \
         libnss3 \
         openssl \
         wget \
@@ -91,8 +91,13 @@ RUN apt-get update && \
     rm -rf zoom_amd64.deb && \
 # Install FFmpeg
     apt-get install --no-install-recommends -y \
-        intel-media-va-driver-non-free \
+        intel-media-va-driver \
+        i965-va-driver \
+        mesa-va-drivers \
         vainfo && \
+# debugging tools ( to be removed)
+    apt-get install --no-install-recommends -y \
+        less && \
 # Install support for Intel GPU hardware accelerators for ffmpeg encoding
     apt-get install --no-install-recommends -y \
         ffmpeg \
@@ -116,6 +121,11 @@ RUN apt-get update && \
 
 # Allow access to pulseaudio
 RUN adduser zoomrec pulse-access
+
+# Allow access to intel VAAPI hardware acceleration
+RUN groupadd -g 110 render
+RUN adduser zoomrec render
+RUN adduser zoomrec video
 
 USER zoomrec
 
