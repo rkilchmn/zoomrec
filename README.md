@@ -16,6 +16,24 @@
 <li>stop container: sudo docker kill $(sudo docker ps | grep rkilchmn/zoomrec:latest | awk '{print $1}')</li>
 <li>start root shell: sudo docker container exec -u 0 -it $(sudo docker ps | grep rkilchmn/zoomrec:latest | awk '{print $1}') /bin/bash</li>
 <li>remove container: sudo docker rmi -f rkilchmn/zoomrec:latest</li>
+<li>
+docker run -d --restart unless-stopped \
+  -e TZ=Australia/Sydney \
+  -e DISPLAY_NAME="Monica" \
+  -e FFMPEG_ENCODE="-acodec aac -b:a 128k -vaapi_device /dev/dri/renderD128 -vf 'hwupload,scale_vaapi=format=nv12' -c:v h264_vaapi -qp 24" \
+  -e LIBVA_DRIVER_NAME=i965 \
+  -v /home/roger/zoomrec/recordings:/home/zoomrec/recordings \
+  -v /home/roger/zoomrec/audio:/home/zoomrec/audio \
+  -v /home/roger/zoomrec/meetings.csv:/home/zoomrec/meetings.csv:ro \
+  -p 5901:5901 \
+  --security-opt seccomp:unconfined \
+  --group-add="44" \
+  --group-add="110" \
+  --device /dev/dri/renderD128:/dev/dri/renderD128 \
+  --device /dev/dri/card0:/dev/dri/card0 \
+  rkilchmn/zoomrec:latest
+</li>
+
 
 
 <h4 align="center">
