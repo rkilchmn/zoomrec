@@ -141,10 +141,6 @@ ADD res/xfce.sh ${START_DIR}/xfce.sh
 ADD zoomrec.py ${HOME}/
 ADD res/img ${HOME}/img
 
-# zoom start script
-ADD res/zoom.sh ${HOME}/
-ADD res/start.py ${HOME}/
-
 # Set permissions
 USER 0
 RUN chmod a+x ${START_DIR}/entrypoint.sh && \
