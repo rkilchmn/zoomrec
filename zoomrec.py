@@ -1,8 +1,8 @@
 import csv
 import logging
 import os
-import psutil
-import pyautogui
+import psutil 
+import pyautogui  # later zoom versions do not start anymore when pyautogui is imported, Zoom  5.13.0 (599) still works
 import random
 import schedule
 import signal
@@ -433,8 +433,8 @@ def join(meet_id, meet_pw, duration, description):
         filename = os.path.join(
             REC_PATH, time.strftime(TIME_FORMAT)) + "-" + description + "-JOIN.mkv"
 
-        command = "ffmpeg -nostats -loglevel quiet -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + resolution + " -i " + \
-                  disp + " -acodec pcm_s16le -vcodec libx264rgb -preset ultrafast -crf 0 -threads 0 -async 1 -vsync 1 " + filename
+        command = "ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + resolution + " -i " + \
+              disp + " " + FFMPEG_ENCODE + " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
 
         ffmpeg_debug = subprocess.Popen(
             command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
@@ -775,7 +775,9 @@ def join(meet_id, meet_pw, duration, description):
     disp = os.getenv('DISPLAY')
 
     command = "ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + resolution + " -i " + \
-              disp + " " + FFMPEG_ENCODE + " -threads 0 -async 1 -vsync 1 " + filename
+              disp + " " + FFMPEG_ENCODE + " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
+
+    logging.info(command)
 
     ffmpeg = subprocess.Popen(
         command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
