@@ -919,6 +919,42 @@ def setup_schedule():
                 line_count += 1
         logging.info("Added %s meetings to schedule." % line_count)
 
+# import telebot
+# from datetime import datetime
+# import threading
+
+# bot = telebot.TeleBot("YOUR_BOT_TOKEN")
+# scheduled_links = {}
+
+# def schedule_link(link, scheduled_time):
+#     while True:
+#         current_time = datetime.now()
+#         if current_time >= scheduled_time:
+#             bot.send_message(link["chat_id"], f"Event {link['name']} with link {link['link']} is now available!")
+#             scheduled_links.pop(link["chat_id"])
+#             break
+
+# def handle_schedule_command(message):
+#     parts = message.text.split()
+#     if len(parts) != 4:
+#         bot.reply_to(message, "Invalid command format. Use /schedule <event_name> <link> <day/time>")
+#     else:
+#         name = parts[1]
+#         link = parts[2]
+#         scheduled_time_str = parts[3]
+#         try:
+#             scheduled_time = datetime.strptime(scheduled_time_str, "%Y-%m-%d %H:%M:%S")
+#             if scheduled_time <= datetime.now():
+#                 bot.reply_to(message, "Scheduled time must be in the future.")
+#             else:
+#                 scheduled_links[message.chat.id] = {"name": name, "link": link, "time": scheduled_time, "chat_id": message.chat.id}
+#                 bot.reply_to(message, f"Event {name} with link {link} scheduled for {scheduled_time}")
+#                 threading.Thread(target=schedule_link, args=(scheduled_links[message.chat.id],)).start()
+#         except ValueError:
+#             bot.reply_to(message, "Invalid time format. Use YYYY-MM-DD HH:MM:SS")
+
+# bot.message_handler(commands=['schedule'])(handle_schedule_command)
+# threading.Thread(target=bot.polling, kwargs={"none_stop":True}).start()
 
 def main():
     try:
