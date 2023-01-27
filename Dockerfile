@@ -90,16 +90,19 @@ RUN apt-get update && \
     dpkg -i zoom_amd64.deb && \
     apt-get -f install -y && \
     rm -rf zoom_amd64.deb && \
-# Install FFmpeg
+# Install support for Intel GPU hardware accelerators VA-API for ffmpeg encoding
     apt-get install --no-install-recommends -y \
         intel-media-va-driver \
         i965-va-driver \
         mesa-va-drivers \
         vainfo && \
+# Install support for NVIDIA GPU hardware accelerators NVENC for ffmpeg encoding
+    apt-get install --no-install-recommends -y \
+        nvidia-driver-525 && \
 # debugging tools ( to be removed)
     apt-get install --no-install-recommends -y \
         less && \
-# Install support for Intel GPU hardware accelerators for ffmpeg encoding
+# Install FFmpeg 
     apt-get install --no-install-recommends -y \
         ffmpeg \
         libavcodec-extra && \
