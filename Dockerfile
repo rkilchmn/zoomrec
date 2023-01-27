@@ -10,7 +10,8 @@ ENV HOME=/home/zoomrec \
     VNC_PW=zoomrec \
     VNC_PORT=5901 \
     DISPLAY=:1 \
-    FFMPEG_ENCODE="-acodec pcm_s16le -vcodec libx264rgb -preset ultrafast -crf 0" \
+    FFMPEG_INPUT_PARAMS="" \
+    FFMPEG_OUTPUT_PARAMS="-acodec pcm_s16le -vcodec libx264rgb -preset ultrafast -crf 0" \
     LIBVA_DRIVER_NAME=iHD
 
 # Add user

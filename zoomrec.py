@@ -39,7 +39,8 @@ REC_PATH = os.path.join(BASE_PATH, "recordings")
 AUDIO_PATH = os.path.join(BASE_PATH, "audio")
 DEBUG_PATH = os.path.join(REC_PATH, "screenshots")
 
-FFMPEG_ENCODE = os.getenv('FFMPEG_ENCODE')
+FFMPEG_INPUT_PARAMS = os.getenv('FFMPEG_INPUT_PARAMS')
+FFMPEG_OUTPUT_PARAMS = os.getenv('FFMPEG_OUTPUT_PARAMS')
 
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
@@ -433,8 +434,11 @@ def join(meet_id, meet_pw, duration, description):
         filename = os.path.join(
             REC_PATH, time.strftime(TIME_FORMAT)) + "-" + description + "-JOIN.mkv"
 
-        command = "ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + resolution + " -i " + \
-              disp + " " + FFMPEG_ENCODE + " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
+        command = "ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + \
+            + resolution + " " + FFMPEG_INPUT_PARAMS + " -i " + disp + " " + FFMPEG_OUTPUT_PARAMS + \
+            " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
+
+        logging.info("Recording command:" + command)
 
         ffmpeg_debug = subprocess.Popen(
             command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
@@ -774,10 +778,9 @@ def join(meet_id, meet_pw, duration, description):
     resolution = str(width) + 'x' + str(height)
     disp = os.getenv('DISPLAY')
 
-    command = "ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + resolution + " -i " + \
-              disp + " " + FFMPEG_ENCODE + " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
-
-    logging.info(command)
+    command = "ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + \
+        + resolution + " " + FFMPEG_INPUT_PARAMS + " -i " + disp + " " + FFMPEG_OUTPUT_PARAMS + \
+        " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
 
     ffmpeg = subprocess.Popen(
         command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
