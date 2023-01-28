@@ -431,11 +431,11 @@ def join(meet_id, meet_pw, duration, description):
 
         logging.info("Start recording..")
 
-        filename = os.path.join(
+        filename = os.path.join( 
             REC_PATH, time.strftime(TIME_FORMAT)) + "-" + description + "-JOIN.mkv"
 
         command = "ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + \
-            + resolution + " " + FFMPEG_INPUT_PARAMS + " -i " + disp + " " + FFMPEG_OUTPUT_PARAMS + \
+            resolution + " " + FFMPEG_INPUT_PARAMS + " -i " + disp + " " + FFMPEG_OUTPUT_PARAMS + \
             " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
 
         logging.info("Recording command:" + command)
@@ -779,7 +779,7 @@ def join(meet_id, meet_pw, duration, description):
     disp = os.getenv('DISPLAY')
 
     command = "ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + \
-        + resolution + " " + FFMPEG_INPUT_PARAMS + " -i " + disp + " " + FFMPEG_OUTPUT_PARAMS + \
+        resolution + " " + FFMPEG_INPUT_PARAMS + " -i " + disp + " " + FFMPEG_OUTPUT_PARAMS + \
         " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
 
     ffmpeg = subprocess.Popen(
