@@ -5,7 +5,7 @@ docker run -d --restart unless-stopped \
   -e TZ=Australia/Sydney \
   -e DISPLAY_NAME="Monica" \
   -e FFMPEG_OUTPUT_PARAMS="-acodec aac -b:a 128k -vaapi_device /dev/dri/renderD128 -vf 'hwupload,scale_vaapi=format=nv12' -c:v hevc_vaapi -b:v 1M" \
-  -e LIBVA_DRIVER_NAME=i965 \
+  -e LIBVA_DRIVER_NAME=radeonsi \
   -v /home/roger/zoomrec/recordings:/home/zoomrec/recordings \
   -v /home/roger/zoomrec/audio:/home/zoomrec/audio \
   -v /home/roger/zoomrec/meetings.csv:/home/zoomrec/meetings.csv:ro \
