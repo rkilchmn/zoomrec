@@ -12,7 +12,9 @@ ENV HOME=/home/zoomrec \
     DISPLAY=:1 \
     FFMPEG_INPUT_PARAMS="" \
     FFMPEG_OUTPUT_PARAMS="-acodec pcm_s16le -vcodec libx264rgb -preset ultrafast -crf 0" \
-    LIBVA_DRIVER_NAME=iHD
+    LIBVA_DRIVER_NAME=iHD \
+    SAMBA_USER=testuser \
+    SAMBA_PASS=test123 
 
 # Add user
 RUN useradd -ms /bin/bash zoomrec -d ${HOME}
@@ -118,6 +120,11 @@ RUN apt-get update && \
     pip3 install --upgrade --no-cache-dir -r ${HOME}/res/requirements.txt && \
 # Install VLC - optional
     apt-get install --no-install-recommends -y vlc && \
+# install samba server
+    apt-get install --no-install-recommends -y \
+    samba \
+    samba-common-bin \
+    acl && \
 # Clean up
     apt-get autoremove --purge -y && \
     apt-get autoclean -y && \
@@ -139,6 +146,7 @@ ADD res/home/ ${HOME}/
 
 # Add startup
 ADD res/entrypoint.sh ${START_DIR}/entrypoint.sh
+ADD res/starting.sh ${START_DIR}/starting.sh
 ADD res/xfce.sh ${START_DIR}/xfce.sh
 
 # Add python script with resources
@@ -148,11 +156,22 @@ ADD res/img ${HOME}/img
 # Set permissions
 USER 0
 RUN chmod a+x ${START_DIR}/entrypoint.sh && \
+    chmod a+x ${START_DIR}/starting.sh && \
     chmod -R a+rw ${START_DIR} && \
     chown -R zoomrec:zoomrec ${HOME} && \
     find ${HOME}/ -name '*.sh' -exec chmod -v a+x {} + && \
     find ${HOME}/ -name '*.desktop' -exec chmod -v a+x {} +
 
+# samba server setup
+COPY res/smb.conf /etc/samba/smb.conf
+RUN useradd $SAMBA_USER
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN echo -ne "$SAMBA_PASS\n$SAMBA_PASS\n" | smbpasswd -a -s $SAMBA_USER && \
+    groupadd samba && \
+    gpasswd -a $SAMBA_USER samba && \
+    testparm -s 
+# samba ports
+EXPOSE 139 445 137 138
 EXPOSE ${VNC_PORT}
-USER zoomrec
+
 CMD ${START_DIR}/entrypoint.sh
