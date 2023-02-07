@@ -35,7 +35,6 @@ docker run -d --restart unless-stopped \
 </li>
 
 
-
 <h4 align="center">
 	A all-in-one solution to automatically join and record Zoom meetings.
 </h4>
