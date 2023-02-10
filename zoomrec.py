@@ -69,7 +69,7 @@ ONGOING_MEETING = False
 VIDEO_PANEL_HIDED = False
 
 # Get the current date and time
-now = datetime.datetime.now()
+now = datetime.now()
 
 # Format the date and time in the desired format
 timestamp = now.strftime("%d-%m-%Y %H:%M")
