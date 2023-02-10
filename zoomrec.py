@@ -9,6 +9,7 @@ import signal
 import subprocess
 import threading
 import time
+import datetime
 import atexit
 import requests
 from datetime import datetime, timedelta
@@ -18,9 +19,6 @@ global VIDEO_PANEL_HIDED
 global TELEGRAM_TOKEN
 global TELEGRAM_RETRIES
 global TELEGRAM_CHAT_ID
-
-logging.basicConfig(
-    format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
 
 # Turn DEBUG on:
 #   - screenshot on error
@@ -69,6 +67,18 @@ CSV_DELIMITER = ';'
 
 ONGOING_MEETING = False
 VIDEO_PANEL_HIDED = False
+
+# Get the current date and time
+now = datetime.datetime.now()
+
+# Format the date and time in the desired format
+timestamp = now.strftime("%d-%m-%Y %H:%M")
+
+# Create the log file name with the timestamp
+log_file = DEBUG_PATH + "/{}.log".format(timestamp)
+
+# Configure the logging
+logging.basicConfig(filename=log_file, format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
 
 
 class BackgroundThread:
