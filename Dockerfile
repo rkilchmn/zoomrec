@@ -151,6 +151,7 @@ ADD res/xfce.sh ${START_DIR}/xfce.sh
 
 # Add python script with resources
 ADD zoomrec.py ${HOME}/
+ADD telegram_bot.py ${HOME}/
 ADD res/img ${HOME}/img
 
 # Set permissions

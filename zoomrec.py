@@ -14,6 +14,8 @@ import atexit
 import requests
 from datetime import datetime, timedelta
 
+from telegram_bot import start_bot
+
 global ONGOING_MEETING
 global VIDEO_PANEL_HIDED
 global TELEGRAM_TOKEN
@@ -933,7 +935,15 @@ def setup_schedule():
                 line_count += 1
         logging.info("Added %s meetings to schedule." % line_count)
 
-# threading.Thread(target=bot.polling, kwargs={"none_stop":True}).start()
+def start_telegram_bot():
+    command = f"python3 telegram_bot.py {CSV_PATH} {TELEGRAM_TOKEN}"
+    telegram_bot = subprocess.Popen(
+        command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+
+    logging.info("Telegram bot started!")
+
+    atexit.register(os.killpg, os.getpgid(
+        telegram_bot.pid), signal.SIGQUIT)
 
 def main():
     try:
@@ -942,6 +952,12 @@ def main():
     except Exception:
         logging.error("Failed to create screenshot folder!")
         raise
+
+    if TELEGRAM_TOKEN is None:
+        logging.info("Telegram token is missing. No Telegram bot will be started!")
+    else:
+        start_telegram_bot()
+        
     last_timestamp = ''
     while True:
         current_timestamp = os.path.getmtime(CSV_PATH)

@@ -10,7 +10,7 @@ docker run -d --restart unless-stopped \
   -e SAMBA_PASS=test123 \
   -v /home/roger/zoomrec/recordings:/home/zoomrec/recordings \
   -v /home/roger/zoomrec/audio:/home/zoomrec/audio \
-  -v /home/roger/zoomrec/meetings.csv:/home/zoomrec/meetings.csv:ro \
+  -v /home/roger/zoomrec/meetings.csv:/home/zoomrec/meetings.csv \
   -p 5901:5901 \
   -p 137-139:137-139 \
   -p 445:445 \
