@@ -4,7 +4,8 @@
 import sys
 import csv
 import time
-import logging
+import re
+import validators
 from telegram import __version__ as TG_VER
 try:
     from telegram import __version_info__
@@ -22,7 +23,9 @@ global CSV_DELIMITER
 global TELEGRAM_TOKEN
 
 
-USAGE_ADD = "/add <description> <weekday> <time> <duration> <id> <password> <record>"
+USAGE_ADD = "/add <description> <weekday> <time> <duration> <id> <password> <record> or\n" + \
+            "/add <description> <weekday> <time> <duration> <url> <record>\n" + \
+            "example: /add important_meeting tuesday 14:00 60 123456789 secret_passwd true"
 USAGE_LIST = "/list - list all events"
 USAGE_MODIFY = "/modify <index or part of description> <attribute name> <new attribute value>"
 USAGE_DELETE = "/delete <index or part of description>"
@@ -71,7 +74,7 @@ async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global CSV_PATH
     """Add a new event to the meeting.csv file."""
     args = context.args
-    if len(args) < 7:
+    if len(args) < 6:
         await update.message.reply_text("Usage: " + USAGE_ADD)
         return
     # Validate weekday
@@ -97,26 +100,31 @@ async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("Invalid duration. Duration must be a number")
         return
 
+    recordArgNo = 6 # last arg is record (unless URL is provided - see following)
     # Validate id
     if args[4].startswith("https://"):
         if not validators.url(args[4]):
             await update.message.reply_text("Invalid URL format")
             return
         password = ""
+        recordArgNo = 5 # password was skipped
     else:
-        if not args[4].isdigit():
-            await update.message.reply_text("Invalid id. If id starts with 'https://' then it must be a URL, otherwise it must be a number")
+        
+        if not re.search( r'\d{9,}', args[4]):
+            await update.message.reply_text("Invalid id. If id starts with 'https://' then it must be a URL, otherwise it must be a number with minimum 9 digits (no blanks)")
             return
         if not args[5]:
             await update.message.reply_text("Password cannot be empty")
             return
         password = args[5]
-
     # Validate record
-    if args[6].lower() not in ["true", "false"]:
+    if (len(args)-1) != recordArgNo: # not enough args
+        await update.message.reply_text("Record missing. Record must be either 'true' or 'false'")
+        return
+    if args[recordArgNo].lower() not in ["true", "false"]:
         await update.message.reply_text("Invalid record. Record must be either 'true' or 'false'")
         return
-    record = args[6].lower() == "true"
+    record = args[recordArgNo].lower() == "true"
 
     events = read_events_from_csv(CSV_PATH)
     event = {'description': args[0], 'weekday': args[1].lower(), 'time': args[2], 'duration': args[3], 'id': args[4], 'password': password, 'record': record}

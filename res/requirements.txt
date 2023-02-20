@@ -5,4 +5,5 @@ psutil
 opencv-python
 pillow>=8.1.0
 requests
+validators
 python-telegram-bot >= 20.0.0
