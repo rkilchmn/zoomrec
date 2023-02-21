@@ -27,7 +27,7 @@ USAGE_ADD = "/add <description> <weekday> <time> <duration> <id> <password> <rec
             "/add <description> <weekday> <time> <duration> <url> <record>\n" + \
             "example: /add important_meeting tuesday 14:00 60 123456789 secret_passwd true"
 USAGE_LIST = "/list - list all events"
-USAGE_MODIFY = "/modify <index or part of description> <attribute name> <new attribute value>"
+USAGE_MODIFY = "/modify <index or part of description> <attribute name1> <new attribute value1> <attribute name2> <new attribute value2> ..."
 USAGE_DELETE = "/delete <index or part of description>"
 
 def read_events_from_csv(file_name):
@@ -48,6 +48,57 @@ def write_events_to_csv(file_name, events):
         writer.writeheader()
         for event in events:
             writer.writerow(event)
+
+def validate_event(event):
+
+    if event['weekday']:
+         # Validate weekday
+        weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        if event['weekday'].lower() not in weekdays:
+            return f"Invalid weekday '{event['weekday']}'. Use only: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday."
+    else:
+        return "Missing attribute weekday."
+
+    if event['time']:
+        # Validate time
+        try:
+            time.strptime(event['time'], '%H:%M')
+        except ValueError:
+            return f"Invalid time format '{event['time']}'. Use HH:MM format."
+    else:
+        return "Missing attribute time."
+
+    if event['duration']:
+    # Validate duration
+        try:
+            duration = int(event['duration'])
+            if duration <= 0:
+                return f"Invalid duration '{duration}'. Duration must be a positive number of minutes."
+        except ValueError:
+            return f"Invalid duration '{duration}'. Duration must be a number of minutes."
+    else:
+        return "Missing attribute duration"
+            
+    # Validate id
+    if event['id']:
+        if event['id'].startswith("https://"):
+            if not validators.url(event['id']):
+                return "Invalid URL format."
+        else:    
+            if not re.search( r'\d{9,}', event['id']):
+                return "Invalid id. If id starts with 'https://' then it must be a URL, otherwise it must be a number with minimum 9 digits (no blanks)"
+                
+            if not event['password']:
+                return "Password cannot be empty."
+    else:
+        return "Missing attribute id."
+
+    # Validate record
+    if event['record']:
+        if event['record'].lower() not in ["true", "false"]:
+            return f"Invalid record '{event['record']}'. Record must be either 'true' or 'false'"
+    else:
+        return "Missing attribute record."
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Sends explanation on how to use the bot."""
@@ -77,57 +128,28 @@ async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if len(args) < 6:
         await update.message.reply_text("Usage: " + USAGE_ADD)
         return
-    # Validate weekday
-    weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-    if args[1].lower() not in weekdays:
-        await update.message.reply_text("Invalid weekday. Use only: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday")
-        return
-
-    # Validate time
-    try:
-        time.strptime(args[2], '%H:%M')
-    except ValueError:
-        await update.message.reply_text("Invalid time format. Use HH:MM")
-        return
-
-    # Validate duration
-    try:
-        duration = int(args[3])
-        if duration <= 0:
-            await update.message.reply_text("Invalid duration. Duration must be a positive number")
-            return
-    except ValueError:
-        await update.message.reply_text("Invalid duration. Duration must be a number")
-        return
 
     recordArgNo = 6 # last arg is record (unless URL is provided - see following)
     # Validate id
     if args[4].startswith("https://"):
-        if not validators.url(args[4]):
-            await update.message.reply_text("Invalid URL format")
-            return
         password = ""
         recordArgNo = 5 # password was skipped
-    else:
-        
-        if not re.search( r'\d{9,}', args[4]):
-            await update.message.reply_text("Invalid id. If id starts with 'https://' then it must be a URL, otherwise it must be a number with minimum 9 digits (no blanks)")
-            return
-        if not args[5]:
-            await update.message.reply_text("Password cannot be empty")
-            return
+    else:    
         password = args[5]
-    # Validate record
+
     if (len(args)-1) != recordArgNo: # not enough args
         await update.message.reply_text("Record missing. Record must be either 'true' or 'false'")
         return
-    if args[recordArgNo].lower() not in ["true", "false"]:
-        await update.message.reply_text("Invalid record. Record must be either 'true' or 'false'")
-        return
-    record = args[recordArgNo].lower() == "true"
+    record = args[recordArgNo]
 
     events = read_events_from_csv(CSV_PATH)
     event = {'description': args[0], 'weekday': args[1].lower(), 'time': args[2], 'duration': args[3], 'id': args[4], 'password': password, 'record': record}
+
+    validation_error = validate_event( event)
+    if validation_error:
+        await update.message.reply_text(validation_error)
+        return
+
     events.append(event)
     write_events_to_csv(CSV_PATH, events)
     await update.message.reply_text(f"Event with description '{args[0]}' added successfully!")
@@ -140,7 +162,7 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await update.message.reply_text("Usage: " + USAGE_MODIFY)
             return
 
-        events = read_events_from_csv( CSV_PATH)
+        events = read_events_from_csv(CSV_PATH)
         target_event = None
         try:
             # Try to interpret the argument as an index
@@ -159,23 +181,29 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await update.message.reply_text(f"No event found with description or index '{context.args[0]}'")
             return
 
-        if len(context.args) < 3:
-            await update.message.reply_text("Usage: /modify <index or part of description> <attribute name> <new attribute value>")
+        if len(context.args) < 3 or len(context.args) % 2 != 1:
+            await update.message.reply_text("Usage: " + USAGE_MODIFY)
             return
 
-        attribute_name = context.args[1]
-        new_attribute_value = ' '.join(context.args[2:])
+        for i in range(1, len(context.args), 2):
+            attribute_name = context.args[i]
+            new_attribute_value = context.args[i + 1]
+            if attribute_name not in target_event:
+                await update.message.reply_text(f"Attribute '{attribute_name}' not found in event")
+                return
+            target_event[attribute_name] = new_attribute_value
 
-        if attribute_name not in target_event:
-            await update.message.reply_text(f"Attribute '{attribute_name}' not found in event")
+        validation_error = validate_event( target_event)
+        if validation_error:
+            await update.message.reply_text(validation_error)
             return
 
-        target_event[attribute_name] = new_attribute_value
         events[target_index] = target_event
         write_events_to_csv(CSV_PATH, events)
-        await update.message.reply_text(f"Attribute '{attribute_name}' in event with index {target_index} successfully modified")
+        await update.message.reply_text(f"Attributes successfully modified for event with index {target_index}")
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")
+
 
 async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global CSV_PATH
