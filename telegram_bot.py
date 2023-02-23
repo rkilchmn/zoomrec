@@ -113,6 +113,7 @@ async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     events = read_events_from_csv( CSV_PATH)
     output = "List of events:\n"
     for i, event in enumerate(events):
+        i += 1
         output += f"Event {i}\n"
         output += f"  description : {event['description']}\n"
         for attribute_name, attribute_value in event.items():
@@ -165,21 +166,28 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         events = read_events_from_csv(CSV_PATH)
         target_event = None
         try:
-            # Try to interpret the argument as an index
-            target_index = int(context.args[0])
+            # Try to interpret the argument as an index (index starts with 1)
+            target_index = int(context.args[0]) - 1
             target_event = events[target_index]
         except ValueError:
             # If it's not an index, search for an event whose description contains the argument
             target_desc = context.args[0].lower()
+            hits = 0
             for i, event in enumerate(events):
                 if target_desc in event['description'].lower():
                     target_event = event
                     target_index = i
-                    break
+                    hits += 1
+
+            if hits > 1 :
+                await update.message.reply_text(f"{hits} event found with description '{context.args[0]}'. Please make it unique such that only 1 event matches.")
+                return
 
         if target_event is None:
             await update.message.reply_text(f"No event found with description or index '{context.args[0]}'")
             return
+        
+       
 
         if len(context.args) < 3 or len(context.args) % 2 != 1:
             await update.message.reply_text("Usage: " + USAGE_MODIFY)
@@ -191,7 +199,11 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             if attribute_name not in target_event:
                 await update.message.reply_text(f"Attribute '{attribute_name}' not found in event")
                 return
-            target_event[attribute_name] = new_attribute_value
+
+            if attribute_name in ['weekday']:    
+                target_event[attribute_name] = new_attribute_value.lower()
+            else:
+                target_event[attribute_name] = new_attribute_value
 
         validation_error = validate_event( target_event)
         if validation_error:
@@ -200,7 +212,8 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         events[target_index] = target_event
         write_events_to_csv(CSV_PATH, events)
-        await update.message.reply_text(f"Attributes successfully modified for event with index {target_index}")
+        events[target_index] = target_event
+        await update.message.reply_text(f"Attributes successfully modified for event '{target_event['description']}' with index {target_index+1}")
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")
 
@@ -215,7 +228,7 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         target_event = None
         try:
             # Try to interpret the argument as an index
-            target_index = int(context.args[0])
+            target_index = int(context.args[0]) -1 
             target_event = events[target_index]
         except ValueError:
             # If it's not an index, search for an event whose description contains the argument
@@ -232,7 +245,7 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         del events[target_index]
         write_events_to_csv(CSV_PATH, events)
-        await update.message.reply_text(f"Event with index {target_index} successfully deleted")
+        await update.message.reply_text(f"Event '{target_event['description']}' with index {target_index+1} successfully deleted")
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")
 

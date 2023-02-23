@@ -13,8 +13,7 @@
             "justMyCode": true,
             "args": [
                 "../test.csv",
-                "${env:BOT_TOKEN}"
-            ]
+                "BOT_TOKEN"]
         }
     ]
 }
