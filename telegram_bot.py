@@ -233,11 +233,16 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         except ValueError:
             # If it's not an index, search for an event whose description contains the argument
             target_desc = context.args[0].lower()
+            hits = 0
             for i, event in enumerate(events):
                 if target_desc in event['description'].lower():
                     target_event = event
                     target_index = i
-                    break
+                    hits += 1
+
+            if hits > 1 :
+                await update.message.reply_text(f"{hits} event found with description '{context.args[0]}'. Please make it unique such that only 1 event matches.")
+                return
 
         if target_event is None:
             await update.message.reply_text(f"No event found with description or index '{context.args[0]}'")
