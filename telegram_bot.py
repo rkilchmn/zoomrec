@@ -6,6 +6,7 @@ import csv
 import time
 import re
 import validators
+import subprocess
 from telegram import __version__ as TG_VER
 try:
     from telegram import __version_info__
@@ -23,10 +24,10 @@ global CSV_DELIMITER
 global TELEGRAM_TOKEN
 
 
-USAGE_ADD = "/add <description> <weekday> <time> <duration> <id> <password> <record> or\n" + \
-            "/add <description> <weekday> <time> <duration> <url> <record>\n" + \
-            "example: /add important_meeting tuesday 14:00 60 123456789 secret_passwd true"
-USAGE_LIST = "/list - list all events"
+USAGE_ADD = "/add <description> <weekday> <time> <duration> <id/url> [required with id: <password>] [optional, default is 'true': <record>]\n" + \
+            "example: /add important_meeting tuesday 14:00 60 123456789 secret_passwd true\n"  + \
+            "example: /add important_meeting tuesday 14:00 60 https://zoom.us?123...ASE\n"
+USAGE_LIST = "/list [optional <index or part of description>} - list specifc event or alse all"
 USAGE_MODIFY = "/modify <index or part of description> <attribute name1> <new attribute value1> <attribute name2> <new attribute value2> ..."
 USAGE_DELETE = "/delete <index or part of description>"
 
@@ -50,55 +51,81 @@ def write_events_to_csv(file_name, events):
             writer.writerow(event)
 
 def validate_event(event):
-
     if event['weekday']:
          # Validate weekday
         weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
         if event['weekday'].lower() not in weekdays:
-            return f"Invalid weekday '{event['weekday']}'. Use only: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday."
+            raise ValueError(f"Invalid weekday '{event['weekday']}'. Use only: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday.")
     else:
-        return "Missing attribute weekday."
+        raise ValueError("Missing attribute weekday.")
 
     if event['time']:
         # Validate time
         try:
             time.strptime(event['time'], '%H:%M')
         except ValueError:
-            return f"Invalid time format '{event['time']}'. Use HH:MM format."
+            raise ValueError(f"Invalid time format '{event['time']}'. Use HH:MM format.")
     else:
-        return "Missing attribute time."
+        raise ValueError("Missing attribute time.")
 
     if event['duration']:
     # Validate duration
         try:
             duration = int(event['duration'])
             if duration <= 0:
-                return f"Invalid duration '{duration}'. Duration must be a positive number of minutes."
+                raise ValueError(f"Invalid duration '{duration}'. Duration must be a positive number of minutes.")
         except ValueError:
-            return f"Invalid duration '{duration}'. Duration must be a number of minutes."
+            raise ValueError(f"Invalid duration '{duration}'. Duration must be a number of minutes.")
     else:
-        return "Missing attribute duration"
+        raise ValueError("Missing attribute duration")
             
     # Validate id
     if event['id']:
-        if event['id'].startswith("https://"):
+        if event['id'].startswith("http"):
             if not validators.url(event['id']):
-                return "Invalid URL format."
+                raise ValueError("Invalid URL format.")
+            
+            # resolve to effective URL address
+            command = ["curl", "-Ls", "-w", "%{url_effective}", "-o", "/dev/null", event['id']]
+            result = subprocess.run(command, capture_output=True, text=True)
+            event['id'] = result.stdout.strip()
+            
         else:    
             if not re.search( r'\d{9,}', event['id']):
-                return "Invalid id. If id starts with 'https://' then it must be a URL, otherwise it must be a number with minimum 9 digits (no blanks)"
-                
+                raise ValueError("Invalid id. If id starts with 'https://' then it must be a URL, otherwise it must be a number with minimum 9 digits (no blanks)")                
             if not event['password']:
-                return "Password cannot be empty."
+                raise ValueError("Password cannot be empty.")
     else:
-        return "Missing attribute id."
+        raise ValueError("Missing attribute id.")
 
     # Validate record
     if event['record']:
         if event['record'].lower() not in ["true", "false"]:
-            return f"Invalid record '{event['record']}'. Record must be either 'true' or 'false'"
+            raise ValueError(f"Invalid record '{event['record']}'. Record must be either 'true' or 'false'")
     else:
-        return "Missing attribute record."
+        raise ValueError("Missing attribute record.")
+    
+    return event
+
+def find_event( search_argument, events):
+    try:
+        # Try to interpret the argument as an index
+        target_index = int(search_argument) - 1
+        return target_index
+    except ValueError:
+        # If it's not an index, search for an event whose description contains the argument
+        hits = 0
+        for i, event in enumerate(events):
+            if search_argument in event['description'].lower():
+                target_index = i
+                hits += 1
+
+        if hits > 1:
+            raise ValueError(f"{hits} event found with description '{search_argument}'. Please make it unique such that only 1 event matches.")
+        elif hits == 0:
+            raise ValueError(f"No event found with description or index '{search_argument}'")
+        elif hits == 1:
+            return target_index
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Sends explanation on how to use the bot."""
@@ -107,13 +134,26 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global CSV_PATH
     args = context.args
-    if len(args) != 0:
+    if len(args) > 1:
         await update.message.reply_text("Usage: " + USAGE_LIST)
         return
     events = read_events_from_csv( CSV_PATH)
+
+    target_index = ''
+    if len(args) == 1:
+        try:
+            target_index = find_event(context.args[0], events)
+        except ValueError as error:
+            await update.message.reply_text( error.args[0])
+            return
+
     output = "List of events:\n"
     for i, event in enumerate(events):
         i += 1
+        if target_index:
+            if i != target_index+1:
+                continue
+            
         output += f"Event {i}\n"
         output += f"  description : {event['description']}\n"
         for attribute_name, attribute_value in event.items():
@@ -126,29 +166,30 @@ async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global CSV_PATH
     """Add a new event to the meeting.csv file."""
     args = context.args
-    if len(args) < 6:
+    if len(args) < 5:
         await update.message.reply_text("Usage: " + USAGE_ADD)
         return
 
     recordArgNo = 6 # last arg is record (unless URL is provided - see following)
     # Validate id
-    if args[4].startswith("https://"):
+    if args[4].startswith("http"):
         password = ""
         recordArgNo = 5 # password was skipped
     else:    
         password = args[5]
 
-    if (len(args)-1) != recordArgNo: # not enough args
-        await update.message.reply_text("Record missing. Record must be either 'true' or 'false'")
-        return
-    record = args[recordArgNo]
+    if (len(args)-1) == recordArgNo: 
+        record = args[recordArgNo]
+    else: # omitted as its optional
+        record = 'true' # default
 
     events = read_events_from_csv(CSV_PATH)
     event = {'description': args[0], 'weekday': args[1].lower(), 'time': args[2], 'duration': args[3], 'id': args[4], 'password': password, 'record': record}
 
-    validation_error = validate_event( event)
-    if validation_error:
-        await update.message.reply_text(validation_error)
+    try:
+        event = validate_event( event)
+    except ValueError as error:
+        await update.message.reply_text( error.args[0])
         return
 
     events.append(event)
@@ -164,30 +205,14 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             return
 
         events = read_events_from_csv(CSV_PATH)
-        target_event = None
+
+        # find target event to process
         try:
-            # Try to interpret the argument as an index (index starts with 1)
-            target_index = int(context.args[0]) - 1
+            target_index = find_event(context.args[0], events)
             target_event = events[target_index]
-        except ValueError:
-            # If it's not an index, search for an event whose description contains the argument
-            target_desc = context.args[0].lower()
-            hits = 0
-            for i, event in enumerate(events):
-                if target_desc in event['description'].lower():
-                    target_event = event
-                    target_index = i
-                    hits += 1
-
-            if hits > 1 :
-                await update.message.reply_text(f"{hits} event found with description '{context.args[0]}'. Please make it unique such that only 1 event matches.")
-                return
-
-        if target_event is None:
-            await update.message.reply_text(f"No event found with description or index '{context.args[0]}'")
+        except ValueError as error:
+            await update.message.reply_text( error.args[0])
             return
-        
-       
 
         if len(context.args) < 3 or len(context.args) % 2 != 1:
             await update.message.reply_text("Usage: " + USAGE_MODIFY)
@@ -205,9 +230,10 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             else:
                 target_event[attribute_name] = new_attribute_value
 
-        validation_error = validate_event( target_event)
-        if validation_error:
-            await update.message.reply_text(validation_error)
+        try:
+            event = validate_event( event)
+        except ValueError as error:
+            await update.message.reply_text( error.args[0])
             return
 
         events[target_index] = target_event
@@ -225,27 +251,13 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await update.message.reply_text("Usage: " + USAGE_DELETE)
             return
         events = read_events_from_csv(CSV_PATH)
-        target_event = None
+       
+        # find target event to process
         try:
-            # Try to interpret the argument as an index
-            target_index = int(context.args[0]) -1 
+            target_index = find_event(context.args[0], events)
             target_event = events[target_index]
-        except ValueError:
-            # If it's not an index, search for an event whose description contains the argument
-            target_desc = context.args[0].lower()
-            hits = 0
-            for i, event in enumerate(events):
-                if target_desc in event['description'].lower():
-                    target_event = event
-                    target_index = i
-                    hits += 1
-
-            if hits > 1 :
-                await update.message.reply_text(f"{hits} event found with description '{context.args[0]}'. Please make it unique such that only 1 event matches.")
-                return
-
-        if target_event is None:
-            await update.message.reply_text(f"No event found with description or index '{context.args[0]}'")
+        except ValueError as error:
+            await update.message.reply_text( error.args[0])
             return
 
         del events[target_index]
