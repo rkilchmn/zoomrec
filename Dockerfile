@@ -102,6 +102,9 @@ RUN apt-get update && \
 # Install support for NVIDIA GPU hardware accelerators NVENC for ffmpeg encoding
     apt-get install --no-install-recommends -y \
         nvidia-driver-525 && \
+# resolve redirected meeting URLs
+    apt-get install --no-install-recommends -y \
+        curl && \
 # debugging tools ( to be removed)
     apt-get install --no-install-recommends -y \
         less && \
