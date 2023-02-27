@@ -4,8 +4,12 @@ import re
 import time
 import sys
 from datetime import datetime
-from zoneinfo import ZoneInfo
+
 from events import read_events_from_csv, write_events_to_csv, validate_event, find_event
+try:
+    from zoneinfo import ZoneInfo # >= 3.9
+except ImportError:
+    from backports import zoneinfo # < 3.9
 
 DURATION = 75
 RECORD = 'true'
@@ -29,7 +33,7 @@ def parse_time(time_str, pattern, day, timezone):
      # Convert the input time to the system timezone
     return time_local.astimezone(datetime.now().astimezone().tzinfo)
 
-def start_bot(IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD, CSV_PATH):   
+def start_bot(CSV_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD):   
     # Loop and evaluate every new message based on the subject keyword
     while True:
 

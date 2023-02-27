@@ -18,7 +18,7 @@ from telegram_bot import start_bot
 
 global ONGOING_MEETING
 global VIDEO_PANEL_HIDED
-global TELEGRAM_TOKEN
+global TELEGRAM_BOT_TOKEN
 global TELEGRAM_RETRIES
 global TELEGRAM_CHAT_ID
 
@@ -42,9 +42,14 @@ DEBUG_PATH = os.path.join(REC_PATH, "screenshots")
 FFMPEG_INPUT_PARAMS = os.getenv('FFMPEG_INPUT_PARAMS')
 FFMPEG_OUTPUT_PARAMS = os.getenv('FFMPEG_OUTPUT_PARAMS')
 
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 TELEGRAM_RETRIES = 5
+
+IMAP_SERVER = os.getenv('IMAP_SERVER')
+IMAP_PORT = os.getenv('IMAP_PORT')
+EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS')
+EMAIL_PASSWORD  = os.getenv('EMAIL_PASSWORD')
 
 DISPLAY_NAME = os.getenv('DISPLAY_NAME')
 if DISPLAY_NAME is None or  len(DISPLAY_NAME) < 3:
@@ -195,11 +200,11 @@ class HideViewOptionsThread:
             time.sleep(self.interval)
 
 def send_telegram_message(text):
-    global TELEGRAM_TOKEN
+    global TELEGRAM_BOT_TOKEN
     global TELEGRAM_CHAT_ID
     global TELEGRAM_RETRIES
 	
-    if TELEGRAM_TOKEN is None:
+    if TELEGRAM_BOT_TOKEN is None:
         logging.error("Telegram token is missing. No Telegram messages will be send!")
         return
     
@@ -207,11 +212,11 @@ def send_telegram_message(text):
         logging.error("Telegram chat_id is missing. No Telegram messages will be send!")
         return
         
-    if len(TELEGRAM_TOKEN) < 3 or len(TELEGRAM_CHAT_ID) < 3:
+    if len(TELEGRAM_BOT_TOKEN) < 3 or len(TELEGRAM_CHAT_ID) < 3:
         logging.error("Telegram token or chat_id missing. No Telegram messages will be send!")
         return
 
-    url_req = "https://api.telegram.org/bot" + TELEGRAM_TOKEN + "/sendMessage" + "?chat_id=" + TELEGRAM_CHAT_ID + "&text=" + text 
+    url_req = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage" + "?chat_id=" + TELEGRAM_CHAT_ID + "&text=" + text 
     tries = 0
     done = False
     while not done:
@@ -925,8 +930,13 @@ def setup_schedule():
                 if weekday not in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
                     # try if weekday is a date
                     try:
-                        date_obj = datetime.strptime(weekday, "%Y-%m-%d")
-                        weekday = date_obj.strftime("%A").lower()  # Monday, Tuesday, ...
+                        event_date = datetime.strptime(weekday, "%Y-%m-%d")
+                        if (datetime.now() - event_date).days >= 1:
+                            # date has already passed
+                            logging.info("Ignoring as date %s in meeting %s is in past." % weekday % row["description"])
+                            weekday = ''
+                        else:
+                            weekday = event_date.strftime("%A").lower()  # Monday, Tuesday, ...
                     except ValueError:
                         logging.error("Invalid date %s in meeting %s." % weekday % row["description"])
                         weekday = ''
@@ -948,7 +958,11 @@ def setup_schedule():
         logging.info("Added %s meetings to schedule." % line_count)
 
 def start_telegram_bot():
-    command = f"python3 telegram_bot.py {CSV_PATH} {TELEGRAM_TOKEN}"
+    if not TELEGRAM_BOT_TOKEN:
+        logging.info("Telegram token is missing. No Telegram bot will be started!")
+        return
+    
+    command = f"python3 telegram_bot.py {CSV_PATH} {TELEGRAM_BOT_TOKEN}"
     telegram_bot = subprocess.Popen(
         command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
 
@@ -956,6 +970,20 @@ def start_telegram_bot():
 
     atexit.register(os.killpg, os.getpgid(
         telegram_bot.pid), signal.SIGQUIT)
+    
+def start_imap_bot():
+    if not (EMAIL_PASSWORD and IMAP_SERVER and IMAP_PORT and EMAIL_ADDRESS):
+        logging.info("IMAP details missing. No IMAP email bot will be started!")
+        return
+    
+    command = f"python3 imap_bot.py {CSV_PATH} {IMAP_SERVER} {IMAP_PORT} {EMAIL_ADDRESS} {EMAIL_PASSWORD}"
+    imap_bot = subprocess.Popen(
+        command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+
+    logging.info("IMAP emai bot started!")
+
+    atexit.register(os.killpg, os.getpgid(
+        imap_bot.pid), signal.SIGQUIT)
 
 def main():
     try:
@@ -965,10 +993,9 @@ def main():
         logging.error("Failed to create screenshot folder!")
         raise
 
-    if TELEGRAM_TOKEN is None:
-        logging.info("Telegram token is missing. No Telegram bot will be started!")
-    else:
-        start_telegram_bot()
+    # start bots
+    start_telegram_bot()
+    start_imap_bot()
         
     last_timestamp = ''
     while True:

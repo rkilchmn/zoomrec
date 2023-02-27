@@ -7,3 +7,4 @@ pillow>=8.1.0
 requests
 validators
 python-telegram-bot >= 20.0.0
+backports.zoneinfo;python_version<"3.9"

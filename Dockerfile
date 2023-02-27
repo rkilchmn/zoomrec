@@ -14,7 +14,11 @@ ENV HOME=/home/zoomrec \
     FFMPEG_OUTPUT_PARAMS="-acodec pcm_s16le -vcodec libx264rgb -preset ultrafast -crf 0" \
     LIBVA_DRIVER_NAME=iHD \
     SAMBA_USER=testuser \
-    SAMBA_PASS=test123 
+    SAMBA_PASS=test123 \
+    IMAP_SERVER="" \
+    IMAP_PORT="" \
+    EMAIL_ADDRESS="" \
+    EMAIL_PASSWORD="" 
 
 # Add user
 RUN useradd -ms /bin/bash zoomrec -d ${HOME}
