@@ -914,7 +914,6 @@ def join_ongoing_meeting():
                             join(meet_id=row["id"], meet_pw=row["password"],
                                  duration=recent_duration, description=row["description"])
 
-
 def setup_schedule():
     schedule.clear()
     with open(CSV_PATH, mode='r') as csv_file:
@@ -922,17 +921,30 @@ def setup_schedule():
         line_count = 0
         for row in csv_reader:
             if str(row["record"]) == 'true':
-                cmd_string = "schedule.every()." + row["weekday"] \
-                             + ".at(\"" \
-                             + (datetime.strptime(row["time"], '%H:%M') - timedelta(minutes=1)).strftime('%H:%M') \
-                             + "\").do(join, meet_id=\"" + row["id"] \
-                             + "\", meet_pw=\"" + row["password"] \
-                             + "\", duration=" + str(int(row["duration"]) * 60) \
-                             + ", description=\"" + row["description"] + "\")"
+                weekday = row["weekday"]
+                if weekday not in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+                    # try if weekday is a date
+                    try:
+                        date_obj = datetime.strptime(weekday, "%Y-%m-%d")
+                        weekday = date_obj.strftime("%A").lower()  # Monday, Tuesday, ...
+                    except ValueError:
+                        logging.error("Invalid date %s in meeting %s." % weekday % row["description"])
+                        weekday = ''
 
-                cmd = compile(cmd_string, "<string>", "eval")
-                eval(cmd)
-                line_count += 1
+                if weekday:
+                    cmd_string = "schedule.every()." + weekday \
+                                + ".at(\"" \
+                                + (datetime.strptime(row["time"], '%H:%M') - timedelta(minutes=1)).strftime('%H:%M') \
+                                + "\").do(join, meet_id=\"" + row["id"] \
+                                + "\", meet_pw=\"" + row["password"] \
+                                + "\", duration=" + str(int(row["duration"]) * 60) \
+                                + ", description=\"" + row["description"] + "\")"
+
+                    cmd = compile(cmd_string, "<string>", "eval")
+                    eval(cmd)
+                    line_count += 1
+            
+
         logging.info("Added %s meetings to schedule." % line_count)
 
 def start_telegram_bot():
