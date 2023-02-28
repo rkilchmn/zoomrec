@@ -7,9 +7,9 @@ from datetime import datetime
 
 from events import read_events_from_csv, write_events_to_csv, validate_event, find_event
 try:
-    import zoneinfo # >= 3.9
+    from zoneinfo import ZoneInfo # >= 3.9
 except ImportError:
-    from backports import zoneInfo # < 3.9
+    from backports.zoneinfo import ZoneInfo # < 3.9
 
 DURATION = 75
 RECORD = 'true'
@@ -28,7 +28,7 @@ def convert_short_tz( short_tz):
     return au_tz_map[short_tz]
 
 def parse_time(time_str, pattern, day, timezone):
-    time_local = datetime.strptime(time_str, pattern).replace(tzinfo=zoneinfo.ZoneInfo(timezone))
+    time_local = datetime.strptime(time_str, pattern).replace(tzinfo=ZoneInfo(timezone))
     time_local = time_local.replace(year=day.year, month=day.month, day=day.day)
      # Convert the input time to the system timezone
     return time_local.astimezone(datetime.now().astimezone().tzinfo)
