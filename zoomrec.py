@@ -933,7 +933,7 @@ def setup_schedule():
                         event_date = datetime.strptime(weekday, "%Y-%m-%d")
                         if (datetime.now() - event_date).days >= 1:
                             # date has already passed
-                            logging.info("Ignoring as date %s in meeting %s is in past." % weekday % row["description"])
+                            logging.info("Ignoring as date %s in meeting %s is in past.", weekday, row["description"])
                             weekday = ''
                         else:
                             weekday = event_date.strftime("%A").lower()  # Monday, Tuesday, ...

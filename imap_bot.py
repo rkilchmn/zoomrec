@@ -59,7 +59,7 @@ def start_bot(CSV_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD):
 
             # Process all unread messages
             for i in range(unread_count, 0, -1):
-                _, msg_data = imap.fetch(str(i), '(RFC822)')
+                status, msg_data = imap.fetch(str(i), '(RFC822)')
                 msg = email.message_from_bytes(msg_data[0][1])
 
                 # Check the subject line for the keyword
