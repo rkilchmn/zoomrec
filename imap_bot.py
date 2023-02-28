@@ -9,7 +9,7 @@ from events import read_events_from_csv, write_events_to_csv, validate_event, fi
 try:
     from zoneinfo import ZoneInfo # >= 3.9
 except ImportError:
-    from backports import zoneinfo # < 3.9
+    from backports import ZoneInfo # < 3.9
 
 DURATION = 75
 RECORD = 'true'
