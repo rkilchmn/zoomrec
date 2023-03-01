@@ -891,21 +891,7 @@ def join_ongoing_meeting():
             # Check and join ongoing meeting
             curr_date = datetime.now()
 
-            weekday = row["weekday"]
-            if weekday not in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
-                # try if weekday is a date
-                try:
-                    event_date = datetime.strptime(weekday, "%Y-%m-%d")
-                    if (datetime.now() - event_date).days >= 1:
-                        # date has already passed
-                        logging.info("Ignoring as date %s in meeting %s is in past.", weekday, row["description"])
-                        weekday = ''
-                    else:
-                        weekday = event_date.strftime("%A").lower()  # Monday, Tuesday, ...
-                except ValueError:
-                    logging.error("Invalid date %s in meeting %s." % weekday % row["description"])
-                    weekday = ''
-
+            weekday = check_weekday( row["weekday"], row["description"])
             if not weekday:
                 return
 
@@ -936,6 +922,21 @@ def join_ongoing_meeting():
                                 "Join meeting that is currently running..")
                             join(meet_id=row["id"], meet_pw=row["password"],
                                  duration=recent_duration, description=row["description"])
+                            
+def check_weekday( weekday, description):
+    if weekday not in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+        # try if weekday is a date
+        try:
+            event_date = datetime.strptime(weekday, "%Y-%m-%d")
+            if (datetime.now() - event_date).days >= 1:
+                # date has already passed
+                logging.info("Ignoring as date %s in meeting %s is in past.", weekday, description)
+                return ''
+            else:
+                return event_date.strftime("%A").lower()  # Monday, Tuesday, ...
+        except ValueError:
+            logging.error("Invalid date %s in meeting %s.", weekday, description)
+            return ''
 
 def setup_schedule():
     schedule.clear()
@@ -944,21 +945,7 @@ def setup_schedule():
         line_count = 0
         for row in csv_reader:
             if str(row["record"]) == 'true':
-                weekday = row["weekday"]
-                if weekday not in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
-                    # try if weekday is a date
-                    try:
-                        event_date = datetime.strptime(weekday, "%Y-%m-%d")
-                        if (datetime.now() - event_date).days >= 1:
-                            # date has already passed
-                            logging.info("Ignoring as date %s in meeting %s is in past.", weekday, row["description"])
-                            weekday = ''
-                        else:
-                            weekday = event_date.strftime("%A").lower()  # Monday, Tuesday, ...
-                    except ValueError:
-                        logging.error("Invalid date %s in meeting %s." % weekday % row["description"])
-                        weekday = ''
-
+                weekday = check_weekday( row["weekday"], row["description"])
                 if weekday:
                     cmd_string = "schedule.every()." + weekday \
                                 + ".at(\"" \
@@ -967,12 +954,9 @@ def setup_schedule():
                                 + "\", meet_pw=\"" + row["password"] \
                                 + "\", duration=" + str(int(row["duration"]) * 60) \
                                 + ", description=\"" + row["description"] + "\")"
-
                     cmd = compile(cmd_string, "<string>", "eval")
                     eval(cmd)
                     line_count += 1
-            
-
         logging.info("Added %s meetings to schedule." % line_count)
 
 def start_telegram_bot():
