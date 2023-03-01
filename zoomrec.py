@@ -129,8 +129,9 @@ class BackgroundThread:
 
 class HideViewOptionsThread:
 
-    def __init__(self, interval=10):
+    def __init__(self, description, interval=10):
         # Sleep interval between
+        self.description = description
         self.interval = interval
 
         thread = threading.Thread(target=self.run, args=())
@@ -159,12 +160,12 @@ class HideViewOptionsThread:
                         logging.error("Could not exit poll results window!")
                         if DEBUG:
                             pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                                TIME_FORMAT) + "-" + description) + "_close_poll_results_error.png")
+                                TIME_FORMAT) + "-" + self.description) + "_close_poll_results_error.png")
                 except TypeError:
                     logging.error("Could not find poll results window anymore!")
                     if DEBUG:
                         pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                            TIME_FORMAT) + "-" + description) + "_find_poll_results_error.png")
+                            TIME_FORMAT) + "-" + self.description) + "_find_poll_results_error.png")
 
             # Check if view options available
             if pyautogui.locateOnScreen(os.path.join(IMG_PATH, 'view_options.png'), confidence=0.9) is not None:
