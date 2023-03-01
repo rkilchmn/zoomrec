@@ -891,8 +891,26 @@ def join_ongoing_meeting():
             # Check and join ongoing meeting
             curr_date = datetime.now()
 
+            weekday = row["weekday"]
+            if weekday not in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+                # try if weekday is a date
+                try:
+                    event_date = datetime.strptime(weekday, "%Y-%m-%d")
+                    if (datetime.now() - event_date).days >= 1:
+                        # date has already passed
+                        logging.info("Ignoring as date %s in meeting %s is in past.", weekday, row["description"])
+                        weekday = ''
+                    else:
+                        weekday = event_date.strftime("%A").lower()  # Monday, Tuesday, ...
+                except ValueError:
+                    logging.error("Invalid date %s in meeting %s." % weekday % row["description"])
+                    weekday = ''
+
+            if not weekday:
+                return
+
             # Monday, tuesday, ..
-            if row["weekday"].lower() == curr_date.strftime('%A').lower():
+            if weekday.lower() == curr_date.strftime('%A').lower():
                 curr_time = curr_date.time()
 
                 start_time_csv = datetime.strptime(row["time"], '%H:%M')
