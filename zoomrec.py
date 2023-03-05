@@ -810,7 +810,7 @@ def join(meet_id, meet_pw, duration, description):
     end_date = start_date + timedelta(seconds=duration + 300)  # Add 5 minutes
 
     # Start thread to check active screensharing
-    HideViewOptionsThread()
+    HideViewOptionsThread(description)
     
     # Send Telegram Notification
     send_telegram_message("Joined Meeting '{}' and started recording.".format(description))
