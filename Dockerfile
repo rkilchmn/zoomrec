@@ -93,8 +93,8 @@ RUN apt-get update && \
         libxcb-xtest0 && \
 # Install Zoom (original uses Version 5.13.0 (599)
     #wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
-    #wget -q -O zoom_amd64.deb https://zoom.us/client/5.13.0.599/zoom_amd64.deb && \
-    wget -q -O zoom_amd64.deb hhttps://cdn.zoom.us/prod/5.13.4.711/zoom_amd64.deb && \
+    wget -q -O zoom_amd64.deb https://zoom.us/client/5.13.0.599/zoom_amd64.deb && \
+    #wget -q -O zoom_amd64.deb hhttps://cdn.zoom.us/prod/5.13.4.711/zoom_amd64.deb && \
     dpkg -i zoom_amd64.deb && \
     apt-get -f install -y && \
     rm -rf zoom_amd64.deb && \
