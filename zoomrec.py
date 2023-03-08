@@ -1009,11 +1009,14 @@ def main():
             join_ongoing_meeting()
     
         schedule.run_pending()
-        time.sleep(1)
+        time.sleep(10)
         time_of_next_run = schedule.next_run()
         time_now = datetime.now()
-        remaining = time_of_next_run - time_now
-        print(f"Next meeting in {remaining}", end="\r", flush=True)
+        if (time_of_next_run):
+            remaining = time_of_next_run - time_now
+            print(f"Next meeting in {remaining}", end="\r", flush=True)
+        else:
+            print(f"No meeting scheduled.", end="\r", flush=True)
 
 if __name__ == '__main__':
     main()
