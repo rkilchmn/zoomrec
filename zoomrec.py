@@ -487,8 +487,7 @@ def join(meet_id, meet_pw, duration, description):
         time.sleep(1)
 
     # Wait for zoom is started
-    while (pyautogui.locateCenterOnScreen(os.path.join(IMG_PATH, img_name), confidence=0.9) or \
-           pyautogui.locateCenterOnScreen(os.path.join(IMG_PATH, 'leave_red.png'), confidence=0.9)) is None:
+    while pyautogui.locateCenterOnScreen(os.path.join(IMG_PATH, img_name), confidence=0.9) is None:
         logging.info("Zoom not ready yet!")
         time.sleep(1)
 
