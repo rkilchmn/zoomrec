@@ -926,7 +926,9 @@ def join_ongoing_meeting():
                                  duration=recent_duration, description=row["description"])
                             
 def check_weekday( weekday, description):
-    if weekday not in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+    if weekday in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+        return weekday
+    else:
         # try if weekday is a date
         try:
             event_date = datetime.strptime(weekday, "%Y-%m-%d")
@@ -1010,7 +1012,6 @@ def main():
             join_ongoing_meeting()
     
         schedule.run_pending()
-        time.sleep(10)
         time_of_next_run = schedule.next_run()
         time_now = datetime.now()
         if (time_of_next_run):
@@ -1018,6 +1019,7 @@ def main():
             print(f"Next meeting in {remaining}", end="\r", flush=True)
         else:
             print(f"No meeting scheduled.", end="\r", flush=True)
+        time.sleep(10)
 
 if __name__ == '__main__':
     main()
