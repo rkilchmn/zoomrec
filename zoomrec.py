@@ -927,7 +927,7 @@ def join_ongoing_meeting():
                             
 def check_weekday( weekday, description):
     if weekday in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
-        return weekday
+        return weekday  
     else:
         # try if weekday is a date
         try:
