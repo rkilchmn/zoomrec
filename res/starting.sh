@@ -28,10 +28,12 @@ vncserver "$DISPLAY" -depth "$VNC_COL_DEPTH" -geometry "$VNC_RESOLUTION" &> "$ST
 
 echo -e "\nConnect to $VNC_IP:$VNC_PORT"
 
+sleep 1000000
+
 # Start xfce4
 "$START_DIR"/xfce.sh &> "$START_DIR"/xfce.log
 
-sleep 1000000
+
 
 # Cleanup to ensure pulseaudio is stateless
 rm -rf /var/run/pulse /var/lib/pulse /home/zoomrec/.config/pulse
