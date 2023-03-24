@@ -1,5 +1,5 @@
 #!/bin/bash
-docker run -d --restart unless-stopped \
+docker run -d --restart unless-stopped --name zoomrec \
   -e TELEGRAM_BOT_TOKEN="mytoken" \
   -e TELEGRAM_CHAT_ID="mychatid" \
   -e TZ=Australia/Sydney \

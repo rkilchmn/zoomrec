@@ -1,5 +1,5 @@
 #!/bin/bash
-docker run -d --restart unless-stopped \
+docker run -d --restart unless-stopped --name zoomrec \
   -e TELEGRAM_BOT_TOKEN="mytoken" \
   -e TELEGRAM_CHAT_ID="mychatid" \
   -e TZ=Australia/Sydney \
@@ -8,6 +8,10 @@ docker run -d --restart unless-stopped \
   -e LIBVA_DRIVER_NAME=radeonsi \
   -e SAMBA_USER=testuser \
   -e SAMBA_PASS=test123 \
+  -e IMAP_SERVER="imap.myemailprovider.com" \
+	-e IMAP_PORT="143"\
+	-e EMAIL_ADDRESS="zoomrec@myemailprovider.com" \
+	-e EMAIL_PASSWORD="mypassword" \
   -v /home/roger/zoomrec/recordings:/home/zoomrec/recordings \
   -v /home/roger/zoomrec/audio:/home/zoomrec/audio \
   -v /home/roger/zoomrec/meetings.csv:/home/zoomrec/meetings.csv \
