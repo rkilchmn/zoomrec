@@ -27,7 +27,7 @@ docker run -d --restart unless-stopped \
   -e LIBVA_DRIVER_NAME=i965 \
   -v /home/roger/zoomrec/recordings:/home/zoomrec/recordings \
   -v /home/roger/zoomrec/audio:/home/zoomrec/audio \
-  -v /home/roger/zoomrec/meetings.csv:/home/zoomrec/meetings.csv:ro \
+  -v /home/roger/zoomrec/meetings.csv:/home/zoomrec/meetings.csv \
   -p 5901:5901 \
   --security-opt seccomp:unconfined \
   --group-add="44" \
