@@ -22,6 +22,8 @@ global TELEGRAM_BOT_TOKEN
 global TELEGRAM_RETRIES
 global TELEGRAM_CHAT_ID
 
+UC_CONNECTED_NOPOPUPS = 1
+
 # Turn DEBUG on:
 #   - screenshot on error
 #   - record joining
@@ -487,8 +489,16 @@ def join(meet_id, meet_pw, duration, description):
         time.sleep(1)
 
     # Wait for zoom is started
-    while (pyautogui.locateCenterOnScreen(os.path.join(IMG_PATH, img_name), confidence=0.9) or \
-           pyautogui.locateCenterOnScreen(os.path.join(IMG_PATH, 'leave_red.png'), confidence=0.9)) is None:
+    loop = True
+    useCase = 0 # standard use case
+    while (loop):
+        if pyautogui.locateCenterOnScreen(os.path.join(IMG_PATH, img_name), confidence=0.9):
+            loop = False
+        else:
+           if pyautogui.locateCenterOnScreen(os.path.join(IMG_PATH, 'leave_red.png'), confidence=0.9):
+               loop = False
+               useCase = UC_CONNECTED_NOPOPUPS
+
         logging.info("Zoom not ready yet!")
         time.sleep(1)
 
@@ -499,7 +509,10 @@ def join(meet_id, meet_pw, duration, description):
         joined = join_meeting_id(meet_id)
     else:
         time.sleep(2)
-        joined = join_meeting_url()
+        if useCase == UC_CONNECTED_NOPOPUPS:
+            joined = True # there is popup to input display name or anything
+        else:
+            joined = join_meeting_url()
 
     if not joined:
         send_telegram_message("Failed to join meeting {}!".format(description))
@@ -641,13 +654,14 @@ def join(meet_id, meet_pw, duration, description):
     # Set computer audio
     time.sleep(2)
     if not join_audio(description):
-        logging.info("Exit!")
-        os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
-        if DEBUG:
-            os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
-            atexit.unregister(os.killpg)
-        time.sleep(2)
-        join(meet_id, meet_pw, duration, description)
+        if not useCase == UC_CONNECTED_NOPOPUPS: 
+            logging.info("Exit!")
+            os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
+            if DEBUG:
+                os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
+                atexit.unregister(os.killpg)
+            time.sleep(2)
+            join(meet_id, meet_pw, duration, description)
 
     # 'Say' something if path available (mounted)
     if os.path.exists(AUDIO_PATH):
