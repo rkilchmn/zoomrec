@@ -11,8 +11,10 @@
 <h4 align="center">
    Usefull commands
 </h4>
-
-<li>build container: docker build -t rkilchmn/zoomrec zoomrec/</li>
+<li>build container for CPU A/V encoding: docker build -t rkilchmn/zoomrec zoomrec/</li>
+<li>build container for AMD GPU accelerated A/V encoding: docker build --build-arg GPU_BUILD=AMD -t rkilchmn/zoomrec zoomrec/</li>
+<li>build container for INTEL GPU accelerated A/V encoding: docker build --build-arg GPU_BUILD=INTEL -t rkilchmn/zoomrec zoomrec/</li>
+<li>build container for NVIDIA GPU accelerated A/V encoding: docker build --build-arg GPU_BUILD=NVIDIA -t rkilchmn/zoomrec zoomrec/</li>
 
 <li>stop container: docker stop $(sudo docker ps | grep rkilchmn/zoomrec:latest | awk '{print $1}')</li>
 <li>start root shell: docker container exec -u 0 -it $(sudo docker ps | grep rkilchmn/zoomrec:latest | awk '{print $1}') /bin/bash  </li>
