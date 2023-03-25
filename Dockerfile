@@ -142,6 +142,7 @@ RUN if [ "$GPU_BUILD" = "NVIDIA" ] ; then \
         apt-get install --no-install-recommends -y \
             nvidia-driver-525
     fi
+    
 
 # Clean up
 RUN apt-get autoremove --purge -y && \
