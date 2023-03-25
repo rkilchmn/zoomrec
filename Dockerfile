@@ -134,13 +134,13 @@ RUN if [ "$GPU_BUILD" = "INTEL" ] || [ "$GPU_BUILD" = "AMD" ]; then \
         apt-get install --no-install-recommends -y \
             intel-media-va-driver \
             i965-va-driver \
-            mesa-va-drivers
+            mesa-va-drivers \
     fi
 
 # Install support for NVIDIA GPU hardware accelerators NVENC for ffmpeg encoding
 RUN if [ "$GPU_BUILD" = "NVIDIA" ] ; then \
         apt-get install --no-install-recommends -y \
-            nvidia-driver-525
+            nvidia-driver-525 \
     fi
 
 
