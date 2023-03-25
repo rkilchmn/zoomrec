@@ -20,6 +20,9 @@ ENV HOME=/home/zoomrec \
     EMAIL_ADDRESS="" \
     EMAIL_PASSWORD="" 
 
+# build container for specific GPU 
+ARG GPU_BUILD=""
+
 # Add user
 RUN useradd -ms /bin/bash zoomrec -d ${HOME}
 WORKDIR ${HOME}
@@ -99,15 +102,6 @@ RUN apt-get update && \
     dpkg -i zoom_amd64.deb && \
     apt-get -f install -y && \
     rm -rf zoom_amd64.deb && \
-# Install support for Intel GPU hardware accelerators VA-API for ffmpeg encoding
-    apt-get install --no-install-recommends -y \
-        intel-media-va-driver \
-        i965-va-driver \
-        mesa-va-drivers \
-        vainfo && \
-# Install support for NVIDIA GPU hardware accelerators NVENC for ffmpeg encoding
-    apt-get install --no-install-recommends -y \
-        nvidia-driver-525 && \
 # resolve redirected meeting URLs
     apt-get install --no-install-recommends -y \
         curl && \
@@ -133,9 +127,24 @@ RUN apt-get update && \
     apt-get install --no-install-recommends -y \
     samba \
     samba-common-bin \
-    acl && \
+    acl
+
+# Install support for VA-API GPU hardware accelerators used by ffmpeg encoders
+RUN if [ "$GPU_BUILD" = "INTEL" ] || [ "$GPU_BUILD" = "AMD" ]; then \
+        apt-get install --no-install-recommends -y \
+            intel-media-va-driver \
+            i965-va-driver \
+            mesa-va-drivers
+    fi
+
+# Install support for NVIDIA GPU hardware accelerators NVENC for ffmpeg encoding
+RUN if [ "$GPU_BUILD" = "NVIDIA" ] ; then \
+        apt-get install --no-install-recommends -y \
+            nvidia-driver-525
+    fi
+
 # Clean up
-    apt-get autoremove --purge -y && \
+RUN apt-get autoremove --purge -y && \
     apt-get autoclean -y && \
     apt-get clean -y && \
     rm -rf /var/lib/apt/lists/*
