@@ -89,7 +89,7 @@ RUN apt-get update && \
         libsm6 \
         libxrender1 \
         libpulse0 \
-        libxcomposite1 \
+        libxcomposite1 \ 
         libxslt1.1 \
         libsqlite3-0 \
         libxcb-keysyms1 \
@@ -142,7 +142,7 @@ RUN if [ "$GPU_BUILD" = "NVIDIA" ] ; then \
         apt-get install --no-install-recommends -y \
             nvidia-driver-525
     fi
-    
+
 
 # Clean up
 RUN apt-get autoremove --purge -y && \
