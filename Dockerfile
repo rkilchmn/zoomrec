@@ -155,7 +155,7 @@ RUN adduser zoomrec pulse-access
 
 # Allow access to intel VAAPI hardware acceleration
 # RUN groupadd -g 110 render # for intel
-RUN adduser zoomrec render
+# RUN adduser zoomrec render
 RUN adduser zoomrec video
 
 USER zoomrec
