@@ -130,11 +130,15 @@ RUN apt-get update && \
     acl
 
 # Install support for VA-API GPU hardware accelerators used by ffmpeg encoders
-RUN if [ "$GPU_BUILD" = "INTEL" ] || [ "$GPU_BUILD" = "AMD" ]; then \
+RUN if [ "$GPU_BUILD" = "AMD" ]; then \
+        apt-get install --no-install-recommends -y \
+            mesa-va-drivers ; \
+    fi
+
+RUN if [ "$GPU_BUILD" = "INTEL" ]; then \
         apt-get install --no-install-recommends -y \
             intel-media-va-driver \
-            i965-va-driver \
-            mesa-va-drivers ; \
+            i965-va-driver ; \
     fi
 
 # Install support for NVIDIA GPU hardware accelerators NVENC for ffmpeg encoding
