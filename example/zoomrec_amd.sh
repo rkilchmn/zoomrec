@@ -21,6 +21,5 @@ docker run -d --restart unless-stopped --name zoomrec \
   --security-opt seccomp:unconfined \
   --group-add="44" \
   --group-add="110" \
-  --device /dev/dri/renderD128:/dev/dri/renderD128 \
-  --device /dev/dri/card0:/dev/dri/card0 \
+  --device /dev/dri:/dev/dri \
   rkilchmn/zoomrec:latest
