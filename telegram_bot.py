@@ -203,7 +203,13 @@ def start_bot( csv_path, telegram_token) -> None:
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unknown))
 
     # Run the bot until the user presses Ctrl-C
-    application.run_polling()
+    while True:
+        try:
+            application.run_polling()
+        except Exception as e:
+            if isinstance(e, KeyboardInterrupt):
+                # Exit the program if the exception is a KeyboardInterrupt
+                raise e
 
 if __name__ == "__main__":
     start_bot( csv_path = sys.argv[1], telegram_token = sys.argv[2])
