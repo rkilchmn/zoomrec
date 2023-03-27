@@ -132,20 +132,18 @@ RUN apt-get update && \
 # Install support for VA-API GPU hardware accelerators used by ffmpeg encoders
 RUN if [ "$GPU_BUILD" = "AMD" ]; then \
         apt-get install --no-install-recommends -y \
-            mesa-va-drivers
-
-        groupadd -g 110 render 
-        adduser zoomrec render
-        adduser zoomrec video ;
+            mesa-va-drivers && \
+        groupadd -g 110 render && \
+        adduser zoomrec render && \
+        dduser zoomrec video ; \
     fi
 
 RUN if [ "$GPU_BUILD" = "INTEL" ]; then \
         apt-get install --no-install-recommends -y \
             intel-media-va-driver \
-            i965-va-driver
-
-        adduser zoomrec render
-        adduser zoomrec video ;
+            i965-va-driver && \
+        adduser zoomrec render && \
+        adduser zoomrec video ; \
     fi
 
 # Install support for NVIDIA GPU hardware accelerators NVENC for ffmpeg encoding
@@ -153,7 +151,6 @@ RUN if [ "$GPU_BUILD" = "NVIDIA" ] ; then \
         apt-get install --no-install-recommends -y \
             nvidia-driver-525 ; \
     fi
-
 
 # Clean up
 RUN apt-get autoremove --purge -y && \
