@@ -135,7 +135,7 @@ RUN if [ "$GPU_BUILD" = "AMD" ]; then \
             mesa-va-drivers && \
         groupadd -g 110 render && \
         adduser zoomrec render && \
-        dduser zoomrec video ; \
+        adduser zoomrec video ; \
     fi
 
 RUN if [ "$GPU_BUILD" = "INTEL" ]; then \
