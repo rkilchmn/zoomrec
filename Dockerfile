@@ -133,7 +133,7 @@ RUN apt-get update && \
 RUN if [ "$GPU_BUILD" = "AMD" ]; then \
         apt-get install --no-install-recommends -y \
             mesa-va-drivers && \
-        groupadd -g 110 render && \
+        groupadd -g ${RENDER_GROUPID} render && \
         adduser zoomrec render && \
         adduser zoomrec video ; \
     fi
