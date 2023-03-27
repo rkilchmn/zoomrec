@@ -22,7 +22,8 @@ ENV HOME=/home/zoomrec \
 
 # build container for specific GPU 
 ARG GPU_BUILD=""
-ARG RENDER_GROUPID=""
+# group id for the 'render' group (used for AMD)
+ARG RENDER_GROUPID="" 
 
 # Add user
 RUN useradd -ms /bin/bash zoomrec -d ${HOME}
