@@ -1033,7 +1033,7 @@ def main():
             print(f"Next meeting in {remaining}", end="\r", flush=True)
         else:
             print(f"No meeting scheduled.", end="\r", flush=True)
-        time.sleep(10)
+        time.sleep(15)
 
 if __name__ == '__main__':
     main()

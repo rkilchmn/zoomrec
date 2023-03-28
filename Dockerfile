@@ -144,6 +144,7 @@ RUN if [ "$GPU_BUILD" = "INTEL" ]; then \
         apt-get install --no-install-recommends -y \
             intel-media-va-driver \
             i965-va-driver && \
+        groupadd -g ${RENDER_GROUPID} render && \
         adduser zoomrec render && \
         adduser zoomrec video ; \
     fi
