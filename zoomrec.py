@@ -197,6 +197,14 @@ class HideViewOptionsThread:
                                 logging.error("Could not hide video panel!")
                     except TypeError:
                         logging.error("Could not find view options!")
+
+                # Check if meeting chat is on screen
+                if pyautogui.locateOnScreen(os.path.join(IMG_PATH, 'meeting_chat.png'), confidence=0.9) is not None:
+                    x, y = pyautogui.locateCenterOnScreen(os.path.join(
+                                IMG_PATH, 'meeting_chat.png'), confidence=0.9)
+                    pyautogui.click(x, y)
+                    time.sleep(1)
+
             else:
                 VIDEO_PANEL_HIDED = False
 
