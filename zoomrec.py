@@ -142,7 +142,7 @@ class HideViewOptionsThread:
 
     def run(self):
         global VIDEO_PANEL_HIDED
-        logging.info("Check continuously if screensharing, polls or chats is active..")
+        logging.info("Checking continuously if screensharing, polls or chats need hiding..")
         while ONGOING_MEETING:
             # Check if host is sharing poll results
             if (pyautogui.locateCenterOnScreen(os.path.join(IMG_PATH, 'host_is_sharing_poll_results.png'),
