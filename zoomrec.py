@@ -142,7 +142,7 @@ class HideViewOptionsThread:
 
     def run(self):
         global VIDEO_PANEL_HIDED
-        logging.debug("Check continuously if screensharing is active..")
+        logging.info("Check continuously if screensharing, polls or chats is active..")
         while ONGOING_MEETING:
             # Check if host is sharing poll results
             if (pyautogui.locateCenterOnScreen(os.path.join(IMG_PATH, 'host_is_sharing_poll_results.png'),
@@ -198,13 +198,17 @@ class HideViewOptionsThread:
                     except TypeError:
                         logging.error("Could not find view options!")
 
-                # Check if meeting chat is on screen
-                if pyautogui.locateOnScreen(os.path.join(IMG_PATH, 'meeting_chat.png'), confidence=0.9) is not None:
-                    x, y = pyautogui.locateCenterOnScreen(os.path.join(
-                                IMG_PATH, 'meeting_chat.png'), confidence=0.9)
-                    pyautogui.click(x, y)
-                    time.sleep(1)
-
+            # Check if meeting chat is on screen
+            if pyautogui.locateOnScreen(os.path.join(IMG_PATH, 'meeting_chat.png'), confidence=0.9) is not None:
+                logging.info("Meeting chat popup window detected...")
+                x, y = pyautogui.locateCenterOnScreen(os.path.join(
+                            IMG_PATH, 'window_close_icon.png'), confidence=0.9)
+                pyautogui.click(x, y)
+                time.sleep(1)
+                if pyautogui.locateOnScreen(os.path.join(IMG_PATH, 'meeting_chat.png'), confidence=0.9):
+                    logging.info("Failed to close meeting chat popup window...")
+                else:
+                    logging.info("Successfully close meeting chat popup window...")
             else:
                 VIDEO_PANEL_HIDED = False
 
@@ -457,7 +461,7 @@ def join(meet_id, meet_pw, duration, description):
         resolution = str(width) + 'x' + str(height)
         disp = os.getenv('DISPLAY')
 
-        logging.info("Start recording..")
+        logging.debug("Start recording joining process...")
 
         filename = os.path.join( 
             REC_PATH, time.strftime(TIME_FORMAT)) + "-" + description + "-JOIN.mkv"
@@ -810,7 +814,7 @@ def join(meet_id, meet_pw, duration, description):
 
     # Audio
     # Start recording
-    logging.info("Start recording..")
+    logging.info("Start recording...")
 
     filename = os.path.join(REC_PATH, time.strftime(
         TIME_FORMAT) + "-" + description) + ".mkv"
