@@ -201,8 +201,9 @@ class HideViewOptionsThread:
             # Check if meeting chat is on screen
             if pyautogui.locateOnScreen(os.path.join(IMG_PATH, 'meeting_chat.png'), confidence=0.9) is not None:
                 logging.info("Meeting chat popup window detected...")
+                # try to close window
                 x, y = pyautogui.locateCenterOnScreen(os.path.join(
-                            IMG_PATH, 'window_close_icon.png'), confidence=0.9)
+                            IMG_PATH, 'exit.png'), confidence=0.9)
                 pyautogui.click(x, y)
                 time.sleep(1)
                 if pyautogui.locateOnScreen(os.path.join(IMG_PATH, 'meeting_chat.png'), confidence=0.9):
