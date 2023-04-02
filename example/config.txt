@@ -1,3 +1,4 @@
+ZOOMREC_HOME=~/zoomrec
 DEBUG=False
 TELEGRAM_BOT_TOKEN=mytoken
 TELEGRAM_CHAT_ID=mychatid
