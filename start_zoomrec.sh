@@ -17,7 +17,7 @@ if [[ "$2" == "AMD" ]]; then
   VIDEO_GROUPID=$(getent group video | cut -d':' -f3)
 
   docker run -d --restart unless-stopped --name zoomrec \
-  -  e DEBUF="$DEBUG" \
+    -e DEBUF="$DEBUG" \
     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
     -e TELEGRAM_CHAT_ID="$TELEGRAM_CHAT_ID" \
     -e TZ="$TZ" \
