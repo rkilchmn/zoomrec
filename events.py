@@ -3,9 +3,67 @@ import time
 import re
 import validators
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 
 CSV_DELIMITER = ";"
+
+DATE_FORMAT = '%d/%m/%Y'
+
+WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+
+def expand_days(days_str):
+    days_list = []
+
+    # Split the input string by ',' to get individual parts
+    list_parts = days_str.split(',')
+
+    # Loop through each part
+    for part in list_parts:
+        # Split the part by '-' to check for ranges
+        range_parts = part.split('-')
+
+        # If the part has a single value
+        if len(range_parts) == 1:
+            # Check if it's a weekday
+            if part.lower() in WEEKDAYS:
+                days_list.append(part.lower())  # Append the weekday
+            else:
+                # If it's not a weekday, try to parse it as a date
+                try:
+                    date = datetime.strptime(part, DATE_FORMAT).date()
+                    days_list.append(date.strftime(DATE_FORMAT))  # Append the formatted date
+                except ValueError:
+                    pass  # Ignore if it's not a valid date or weekday
+
+        # If the part has two values (range)
+        elif len(range_parts) == 2:
+            # Check if both parts are WEEKDAYS
+            if range_parts[0].lower() in WEEKDAYS and range_parts[1].lower() in WEEKDAYS:
+                # Get the index of the start and end WEEKDAYS in the WEEKDAYS list
+                start_index = WEEKDAYS.index(range_parts[0].lower())
+                end_index = WEEKDAYS.index(range_parts[1].lower())
+
+                # Get the WEEKDAYS between the start and end WEEKDAYS (inclusive)
+                WEEKDAYS_range = WEEKDAYS[start_index:end_index + 1]
+
+                # Append the WEEKDAYS to the days_list
+                days_list.extend(WEEKDAYS_range)
+            else:
+                # If not both WEEKDAYS, try to parse as dates
+                try:
+                    start_date = datetime.strptime(range_parts[0], DATE_FORMAT).date()
+                    end_date = datetime.strptime(range_parts[1], DATE_FORMAT).date()
+
+                    # Get the dates between the start and end dates (inclusive)
+                    dates_range = [start_date + timedelta(days=i) for i in range((end_date - start_date).days + 1)]
+
+                    # Append the formatted dates to the days_list
+                    days_list.extend([date.strftime(DATE_FORMAT) for date in dates_range])
+                except ValueError:
+                    pass  # Ignore if it's not a valid date or weekday
+
+    return days_list
+
 
 def read_events_from_csv(file_name):
     global CSV_DELIMITER
@@ -29,10 +87,10 @@ def write_events_to_csv(file_name, events):
 def validate_event(event):
     if event['weekday']:
          # Validate weekday
-        weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-        if event['weekday'].lower() not in weekdays:
+        WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        if event['weekday'].lower() not in WEEKDAYS:
             try:
-                date_obj = datetime.strptime(event['weekday'], "%Y-%m-%d")
+                date_obj = datetime.strptime(event['weekday'], DATE_FORMAT)
             except ValueError:
                 raise ValueError(f"Invalid weekday or date '{event['weekday']}'. Use only: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday or date in YYYY-MM-DD format.")
     else:

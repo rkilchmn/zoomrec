@@ -13,8 +13,8 @@ import datetime
 import atexit
 import requests
 from datetime import datetime, timedelta
-
 from telegram_bot import start_bot
+from events import expand_days, WEEKDAYS, DATE_FORMAT
 
 global ONGOING_MEETING
 global VIDEO_PANEL_HIDED
@@ -951,14 +951,14 @@ def join_ongoing_meeting():
                                 "Join meeting that is currently running..")
                             join(meet_id=row["id"], meet_pw=row["password"],
                                  duration=recent_duration, description=row["description"])
-                            
+
 def check_weekday( weekday, description):
-    if weekday in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+    if weekday in WEEKDAYS:
         return weekday  
     else:
         # try if weekday is a date
         try:
-            event_date = datetime.strptime(weekday, "%Y-%m-%d")
+            event_date = datetime.strptime(weekday, DATE_FORMAT)
             if (datetime.now() - event_date).days >= 1:
                 # date has already passed
                 logging.info("Ignoring as date %s in meeting %s is in past.", weekday, description)
@@ -966,7 +966,7 @@ def check_weekday( weekday, description):
             else:
                 return event_date.strftime("%A").lower()  # Monday, Tuesday, ...
         except ValueError:
-            logging.error("Invalid date %s in meeting %s.", weekday, description)
+            logging.error("Invalid date %s in %s.", weekday, description)
             return ''
 
 def setup_schedule():
@@ -976,18 +976,20 @@ def setup_schedule():
         line_count = 0
         for row in csv_reader:
             if str(row["record"]) == 'true':
-                weekday = check_weekday( row["weekday"], row["description"])
-                if weekday:
-                    cmd_string = "schedule.every()." + weekday \
-                                + ".at(\"" \
-                                + (datetime.strptime(row["time"], '%H:%M') - timedelta(minutes=1)).strftime('%H:%M') \
-                                + "\").do(join, meet_id=\"" + row["id"] \
-                                + "\", meet_pw=\"" + row["password"] \
-                                + "\", duration=" + str(int(row["duration"]) * 60) \
-                                + ", description=\"" + row["description"] + "\")"
-                    cmd = compile(cmd_string, "<string>", "eval")
-                    eval(cmd)
-                    line_count += 1
+                # expand date/weekday ranges and lists
+                for day in expand_days( row["weekday"]):
+                    weekday = check_weekday( day, row["description"])
+                    if weekday:
+                        cmd_string = "schedule.every()." + weekday \
+                                    + ".at(\"" \
+                                    + (datetime.strptime(row["time"], '%H:%M') - timedelta(minutes=1)).strftime('%H:%M') \
+                                    + "\").do(join, meet_id=\"" + row["id"] \
+                                    + "\", meet_pw=\"" + row["password"] \
+                                    + "\", duration=" + str(int(row["duration"]) * 60) \
+                                    + ", description=\"" + row["description"] + "\")"
+                        cmd = compile(cmd_string, "<string>", "eval")
+                        eval(cmd)
+                        line_count += 1
         logging.info("Added %s meetings to schedule." % line_count)
 
 def start_telegram_bot():
