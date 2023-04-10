@@ -4,6 +4,7 @@ import re
 import time
 import sys
 import yaml
+import html
 from datetime import datetime
 
 from events import read_events_from_csv, write_events_to_csv, validate_event, DATE_FORMAT, TIME_FORMAT, RECORD
@@ -36,12 +37,16 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
 
                 msg = email.message_from_bytes(msg_data[0][1])
                 subject = msg['Subject']
-                # Extract class information from the email body
-                for part in msg.walk():
-                    if part.get_content_type() == 'text/plain' or part.get_content_type() == 'text/html':
-                        body = part.get_payload(decode=True).decode('utf-8')
-                        # process each email type
-                        for type in config['emails']:
+
+                # process each email type 
+                for type in config['emails']:
+                    for part in msg.walk():
+                        # process email type based on its specified content_type
+                        if part.get_content_type() == type['content_type']:
+                            body = part.get_payload(decode=True).decode('utf-8')
+                            if part.get_content_type() == "text/html":
+                                # nescape special HTML codes such as &amp; etc
+                                body = html.unescape(body)
                             content = {}
                             content['subject'] = subject
                             content['body'] = body
@@ -97,7 +102,7 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                                         dates = dates + ","
                                     dates = dates + date_system.strftime(DATE_FORMAT)
                                 if dates:    
-                                    event = {'description': content['description'],
+                                    event = {'description': content['description'].strip().replace(" ", "_"),
                                             'weekday': dates,
                                             'time': date_system.strftime(TIME_FORMAT), 
                                             'duration': content['duration'], 
@@ -124,7 +129,7 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
             time.sleep(1*60)
             
         except Exception as e:
-            if isinstance(e, KeyboardInterrupt)
+            if isinstance(e, KeyboardInterrupt):
                 # Exit the program if the exception is a KeyboardInterrupt
                 raise e
             else:
