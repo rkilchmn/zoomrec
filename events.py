@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 CSV_DELIMITER = ";"
 
 DATE_FORMAT = '%d/%m/%Y'
+TIME_FORMAT = '%H:%M'
+RECORD = 'true'
 
 WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
@@ -86,20 +88,17 @@ def write_events_to_csv(file_name, events):
 
 def validate_event(event):
     if event['weekday']:
-         # Validate weekday
-        WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-        if event['weekday'].lower() not in WEEKDAYS:
-            try:
-                date_obj = datetime.strptime(event['weekday'], DATE_FORMAT)
-            except ValueError:
-                raise ValueError(f"Invalid weekday or date '{event['weekday']}'. Use only: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday or date in YYYY-MM-DD format.")
+        try:
+            days = expand_days(event['weekday'])
+        except ValueError:
+            raise ValueError(f"Invalid weekday or date '{event['weekday']}'. List and ranges of weekays e.g. monday, tuesday or dates in {DATE_FORMAT} format are supported")
     else:
         raise ValueError("Missing attribute weekday.")
 
     if event['time']:
         # Validate time
         try:
-            time.strptime(event['time'], '%H:%M')
+            time.strptime(event['time'], TIME_FORMAT)
         except ValueError:
             raise ValueError(f"Invalid time format '{event['time']}'. Use HH:MM format.")
     else:
