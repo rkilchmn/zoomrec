@@ -38,7 +38,7 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                 subject = msg['Subject']
                 # Extract class information from the email body
                 for part in msg.walk():
-                    if part.get_content_type() == 'text/plain':
+                    if part.get_content_type() == 'text/plain' or part.get_content_type() == 'text/html':
                         body = part.get_payload(decode=True).decode('utf-8')
                         # process each email type
                         for type in config['emails']:
@@ -61,7 +61,10 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                                             # retrieve from content via regex
                                             if attribute == 'datetime':
                                                 datetime_matches = re.compile(value).findall(content[section['section']])
-                                                content[attribute] = [datetime.strptime(dt_str, section['datetime_format']) for dt_str in datetime_matches]
+                                                try:
+                                                    content[attribute] = [datetime.strptime(dt_str, section['datetime_format']) for dt_str in datetime_matches]
+                                                except ValueError as error:
+                                                    content[attribute] = ''
                                             else:
                                                 match = re.compile(value.replace("\\\\", "\\")).search(content[section['section']])
                                                 if match:
@@ -69,7 +72,7 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                                                     content[attribute] = match.group(1)
                                                 else:
                                                     content[attribute] = ""
-                                                if attribute+"_mapping" in section and attribute in content:
+                                                if attribute+"_mapping" in section and attribute in content and content[attribute]:
                                                     mapping_dict = eval(section[attribute+"_mapping"])
                                                     content[attribute] = mapping_dict[content[attribute]]
                                                     
@@ -81,6 +84,10 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                             if content['match'] and content['url']:
                                 dates = ''
                                 for date in content['datetime']:
+                                    # if no date was provided, use todays date in events local timezone
+                                    if date.year == 1900 and date.month == 1 and date.day == 1:
+                                        today_local = datetime.now(ZoneInfo(content['timezone'])).date()
+                                        date = date.replace(year=today_local.year, month=today_local.month, day=today_local.day)
                                     # add local timezone of event
                                     date_local = date.replace(tzinfo=ZoneInfo(content['timezone']))
                                     # convert to system timezone
@@ -90,7 +97,7 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                                         dates = dates + ","
                                     dates = dates + date_system.strftime(DATE_FORMAT)
                                 if dates:    
-                                    event = {'description': content['description'] ,
+                                    event = {'description': content['description'],
                                             'weekday': dates,
                                             'time': date_system.strftime(TIME_FORMAT), 
                                             'duration': content['duration'], 
@@ -113,13 +120,15 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
             imap.close()
             imap.logout()   
 
-            # Wait for 5 mins before checking again
-            time.sleep(5*60)
+            # Wait for 1 mins before checking again
+            time.sleep(1*60)
             
         except Exception as e:
-            # if isinstance(e, KeyboardInterrupt) or isinstance(e, yaml.scan): 
+            if isinstance(e, KeyboardInterrupt)
                 # Exit the program if the exception is a KeyboardInterrupt
-            raise e
+                raise e
+            else:
+                print( error.args[0])
             
 if __name__ == "__main__":
     start_bot( CSV_PATH = sys.argv[1], CNFG_PATH = sys.argv[2], IMAP_SERVER = sys.argv[3], IMAP_PORT = sys.argv[4], EMAIL_ADDRESS = sys.argv[5], EMAIL_PASSWORD = sys.argv[6])
