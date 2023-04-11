@@ -920,38 +920,37 @@ def join_ongoing_meeting():
         for row in csv_reader:
             # Check and join ongoing meeting
             curr_date = datetime.now()
+            
+            for day in expand_days( row["weekday"]):
+                weekday = check_weekday( day, row["description"])
+                if weekday:
+                    # Monday, tuesday, ..
+                    if weekday.lower() == curr_date.strftime('%A').lower():
+                        curr_time = curr_date.time()
 
-            weekday = check_weekday( row["weekday"], row["description"])
-            if not weekday:
-                return
+                        start_time_csv = datetime.strptime(row["time"], '%H:%M')
+                        start_date = curr_date.replace(
+                            hour=start_time_csv.hour, minute=start_time_csv.minute)
+                        start_time = start_date.time()
 
-            # Monday, tuesday, ..
-            if weekday.lower() == curr_date.strftime('%A').lower():
-                curr_time = curr_date.time()
+                        end_date = start_date + \
+                            timedelta(seconds=int(row["duration"]) * 60 + 300)  # Add 5 minutes
+                        end_time = end_date.time()
 
-                start_time_csv = datetime.strptime(row["time"], '%H:%M')
-                start_date = curr_date.replace(
-                    hour=start_time_csv.hour, minute=start_time_csv.minute)
-                start_time = start_date.time()
+                        recent_duration = (end_date - curr_date).total_seconds()
 
-                end_date = start_date + \
-                    timedelta(seconds=int(row["duration"]) * 60 + 300)  # Add 5 minutes
-                end_time = end_date.time()
-
-                recent_duration = (end_date - curr_date).total_seconds()
-
-                if start_time < end_time:
-                    if start_time <= curr_time <= end_time and str(row["record"]) == 'true':
-                            logging.info(
-                                "Join meeting that is currently running..")
-                            join(meet_id=row["id"], meet_pw=row["password"],
-                                 duration=recent_duration, description=row["description"])
-                else:  # crosses midnight
-                    if curr_time >= start_time or curr_time <= end_time and str(row["record"]) == 'true':
-                            logging.info(
-                                "Join meeting that is currently running..")
-                            join(meet_id=row["id"], meet_pw=row["password"],
-                                 duration=recent_duration, description=row["description"])
+                        if start_time < end_time:
+                            if start_time <= curr_time <= end_time and str(row["record"]) == 'true':
+                                    logging.info(
+                                        "Join meeting that is currently running..")
+                                    join(meet_id=row["id"], meet_pw=row["password"],
+                                        duration=recent_duration, description=row["description"])
+                        else:  # crosses midnight
+                            if curr_time >= start_time or curr_time <= end_time and str(row["record"]) == 'true':
+                                    logging.info(
+                                        "Join meeting that is currently running..")
+                                    join(meet_id=row["id"], meet_pw=row["password"],
+                                        duration=recent_duration, description=row["description"])
 
 def check_weekday( weekday, description):
     if weekday in WEEKDAYS:
