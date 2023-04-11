@@ -1012,9 +1012,11 @@ def start_imap_bot():
         logging.info("IMAP details missing. No IMAP email bot will be started!")
         return
     
+    imap_log_file = open(f"{log_file}.imap_bot", "w")
+    
     command = f"python3 imap_bot.py {CSV_PATH} {YAML_PATH} {IMAP_SERVER} {IMAP_PORT} {EMAIL_ADDRESS} {EMAIL_PASSWORD}"
     imap_bot = subprocess.Popen(
-        command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+        command, stdout=imap_log_file, stderr=imap_log_file, shell=True, preexec_fn=os.setsid)
 
     logging.info("IMAP emai bot started!")
 

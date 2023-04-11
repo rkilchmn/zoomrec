@@ -6,12 +6,15 @@ import sys
 import yaml
 import html
 from datetime import datetime
-
+from bs4 import BeautifulSoup
 from events import read_events_from_csv, write_events_to_csv, validate_event, DATE_FORMAT, TIME_FORMAT, RECORD
 try:
     from zoneinfo import ZoneInfo # >= 3.9
 except ImportError:
     from backports.zoneinfo import ZoneInfo # < 3.9
+
+CONTENT_TYPE_PLAIN = "text/plain"
+CONTENT_TYPE_HTML = "text/html"
 
 def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD):   
     # Loop and evaluate every new message based on the subject keyword
@@ -32,6 +35,8 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
             with open( CNFG_PATH, 'r') as file:
                 config = yaml.safe_load(file)
 
+            print(f"Config file {CNFG_PATH} found") 
+
             for msg_id in imap.search(None, 'UNSEEN')[1][0].split():
                 status, msg_data = imap.fetch(msg_id, '(RFC822)')
 
@@ -40,83 +45,94 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
 
                 # process each email type 
                 for type in config['emails']:
+                    body = {}
                     for part in msg.walk():
-                        # process email type based on its specified content_type
-                        if part.get_content_type() == type['content_type']:
-                            body = part.get_payload(decode=True).decode('utf-8')
-                            if part.get_content_type() == "text/html":
-                                # nescape special HTML codes such as &amp; etc
-                                body = html.unescape(body)
-                            content = {}
-                            content['subject'] = subject
-                            content['body'] = body
-                            # by default email is matched unless a match_regex fails end returns empty valu
-                            content['match'] = True 
-                            content['record'] = RECORD
-                            content['password'] = ""
-                            content['datetime'] = ""
-                            content['url'] = ""
-                            content['duration'] = ""
-                            # process sections
-                            for section in type['sections']:
-                                 for key, value in section.items():
-                                    if "_" in key:
-                                        attribute, category = key.split("_")
-                                        if category == "regex":
-                                            # retrieve from content via regex
-                                            if attribute == 'datetime':
-                                                datetime_matches = re.compile(value).findall(content[section['section']])
-                                                try:
-                                                    content[attribute] = [datetime.strptime(dt_str, section['datetime_format']) for dt_str in datetime_matches]
-                                                except ValueError as error:
-                                                    content[attribute] = ''
+                        if part.get_content_type() == CONTENT_TYPE_PLAIN:
+                            body[CONTENT_TYPE_PLAIN] = part.get_payload(decode=True).decode('utf-8')
+                        elif part.get_content_type() == CONTENT_TYPE_HTML:
+                            # nescape special HTML codes such as &amp; etc
+                            body[CONTENT_TYPE_HTML]  = html.unescape(part.get_payload(decode=True).decode('utf-8'))
+                    # html can be converted to plain if required
+                    if type['content_type'] == CONTENT_TYPE_PLAIN and CONTENT_TYPE_HTML in body:
+                        soup = BeautifulSoup(body[CONTENT_TYPE_HTML], 'html.parser')
+                        body[CONTENT_TYPE_PLAIN]  = soup.get_text()
+                        text = soup.get_text()
+
+                    # process email if content type available
+                    if type['content_type'] in body:
+                        content = {}
+                        content['subject'] = subject
+                        content['body'] = body[type['content_type']]
+                        # by default email is matched unless a match_regex fails end returns empty valu
+                        content['match'] = True 
+                        content['record'] = RECORD
+                        content['password'] = ""
+                        content['datetime'] = ""
+                        content['url'] = ""
+                        content['duration'] = ""
+                        # process sections
+                        for section in type['sections']:
+                            for key, value in section.items():
+                                if "_" in key:
+                                    attribute, category = key.split("_")
+                                    if category == "regex":
+                                        # retrieve from content via regex
+                                        if attribute == 'datetime':
+                                            datetime_matches = re.compile(value).findall(content[section['section']])
+                                            try:
+                                                content[attribute] = [datetime.strptime(dt_str, section['datetime_format']) for dt_str in datetime_matches]
+                                            except ValueError as error:
+                                                content[attribute] = ''
+                                        else:
+                                            match = re.compile(value.replace("\\\\", "\\")).search(content[section['section']])
+                                            if match:
+                                                # group(1) is the first () in regex
+                                                content[attribute] = match.group(1)
                                             else:
-                                                match = re.compile(value.replace("\\\\", "\\")).search(content[section['section']])
-                                                if match:
-                                                    # group(1) is the first () in regex
-                                                    content[attribute] = match.group(1)
+                                                content[attribute] = ""
+                                            if attribute+"_mapping" in section and attribute in content and content[attribute]:
+                                                mapping_dict = eval(section[attribute+"_mapping"])
+                                                if content[attribute] in mapping_dict:
+                                                    content[attribute] = mapping_dict[content[attribute]]
                                                 else:
                                                     content[attribute] = ""
-                                                if attribute+"_mapping" in section and attribute in content and content[attribute]:
-                                                    mapping_dict = eval(section[attribute+"_mapping"])
-                                                    content[attribute] = mapping_dict[content[attribute]]
-                                                    
-                                        elif category == "value":
-                                            # value is directly specified
-                                            content[attribute] = value
+                                                
+                                    elif category == "value":
+                                        # value is directly specified
+                                        content[attribute] = value
 
-                            # event should be stored 
-                            if content['match'] and content['url']:
-                                dates = ''
-                                for date in content['datetime']:
-                                    # if no date was provided, use todays date in events local timezone
-                                    if date.year == 1900 and date.month == 1 and date.day == 1:
-                                        today_local = datetime.now(ZoneInfo(content['timezone'])).date()
-                                        date = date.replace(year=today_local.year, month=today_local.month, day=today_local.day)
-                                    # add local timezone of event
-                                    date_local = date.replace(tzinfo=ZoneInfo(content['timezone']))
-                                    # convert to system timezone
-                                    date_system = date_local.astimezone(datetime.now().astimezone().tzinfo)
-                                    # list of dates
-                                    if dates:
-                                        dates = dates + ","
-                                    dates = dates + date_system.strftime(DATE_FORMAT)
-                                if dates:    
-                                    event = {'description': content['description'].strip().replace(" ", "_"),
-                                            'weekday': dates,
-                                            'time': date_system.strftime(TIME_FORMAT), 
-                                            'duration': content['duration'], 
-                                            'id': content['url'], 
-                                            'password': content['password'],
-                                            'record': RECORD}
-                                    try:
-                                        event = validate_event( event)
-                                    except ValueError as error:
-                                        print( error.args[0])
+                        # event should be stored 
+                        if content['match'] and content['url']:
+                            dates = ''
+                            for date in content['datetime']:
+                                # if no date was provided, use todays date in events local timezone
+                                if date.year == 1900 and date.month == 1 and date.day == 1:
+                                    today_local = datetime.now(ZoneInfo(content['timezone'])).date()
+                                    date = date.replace(year=today_local.year, month=today_local.month, day=today_local.day)
+                                # add local timezone of event
+                                date_local = date.replace(tzinfo=ZoneInfo(content['timezone']))
+                                # convert to system timezone
+                                date_system = date_local.astimezone(datetime.now().astimezone().tzinfo)
+                                # list of dates
+                                if dates:
+                                    dates = dates + ","
+                                dates = dates + date_system.strftime(DATE_FORMAT)
+                            if dates:    
+                                event = {'description': content['description'].strip().replace(" ", "_"),
+                                        'weekday': dates,
+                                        'time': date_system.strftime(TIME_FORMAT), 
+                                        'duration': content['duration'], 
+                                        'id': content['url'], 
+                                        'password': content['password'],
+                                        'record': RECORD}
+                                try:
+                                    event = validate_event( event)
+                                except ValueError as error:
+                                    print( error.args[0])
 
-                                    events = read_events_from_csv(CSV_PATH)
-                                    events.append(event)
-                                    write_events_to_csv(CSV_PATH, events)
+                                events = read_events_from_csv(CSV_PATH)
+                                events.append(event)
+                                write_events_to_csv(CSV_PATH, events)
 
                         # Mark the message as read
                         imap.store(msg_id, '+FLAGS', '\\Seen')

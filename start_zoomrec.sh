@@ -33,7 +33,7 @@ if [[ "$2" == "AMD" ]]; then
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
     -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
-    -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/email_types.yaml:ro \
+    -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
     -p 5901:5901 \
     -p 137-139:137-139 \
     -p 445:445 \
@@ -64,7 +64,7 @@ elif [[ "$2" == "INTEL" ]]; then
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
     -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
-    -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/email_types.yaml:ro \
+    -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
     -p 5901:5901 \
     --security-opt seccomp:unconfined \
     --group-add="$VIDEO_GROUPID" \
@@ -91,7 +91,7 @@ elif [[ "$2" == "NVIDIA" ]]; then
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
     -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
-    -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/email_types.yaml:ro \
+    -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
     -p 5901:5901 \
     -p 137-139:137-139 \
     -p 445:445 \
@@ -114,7 +114,7 @@ else
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
     -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
-    -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/email_types.yaml:ro \
+    -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
     -p 5901:5901 \
     -p 137-139:137-139 \
     -p 445:445 \
