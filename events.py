@@ -13,6 +13,30 @@ RECORD = 'true'
 
 WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
+def convert_to_safe_filename(filename):
+    # Define a set of characters that are not allowed in SMB filenames
+    # Reference: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
+    invalid_chars = '\\/:*?"<>|'
+
+    # Remove any invalid characters from the filename
+    safe_filename = ''.join(char for char in filename if char not in invalid_chars)
+
+    # Remove any leading or trailing spaces
+    safe_filename = safe_filename.strip()
+
+    # Replace any remaining spaces with underscores
+    safe_filename = safe_filename.replace(' ', '_')
+
+    # Ensure that the resulting filename is not empty
+    if not safe_filename:
+        safe_filename = '_'
+
+    # Limit the filename length to 255 characters (maximum allowed by SMB)
+    safe_filename = safe_filename[:255]
+
+    return safe_filename
+
+
 def expand_days(days_str):
     days_list = []
 
@@ -87,6 +111,10 @@ def write_events_to_csv(file_name, events):
             writer.writerow(event)
 
 def validate_event(event):
+
+    if event['description']:
+        event['description'] = convert_to_safe_filename(event['description'])
+    
     if event['weekday']:
         try:
             days = expand_days(event['weekday'])
