@@ -82,7 +82,7 @@ VIDEO_PANEL_HIDED = False
 now = datetime.now()
 
 # Format the date and time in the desired format
-timestamp = now.strftime("%d-%m-%Y %H:%M")
+timestamp = now.strftime('%Y-%m-%d_%H-%M-%S')
 
 # Create the log file name with the timestamp
 log_file = DEBUG_PATH + "/{}.log".format(timestamp)
@@ -997,30 +997,32 @@ def start_telegram_bot():
         logging.info("Telegram token is missing. No Telegram bot will be started!")
         return
     
+    bot_log_file = open(f"{log_file}.telegram_bot", "w")
+    
     command = f"python3 telegram_bot.py {CSV_PATH} {TELEGRAM_BOT_TOKEN}"
     telegram_bot = subprocess.Popen(
-        command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-
-    logging.info("Telegram bot started!")
+        command, stdout=bot_log_file, stderr=bot_log_file, shell=True, preexec_fn=os.setsid, universal_newlines=True, bufsize=1)
 
     atexit.register(os.killpg, os.getpgid(
-        telegram_bot.pid), signal.SIGQUIT)
+        telegram_bot.pid), signal.SIGQUIT)  
+    
+    logging.info("Telegram bot started!")
     
 def start_imap_bot():
     if not (EMAIL_PASSWORD and IMAP_SERVER and IMAP_PORT and EMAIL_ADDRESS):
         logging.info("IMAP details missing. No IMAP email bot will be started!")
         return
     
-    imap_log_file = open(f"{log_file}.imap_bot", "w")
+    bot_log_file = open(f"{log_file}.imap_bot", "w")
     
     command = f"python3 imap_bot.py {CSV_PATH} {YAML_PATH} {IMAP_SERVER} {IMAP_PORT} {EMAIL_ADDRESS} {EMAIL_PASSWORD}"
     imap_bot = subprocess.Popen(
-        command, stdout=imap_log_file, stderr=imap_log_file, shell=True, preexec_fn=os.setsid, universal_newlines=True, bufsize=1)
-
-    logging.info("IMAP emai bot started!")
+        command, stdout=bot_log_file, stderr=bot_log_file, shell=True, preexec_fn=os.setsid, universal_newlines=True, bufsize=1)
 
     atexit.register(os.killpg, os.getpgid(
         imap_bot.pid), signal.SIGQUIT)
+    
+    logging.info("IMAP emai bot started!")
 
 def main():
     try:
@@ -1039,6 +1041,8 @@ def main():
         current_timestamp = os.path.getmtime(CSV_PATH)
         if current_timestamp != last_timestamp:
             last_timestamp = current_timestamp
+            logging.info(f"{CSV_PATH} timestamp: {datetime.fromtimestamp(current_timestamp).strftime('%Y-%m-%d %H:%M:%S')}")
+
             setup_schedule()
             join_ongoing_meeting()
     
