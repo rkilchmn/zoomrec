@@ -144,10 +144,10 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
             # Wait for 1 mins before checking again
             time.sleep(1*60)
             
-        except Exception as e:
-            if isinstance(e, KeyboardInterrupt):
+        except Exception as error:
+            if isinstance(error, KeyboardInterrupt):
                 # Exit the program if the exception is a KeyboardInterrupt
-                raise e
+                raise error
             else:
                 print( error.args[0])
             
