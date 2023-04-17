@@ -133,6 +133,7 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                                 events = read_events_from_csv(CSV_PATH)
                                 events.append(event)
                                 write_events_to_csv(CSV_PATH, events)
+                                print(f"Event {event['description']} {event['weekday']} {event['time']} added")
 
                         # Mark the message as read
                         imap.store(msg_id, '+FLAGS', '\\Seen')
