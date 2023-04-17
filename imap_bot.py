@@ -21,7 +21,7 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
     with open( CNFG_PATH, 'r') as file:
         config = yaml.safe_load(file)
 
-    print(f"Config file {CNFG_PATH} found") 
+    print(f"Config file {CNFG_PATH} found", flush=True) 
 
     # Loop and evaluate every new message based on the configuration
     while True:
@@ -133,7 +133,7 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                                 events = read_events_from_csv(CSV_PATH)
                                 events.append(event)
                                 write_events_to_csv(CSV_PATH, events)
-                                print(f"Event {event['description']} {event['weekday']} {event['time']} added")
+                                print(f"Event {event['description']} {event['weekday']} {event['time']} added", flush=True)
 
                         # Mark the message as read
                         imap.store(msg_id, '+FLAGS', '\\Seen')
@@ -150,7 +150,7 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                 # Exit the program if the exception is a KeyboardInterrupt
                 raise error
             else:
-                print( error.args[0])
+                print( error.args[0], flush=True)
             
 if __name__ == "__main__":
     start_bot( CSV_PATH = sys.argv[1], CNFG_PATH = sys.argv[2], IMAP_SERVER = sys.argv[3], IMAP_PORT = sys.argv[4], EMAIL_ADDRESS = sys.argv[5], EMAIL_PASSWORD = sys.argv[6])
