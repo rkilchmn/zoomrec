@@ -17,7 +17,13 @@ CONTENT_TYPE_PLAIN = "text/plain"
 CONTENT_TYPE_HTML = "text/html"
 
 def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD):   
-    # Loop and evaluate every new message based on the subject keyword
+    # Load the YAML config file
+    with open( CNFG_PATH, 'r') as file:
+        config = yaml.safe_load(file)
+
+    print(f"Config file {CNFG_PATH} found") 
+
+    # Loop and evaluate every new message based on the configuration
     while True:
         try:
             # Connect to IMAP server
@@ -30,12 +36,6 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
 
             # search for all unseen emails
             #imap.search(None, 'UNSEEN')
-
-            # Load the YAML config file
-            with open( CNFG_PATH, 'r') as file:
-                config = yaml.safe_load(file)
-
-            print(f"Config file {CNFG_PATH} found") 
 
             for msg_id in imap.search(None, 'UNSEEN')[1][0].split():
                 status, msg_data = imap.fetch(msg_id, '(RFC822)')
