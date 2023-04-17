@@ -25,6 +25,7 @@ USAGE_ADD = "/add <description> <weekday> <time> <duration> <id/url> [required w
 USAGE_LIST = "/list [optional <index or part of description>} - list specifc event or alse all"
 USAGE_MODIFY = "/modify <index or part of description> <attribute name1> <new attribute value1> <attribute name2> <new attribute value2> ..."
 USAGE_DELETE = "/delete <index or part of description>"
+USAGE_INFO = "/info - return some session info such as the chat id"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Sends explanation on how to use the bot."""
@@ -172,6 +173,14 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     response += USAGE_LIST + "\n"
     response += USAGE_MODIFY + "\n"
     response += USAGE_DELETE + "\n"
+    response += USAGE_INFO + "\n"
+    await update.message.reply_text(response)
+
+async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /info is issued."""
+    chat_id = update.effective_chat.id
+    response = f"Chat ID: {chat_id}"
+
     await update.message.reply_text(response)
 
 
@@ -198,6 +207,7 @@ def start_bot( csv_path, telegram_token) -> None:
     application.add_handler(CommandHandler("modify", modify_event))
     application.add_handler(CommandHandler("delete", delete_event))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("info", info_command))
 
      # on non command
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unknown))
