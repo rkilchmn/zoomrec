@@ -21,7 +21,7 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
     with open( CNFG_PATH, 'r') as file:
         config = yaml.safe_load(file)
 
-    print(f"Config file {CNFG_PATH} found", flush=True) 
+    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Config file {CNFG_PATH} found", flush=True) 
 
     # Loop and evaluate every new message based on the configuration
     while True:
@@ -133,14 +133,14 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                                 events = read_events_from_csv(CSV_PATH)
                                 events.append(event)
                                 write_events_to_csv(CSV_PATH, events)
-                                print(f"Event {event['description']} {event['weekday']} {event['time']} added", flush=True)
+                                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Event {event['description']} {event['weekday']} {event['time']} added", flush=True)
 
                         # Mark the message as read
                         imap.store(msg_id, '+FLAGS', '\\Seen')
                                 
             # Close the IMAP connection
             imap.close()
-            imap.logout()   
+            imap.logout()
 
             # Wait for 1 mins before checking again
             time.sleep(1*60)
