@@ -128,12 +128,13 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                                 try:
                                     event = validate_event( event)
                                 except ValueError as error:
-                                    print( error.args[0])~/zoomrec_home/recordings/screenshots/~/zoomrec_home/recordings/screenshots/
+                                    print( error.args[0])
 
                                 events = read_events_from_csv(CSV_PATH)
                                 events.append(event)
                                 write_events_to_csv(CSV_PATH, events)
-                                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Event {event['description']} {event['weekday']} {event['time']} added", flush=True)
+                                eventStr = f"Event {event['description']} {event['weekday']} {event['time']}"
+                                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {eventStr} added", flush=True)
 
                         # Mark the message as read
                         imap.store(msg_id, '+FLAGS', '\\Seen')
