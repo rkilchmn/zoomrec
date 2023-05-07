@@ -81,12 +81,13 @@ def get_firmware():
     if not os.path.isfile(filepath):
         return 'Firmware not found', 404
     firmware_file_mtime = get_file_mtime(filepath)
-    if firmware_file_mtime > firmware_version_mtime:
+    # difference needs to be min 60s as there are some small time differences
+    if (firmware_file_mtime - firmware_version_mtime).total_seconds() >= 60:
         return send_file(filepath, as_attachment=True, mimetype='application/octet-stream')
     else:
         return '', 304  # Not Modified
     
 if __name__ == '__main__':
-    app.run(debug=True,port=config['port'])
+    app.run(debug=True,host='0.0.0.0',port=config['port'])
 
 
