@@ -147,12 +147,12 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
             # Wait for 1 mins before checking again
             time.sleep(1*60)
             
-        except Exception as error:
-            if isinstance(error, KeyboardInterrupt):
-                # Exit the program if the exception is a KeyboardInterrupt
-                raise error
-            else:
-                print( error.args[0], flush=True)
+            except Exception as error:
+                if isinstance(error, KeyboardInterrupt):
+                    # Exit the program if the exception is a KeyboardInterrupt
+                    raise error
+                else:
+                    print( error.args[0], flush=True)
             
 if __name__ == "__main__":
     start_bot( CSV_PATH = sys.argv[1], CNFG_PATH = sys.argv[2], IMAP_SERVER = sys.argv[3], IMAP_PORT = sys.argv[4], EMAIL_ADDRESS = sys.argv[5], EMAIL_PASSWORD = sys.argv[6])

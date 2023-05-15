@@ -1,10 +1,11 @@
 from flask import Flask, request, Response, jsonify, send_file # pip install flask
 from flask_basicauth import BasicAuth # pip install flask-basicauth
 import csv
-import datetime
+from datetime import datetime
 import os.path
 import yaml
 import sys
+from events import read_events_from_csv, find_next_event
 from io import StringIO
 
 app = Flask(__name__)
@@ -18,40 +19,37 @@ app.config['BASIC_AUTH_USERNAME'] = config['username']
 app.config['BASIC_AUTH_PASSWORD'] = config['password']
 basic_auth = BasicAuth(app)
 
-@app.route('/meeting/csv')
+# curl -u myuser:mypassword "http://localhost:8080/event?last_change=2023-05-10T12:00:00"
+@app.route(config['route_event'], methods=['GET'])
 @basic_auth.required
-def get_csv():
-    # Open the CSV file
-    with open(config['csv_path'], 'r') as file:
-        reader = csv.reader(file)
-        data = list(reader)
+def get_event():
+    last_change = request.args.get('last_change')
+    file_path = config['meeting_csv_path']
+    file_timestamp = datetime.fromtimestamp(os.path.getmtime((file_path)))
 
-    # Create a string buffer to write the CSV data to
-    csv_buffer = StringIO()
-    writer = csv.writer(csv_buffer)
+    if last_change:
+        last_change_timestamp = datetime.fromisoformat((last_change))
+        if file_timestamp <= last_change_timestamp:
+            return jsonify([])  # Return an empty list if file timestamp is not later than last_change
 
-    # Write the data to the CSV buffer
-    for row in data:
-        writer.writerow(row)
+    events = read_events_from_csv(file_path)
+    return jsonify(events)
 
-    # Set the content type to CSV and return the CSV data as a response
-    response = Response(csv_buffer.getvalue(), mimetype='text/csv')
-    response.headers.set("Content-Disposition", "attachment", filename="data.csv")
-    return response
-
-@app.route('/meeting/next')
+# curl -u myuser:mypassword http://localhost:8080/event/next
+@app.route(config['route_event_next'], methods=['GET'])
 @basic_auth.required
-def get_next_meeting():
-    
-    response_data = {
-        'description': next_meeting['description'],
-        'start': next_meeting['start']
-    }
+def get_event_next():
+    timezone = request.args.get('timezone')
+    response_data = find_next_event( read_events_from_csv(config['meeting_csv_path']), timezone)
+    # return timestamp in ISO 8601 format 
+    if not response_data is None:
+        response_data['start'] = response_data['start'].isoformat()
+        response_data['end'] = response_data['end'].isoformat()
     return jsonify(response_data)
 
 def get_file_mtime(file_path):
     mtime = os.path.getmtime(file_path)
-    timestamp = datetime.datetime.fromtimestamp(mtime)
+    timestamp = datetime.fromtimestamp(mtime)
     timestamp = timestamp.replace(microsecond=0)
     return timestamp
 
@@ -62,13 +60,15 @@ def parse_version(version_string):
     filename, date_str, time_str = parts
     date_time_str = f"{date_str.strip()} {time_str.strip()}"
     try:
-        timestamp = datetime.datetime.strptime(date_time_str, '%b %d %Y %H:%M:%S')
+        timestamp = datetime.strptime(date_time_str, '%b %d %Y %H:%M:%S')
         timestamp = timestamp.replace(microsecond=0)
     except ValueError:
         raise ValueError('Invalid version string')
     return filename, timestamp
 
+# curl -H "x-ESP8266-version: ESP6266_Template.ino-May  7 2023-15:26:18" http://localhost:8080/firmware
 @app.route(config['route_firmware'], methods=['GET'])
+@basic_auth.required
 def get_firmware():
     firmware_version = request.headers.get('x-ESP8266-version')
     if not firmware_version:

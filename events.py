@@ -13,6 +13,38 @@ RECORD = 'true'
 
 WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
+def getWeekday(weekday, description):
+    if weekday in WEEKDAYS:
+        return weekday  
+    else:
+        # try if weekday is a date
+        try:
+            event_date = datetime.strptime(weekday, DATE_FORMAT)
+            if (datetime.now() - event_date).days >= 1:
+                # date has already passed
+                raise ValueError("Date {} in meeting {} is in the past.".format(weekday, description))
+            else:
+                return event_date.strftime("%A").lower()  # Monday, Tuesday, ...
+        except ValueError:
+            raise ValueError("Invalid date {} in {}.".format(weekday, description))
+        
+def getDate(weekday, description):
+    try:
+        event_date = datetime.strptime(weekday, DATE_FORMAT)
+        return event_date.strftime(DATE_FORMAT)
+    except ValueError:
+        pass  # not a valid date, continue with weekday check
+
+    # Check if input is a weekday
+    if weekday in WEEKDAYS:
+        target_date = datetime.now()
+        while target_date.strftime("%A").lower() != weekday.lower():
+            target_date += timedelta(days=1)
+        return target_date.strftime(DATE_FORMAT)
+    else:
+        raise ValueError("Invalid date/weekday {} in {}.".format(weekday, description))
+
+
 def convert_to_safe_filename(filename):
     # Define a set of characters that are not allowed in SMB filenames
     # Reference: https://docs.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
@@ -109,6 +141,23 @@ def write_events_to_csv(file_name, events):
         writer.writeheader()
         for event in events:
             writer.writerow(event)
+
+def find_next_event(events, timezone):
+    now = datetime.now(timezone)
+    next_event = None
+    for event in events:
+        for day in expand_days(event["weekday"]):
+            try:   
+                start_date = getDate( day, event['description'])
+                start_datetime = datetime.strptime(start_date + ' ' + event['time'], DATE_FORMAT + ' ' + TIME_FORMAT)                
+                end_datetime = start_datetime + timedelta(minutes=int(event['duration']))
+                if start_datetime > now and (next_event is None or start_datetime < next_event['start']):
+                    next_event = event
+                    next_event['start'] = start_datetime
+                    next_event['end'] = end_datetime
+            except ValueError as e:
+                continue
+    return next_event
 
 def validate_event(event):
 

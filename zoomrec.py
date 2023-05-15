@@ -14,7 +14,7 @@ import atexit
 import requests
 from datetime import datetime, timedelta
 from telegram_bot import start_bot
-from events import expand_days, WEEKDAYS, DATE_FORMAT
+from events import getWeekday, expand_days, WEEKDAYS, DATE_FORMAT
 
 global ONGOING_MEETING
 global VIDEO_PANEL_HIDED
@@ -920,54 +920,40 @@ def join_ongoing_meeting():
         for row in csv_reader:
             # Check and join ongoing meeting
             curr_date = datetime.now()
-            
-            for day in expand_days( row["weekday"]):
-                weekday = check_weekday( day, row["description"])
-                if weekday:
-                    # Monday, tuesday, ..
-                    if weekday.lower() == curr_date.strftime('%A').lower():
-                        curr_time = curr_date.time()
 
-                        start_time_csv = datetime.strptime(row["time"], '%H:%M')
-                        start_date = curr_date.replace(
-                            hour=start_time_csv.hour, minute=start_time_csv.minute)
-                        start_time = start_date.time()
+            for day in expand_days(row["weekday"]):
+                try:
+                    weekday = getWeekday(day, row["description"])
+                    if weekday:
+                        # Monday, tuesday, ..
+                        if weekday.lower() == curr_date.strftime('%A').lower():
+                            curr_time = curr_date.time()
 
-                        end_date = start_date + \
-                            timedelta(seconds=int(row["duration"]) * 60 + 300)  # Add 5 minutes
-                        end_time = end_date.time()
+                            start_time_csv = datetime.strptime(row["time"], '%H:%M')
+                            start_date = curr_date.replace(
+                                hour=start_time_csv.hour, minute=start_time_csv.minute)
+                            start_time = start_date.time()
 
-                        recent_duration = (end_date - curr_date).total_seconds()
+                            end_date = start_date + \
+                                timedelta(seconds=int(row["duration"]) * 60 + 300)  # Add 5 minutes
+                            end_time = end_date.time()
 
-                        if start_time < end_time:
-                            if start_time <= curr_time <= end_time and str(row["record"]) == 'true':
+                            recent_duration = (end_date - curr_date).total_seconds()
+
+                            if start_time < end_time:
+                                if start_time <= curr_time <= end_time and str(row["record"]) == 'true':
                                     logging.info(
                                         "Join meeting that is currently running..")
                                     join(meet_id=row["id"], meet_pw=row["password"],
-                                        duration=recent_duration, description=row["description"])
-                        else:  # crosses midnight
-                            if curr_time >= start_time or curr_time <= end_time and str(row["record"]) == 'true':
+                                         duration=recent_duration, description=row["description"])
+                            else:  # crosses midnight
+                                if curr_time >= start_time or curr_time <= end_time and str(row["record"]) == 'true':
                                     logging.info(
                                         "Join meeting that is currently running..")
                                     join(meet_id=row["id"], meet_pw=row["password"],
-                                        duration=recent_duration, description=row["description"])
-
-def check_weekday( weekday, description):
-    if weekday in WEEKDAYS:
-        return weekday  
-    else:
-        # try if weekday is a date
-        try:
-            event_date = datetime.strptime(weekday, DATE_FORMAT)
-            if (datetime.now() - event_date).days >= 1:
-                # date has already passed
-                logging.info("Ignoring as date %s in meeting %s is in past.", weekday, description)
-                return ''
-            else:
-                return event_date.strftime("%A").lower()  # Monday, Tuesday, ...
-        except ValueError:
-            logging.error("Invalid date %s in %s.", weekday, description)
-            return ''
+                                         duration=recent_duration, description=row["description"])
+                except ValueError as e:
+                    logging.error(str(e))
 
 def setup_schedule():
     schedule.clear()
@@ -978,8 +964,8 @@ def setup_schedule():
             if str(row["record"]) == 'true':
                 # expand date/weekday ranges and lists
                 for day in expand_days( row["weekday"]):
-                    weekday = check_weekday( day, row["description"])
-                    if weekday:
+                    try:
+                        weekday = getWeekday(day, row["description"])
                         cmd_string = "schedule.every()." + weekday \
                                     + ".at(\"" \
                                     + (datetime.strptime(row["time"], '%H:%M') - timedelta(minutes=1)).strftime('%H:%M') \
@@ -990,6 +976,8 @@ def setup_schedule():
                         cmd = compile(cmd_string, "<string>", "eval")
                         eval(cmd)
                         line_count += 1
+                    except ValueError as e:
+                        logging.error(str(e))
         logging.info("Added %s meetings to schedule." % line_count)
 
 def start_telegram_bot():
