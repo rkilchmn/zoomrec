@@ -5,18 +5,27 @@ import os
 from datetime import datetime, timedelta
 from events import write_events_to_csv
 from requests.exceptions import ConnectionError
+import base64
 
 def start_client(CSV_PATH, BASE_URL, USERNAME, PASSWORD):
     interval_seconds = 60  # Adjust this value to your desired interval in seconds
     while True:
         try:
-            # Deduct some seconds to account for delay of writing file when last retrieved
-            last_change = datetime.fromtimestamp(os.path.getmtime(CSV_PATH) - 10).isoformat()
-            headers = {'Content-Type': 'application/json'}
-            response = requests.get(f"{BASE_URL}/event", params={'last_change': last_change}, headers=headers, auth=(USERNAME, PASSWORD))
+            
+            if os.path.exists(CSV_PATH):
+                last_change = datetime.fromtimestamp(os.path.getmtime(CSV_PATH)).isoformat()
+                params = {'last_change': last_change}
+            else:
+                params = {}
+            response = requests.get(f"{BASE_URL}/event", params, headers = {'Content-Type': 'application/json'}, 
+                                    auth=(USERNAME, PASSWORD))
             if response.status_code == 200:
                 events = response.json()
-                write_events_to_csv(CSV_PATH, events)
+                if events:  # Check if events is not empty
+                    write_events_to_csv(CSV_PATH, events)
+                    print("Events saved successfully.")
+                else:
+                    print("No events to save.")
             else:
                 print("Error: Failed to retrieve events.")
             time.sleep(interval_seconds)
