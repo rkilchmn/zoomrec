@@ -1010,7 +1010,7 @@ def start_imap_bot():
     atexit.register(os.killpg, os.getpgid(
         imap_bot.pid), signal.SIGQUIT)
     
-    logging.info("IMAP emai bot started!")
+    logging.info("IMAP email bot started!")
 
 def main():
     try:
