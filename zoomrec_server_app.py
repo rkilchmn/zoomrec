@@ -15,16 +15,16 @@ with open( sys.argv[1], "r") as f:
     config = yaml.safe_load(f)
 
 # Configure basic authentication
-app.config['BASIC_AUTH_USERNAME'] = config['username']
-app.config['BASIC_AUTH_PASSWORD'] = config['password']
+app.config['BASIC_AUTH_USERNAME'] = config['API_USERNAME']
+app.config['BASIC_AUTH_PASSWORD'] = config['API_PASSWORD']
 basic_auth = BasicAuth(app)
 
 # curl -u myuser:mypassword "http://localhost:8080/event?last_change=2023-05-10T12:00:00"
-@app.route(config['route_event'], methods=['GET'])
+@app.route(config['ROUTE_EVENT'], methods=['GET'])
 @basic_auth.required
 def get_event():
     last_change = request.args.get('last_change')
-    file_path = config['meeting_csv_path']
+    file_path = config['MEETING_CSV_PATH']
     file_timestamp = datetime.fromtimestamp(os.path.getmtime((file_path)))
 
     if last_change:
@@ -36,11 +36,11 @@ def get_event():
     return jsonify(events)
 
 # curl -u myuser:mypassword http://localhost:8080/event/next
-@app.route(config['route_event_next'], methods=['GET'])
+@app.route(config['ROUTE_EVENT_NEXT'], methods=['GET'])
 @basic_auth.required
 def get_event_next():
-    timezone = request.args.get('timezone')
-    response_data = find_next_event( read_events_from_csv(config['meeting_csv_path']), timezone)
+    timezone = request.args.get('TIMEZONE')
+    response_data = find_next_event( read_events_from_csv(config['MEETING_CSV_PAT']), timezone)
     # return timestamp in ISO 8601 format 
     if not response_data is None:
         response_data['start'] = response_data['start'].isoformat()
@@ -67,7 +67,7 @@ def parse_version(version_string):
     return filename, timestamp
 
 # curl -H "x-ESP8266-version: ESP6266_Template.ino-May  7 2023-15:26:18" http://localhost:8080/firmware
-@app.route(config['route_firmware'], methods=['GET'])
+@app.route(config['ROUTE_FIRMWARE'], methods=['GET'])
 @basic_auth.required
 def get_firmware():
     firmware_version = request.headers.get('x-ESP8266-version')
@@ -77,7 +77,7 @@ def get_firmware():
         filename, firmware_version_mtime = parse_version(firmware_version)
     except ValueError:
         return 'Invalid firmware version', 400
-    filepath = os.path.join(config['route_firmware_dir'], filename + '.bin')
+    filepath = os.path.join(config['ROUTE_FIRMWARE_DIR'], filename + '.bin')
     if not os.path.isfile(filepath):
         return 'Firmware not found', 404
     firmware_file_mtime = get_file_mtime(filepath)
@@ -88,6 +88,6 @@ def get_firmware():
         return '', 304  # Not Modified
     
 if __name__ == '__main__':
-    app.run(debug=True,host='0.0.0.0',port=config['port'])
+    app.run(debug=True,host='0.0.0.0',port=config['PORT'])
 
 
