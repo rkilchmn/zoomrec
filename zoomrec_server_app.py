@@ -1,22 +1,27 @@
 from flask import Flask, request, Response, jsonify, send_file # pip install flask
 from flask_basicauth import BasicAuth # pip install flask-basicauth
-import csv
+# import csv
 from datetime import datetime
 import os.path
 import yaml
-import sys
+# import sys
 from events import read_events_from_csv, find_next_event
-from io import StringIO
+# from io import StringIO
 
 app = Flask(__name__)
 
+BASE_PATH = os.getenv('HOME')
+CSV_PATH = os.path.join(BASE_PATH, "meetings.csv")
+
 # Load configuration from YAML file
-with open( sys.argv[1], "r") as f:
+with open( os.path.join(BASE_PATH, 'zoomrec_server.yaml'), "r") as f:
     config = yaml.safe_load(f)
 
+FIRMWARE_PATH = os.path.join(BASE_PATH, config['ROUTE_FIRMWARE_SUBDIR'])
+
 # Configure basic authentication
-app.config['BASIC_AUTH_USERNAME'] = config['API_USERNAME']
-app.config['BASIC_AUTH_PASSWORD'] = config['API_PASSWORD']
+app.config['BASIC_AUTH_USERNAME'] = os.getenv('API_USERNAME')
+app.config['BASIC_AUTH_PASSWORD'] = os.getenv('API_PASSWORD')
 basic_auth = BasicAuth(app)
 
 # curl -u myuser:mypassword "http://localhost:8080/event?last_change=2023-05-10T12:00:00"
@@ -24,7 +29,7 @@ basic_auth = BasicAuth(app)
 @basic_auth.required
 def get_event():
     last_change = request.args.get('last_change')
-    file_path = config['MEETING_CSV_PATH']
+    file_path = CSV_PATH
     file_timestamp = datetime.fromtimestamp(os.path.getmtime((file_path)))
 
     if last_change:
@@ -39,7 +44,7 @@ def get_event():
 @app.route(config['ROUTE_EVENT_NEXT'], methods=['GET'])
 @basic_auth.required
 def get_event_next():
-    timezone = request.args.get('TIMEZONE')
+    timezone = request.args.get('TZ')
     response_data = find_next_event( read_events_from_csv(config['MEETING_CSV_PAT']), timezone)
     # return timestamp in ISO 8601 format 
     if not response_data is None:
@@ -77,7 +82,7 @@ def get_firmware():
         filename, firmware_version_mtime = parse_version(firmware_version)
     except ValueError:
         return 'Invalid firmware version', 400
-    filepath = os.path.join(config['ROUTE_FIRMWARE_DIR'], filename + '.bin')
+    filepath = os.path.join( FIRMWARE_PATH, filename + '.bin')
     if not os.path.isfile(filepath):
         return 'Firmware not found', 404
     firmware_file_mtime = get_file_mtime(filepath)
@@ -88,6 +93,6 @@ def get_firmware():
         return '', 304  # Not Modified
     
 if __name__ == '__main__':
-    app.run(debug=True,host='0.0.0.0',port=config['PORT'])
+    app.run(debug=True,host='0.0.0.0',port=os.getenv("API_PORT", "8080"))
 
 
