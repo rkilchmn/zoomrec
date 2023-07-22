@@ -4,14 +4,31 @@ import signal
 import subprocess
 import atexit
 import yaml
-from zoomrec_server_app import app
-from datetime import datetime, timedelta
+from datetime import datetime
+
+from gunicorn.app.wsgiapp import WSGIApplication
+
+class StandaloneApplication(WSGIApplication):
+    def __init__(self, app_uri, options=None):
+        self.options = options or {}
+        self.app_uri = app_uri
+        self.load_config_from_module_name_or_filename
+        super().__init__()
+
+    def load_config(self):
+        config = {
+            key: value
+            for key, value in self.options.items()
+            if key in self.cfg.settings and value is not None
+        }
+        for key, value in config.items():
+            self.cfg.set(key.lower(), value)
+
 
 # Get vars
 BASE_PATH = os.getenv('HOME')
 CSV_PATH = os.path.join(BASE_PATH, "meetings.csv")
 EMAIL_TYPE_PATH = os.path.join(BASE_PATH, "email_types.yaml")
-GUNICORN_CONF_PATH = os.path.join(BASE_PATH, "gunicorn_conf.py") 
 
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
@@ -21,10 +38,6 @@ IMAP_SERVER = os.getenv('IMAP_SERVER')
 IMAP_PORT = os.getenv('IMAP_PORT')
 EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS')
 EMAIL_PASSWORD  = os.getenv('EMAIL_PASSWORD')
-
-# Load configuration from YAML file
-with open( os.path.join(BASE_PATH, 'zoomrec_server.yaml'), "r") as f:
-    config = yaml.safe_load(f)
 
 # Get the current date and time
 now = datetime.now()
@@ -72,13 +85,19 @@ def start_imap_bot():
 
 def start_api_server():
     # Define the Gunicorn command
+
+    # WSGIApplication("%(prog)s -c gunicorn_conf.py zoomrec_server_app:app").run()
+
+    #StandaloneApplication("zoomrec_server_app:app").run()
+
     gunicorn_command = [
         'gunicorn',
         '-c',
-        GUNICORN_CONF_PATH # gunicorn config
+        'gunicorn_conf.py',  # gunicorn config
+        'zoomrec_server_app:app'
     ]
 
-    # Start Gunicorn using the subprocess module
+    # # Start Gunicorn using the subprocess module
     subprocess.call(gunicorn_command)
 
     # start API (debug mode)

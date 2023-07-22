@@ -1,0 +1,4 @@
+ROUTE_EVENT: "/event"
+ROUTE_EVENT_NEXT: "/event/next"
+ROUTE_FIRMWARE: "/firmware"
+ROUTE_FIRMWARE_SUBDIR: firmware_pcswitch

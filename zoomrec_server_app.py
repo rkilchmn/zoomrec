@@ -14,7 +14,7 @@ BASE_PATH = os.getenv('HOME')
 CSV_PATH = os.path.join(BASE_PATH, "meetings.csv")
 
 # Load configuration from YAML file
-with open( os.path.join(BASE_PATH, 'zoomrec_server.yaml'), "r") as f:
+with open( 'zoomrec_server.yaml', "r") as f:
     config = yaml.safe_load(f)
 
 FIRMWARE_PATH = os.path.join(BASE_PATH, config['ROUTE_FIRMWARE_SUBDIR'])
