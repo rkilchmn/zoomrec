@@ -20,8 +20,8 @@ with open( 'zoomrec_server.yaml', "r") as f:
 FIRMWARE_PATH = os.path.join(BASE_PATH, os.getenv('FIRMWARE_SUBDIR'))
 
 # Configure basic authentication
-app.config['BASIC_AUTH_USERNAME'] = os.getenv('API_USERNAME')
-app.config['BASIC_AUTH_PASSWORD'] = os.getenv('API_PASSWORD')
+app.config['BASIC_AUTH_USERNAME'] = os.getenv('SERVER_USERNAME')
+app.config['BASIC_AUTH_PASSWORD'] = os.getenv('SERVER_PASSWORD')
 basic_auth = BasicAuth(app)
 
 # curl -u myuser:mypassword "http://localhost:8080/event?last_change=2023-05-10T12:00:00"
@@ -93,6 +93,6 @@ def get_firmware():
         return '', 304  # Not Modified
     
 if __name__ == '__main__':
-    app.run(debug=True,host='0.0.0.0',port=os.getenv("API_PORT", "8080"))
+    app.run(debug=True,host='0.0.0.0',port=os.getenv("DOCKER_API_PORT", "8080"))
 
 

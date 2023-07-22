@@ -1,7 +1,7 @@
 import os
 
 #wsgi_app = 'zoomrec_server_app:app'
-bind = '0.0.0.0' +  ':' + os.getenv("API_PORT", "8080")
+bind = '0.0.0.0' +  ':' + os.getenv("DOCKER_API_PORT", "8080")
 worker_class = 'sync'
 loglevel = 'debug'
 LOG_DIR = os.path.join(os.getenv('HOME'), os.getenv('LOG_SUBDIR'))

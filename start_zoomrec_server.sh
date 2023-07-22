@@ -10,7 +10,7 @@ fi
 source $1
 
 # environment variables used inside docker
-API_PORT=8080
+DOCKER_API_PORT=8080
 LOG_SUBDIR=logs
 FIRMWARE_SUBDIR=firmware
 
@@ -18,7 +18,9 @@ docker stop zoomrec_server
 docker rm $(docker ps -a -q -f status=exited)
 
 docker run -d --restart unless-stopped --name zoomrec_server \
-    -e API_PORT=$API_PORT \
+    -e DOCKER_API_PORT=$DOCKER_API_PORT \
+    -e SERVER_USERNAME=$SERVER_USERNAME \
+    -e SERVER_PASSWORD=$SERVER_PASSWORD \
     -e LOG_SUBDIR=$LOG_SUBDIR \
     -e FIRMWARE_SUBDIR=$FIRMWARE_SUBDIR \
     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
@@ -32,5 +34,5 @@ docker run -d --restart unless-stopped --name zoomrec_server \
     -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
     -v $ZOOMREC_HOME/$LOG_SUBDIR:/home/zoomrec/$LOG_SUBDIR \
     -v $ZOOMREC_HOME/$FIRMWARE_SUBDIR:/home/zoomrec/$FIRMWARE_SUBDIR \
-    -p 8080:$API_PORT  \
+    -p 8080:$DOCKER_API_PORT \
     rkilchmn/zoomrec_server:latest

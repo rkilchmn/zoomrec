@@ -4,9 +4,9 @@ FROM python:3.8.10-slim
 # Set an environment variable 
 ENV HOME=/home/zoomrec \
     TZ=Europe/Berlin \
-    API_PORT=8080 \
-    API_USERNAME="myuser" \
-	API_PASSWORD="mypassword"
+    DOCKER_API_PORT=8080 \
+    SERVER_USERNAME="myuser" \
+	SERVER_PASSWORD="mypassword"
 
 # Set the working directory in the container
 WORKDIR ${HOME}
