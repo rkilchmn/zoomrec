@@ -6,25 +6,6 @@ import atexit
 import yaml
 from datetime import datetime
 
-from gunicorn.app.wsgiapp import WSGIApplication
-
-class StandaloneApplication(WSGIApplication):
-    def __init__(self, app_uri, options=None):
-        self.options = options or {}
-        self.app_uri = app_uri
-        self.load_config_from_module_name_or_filename
-        super().__init__()
-
-    def load_config(self):
-        config = {
-            key: value
-            for key, value in self.options.items()
-            if key in self.cfg.settings and value is not None
-        }
-        for key, value in config.items():
-            self.cfg.set(key.lower(), value)
-
-
 # Get vars
 BASE_PATH = os.getenv('HOME')
 CSV_PATH = os.path.join(BASE_PATH, "meetings.csv")
@@ -46,7 +27,8 @@ now = datetime.now()
 timestamp = now.strftime('%Y-%m-%d_%H-%M-%S')
 
 # Create the log file name with the timestamp
-log_file = os.path.join(BASE_PATH, "{}.log".format(timestamp))
+LOG_DIR = os.path.join(BASE_PATH, os.getenv('LOG_SUBDIR'))
+log_file = os.path.join(LOG_DIR, "{}.log".format(timestamp))
 
 # Configure the logging
 logging.basicConfig(filename=log_file, format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
@@ -84,12 +66,7 @@ def start_imap_bot():
     logging.info("IMAP email bot started!")
 
 def start_api_server():
-    # Define the Gunicorn command
-
-    # WSGIApplication("%(prog)s -c gunicorn_conf.py zoomrec_server_app:app").run()
-
-    #StandaloneApplication("zoomrec_server_app:app").run()
-
+    # Define the Gunicorn command   
     gunicorn_command = [
         'gunicorn',
         '-c',
@@ -97,11 +74,8 @@ def start_api_server():
         'zoomrec_server_app:app'
     ]
 
-    # # Start Gunicorn using the subprocess module
+    # Start Gunicorn using the subprocess module
     subprocess.call(gunicorn_command)
-
-    # start API (debug mode)
-    # app.run(debug=True,host='0.0.0.0',port=8080)
 
 def main():
 

@@ -17,7 +17,7 @@ CSV_PATH = os.path.join(BASE_PATH, "meetings.csv")
 with open( 'zoomrec_server.yaml', "r") as f:
     config = yaml.safe_load(f)
 
-FIRMWARE_PATH = os.path.join(BASE_PATH, config['ROUTE_FIRMWARE_SUBDIR'])
+FIRMWARE_PATH = os.path.join(BASE_PATH, os.getenv('FIRMWARE_SUBDIR'))
 
 # Configure basic authentication
 app.config['BASIC_AUTH_USERNAME'] = os.getenv('API_USERNAME')
@@ -71,7 +71,7 @@ def parse_version(version_string):
         raise ValueError('Invalid version string')
     return filename, timestamp
 
-# curl -H "x-ESP8266-version: ESP6266_Template.ino-May  7 2023-15:26:18" http://localhost:8080/firmware
+# curl -H "x-ESP8266-version: ESP8266_Template.ino-May  7 2023-15:26:18" -u myuser:mypassword --output firmware.ino.bin http://localhost:8080/firmware
 @app.route(config['ROUTE_FIRMWARE'], methods=['GET'])
 @basic_auth.required
 def get_firmware():

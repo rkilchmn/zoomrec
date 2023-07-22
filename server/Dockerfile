@@ -18,12 +18,14 @@ COPY server/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application files to the container
-COPY zoomrec_server.py . \
-    zoomrec_server_app.py . \
-    gunicorn_conf.py . \
-    telegram_bot.py . \
-    imap_bot.py . \
-    events.py .
+COPY zoomrec_server.py ${HOME}/ 
+COPY zoomrec_server_app.py ${HOME}/
+COPY gunicorn_conf.py ${HOME}/
+COPY telegram_bot.py ${HOME}/
+COPY imap_bot.py ${HOME}/
+COPY events.py ${HOME}/
+COPY zoomrec_server.yaml ${HOME}/
+
 
 # Expose the specified port
 EXPOSE $API_PORT

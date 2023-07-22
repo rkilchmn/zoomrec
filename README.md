@@ -7,7 +7,7 @@
 </h4>
 
 <li>FFmpeg enoding paramters moved to environment var: FFMPEG_ENCODE="-acodec pcm_s16le -vcodec libx264rgb -preset ultrafast -crf 0"</li>
-<li>docker logs --tail 50 --follow --timestamps $(sudo docker ps | grep rkilchmn/zoomrec:latest | awk '{print $1}')</li>
+<li>docker logs --tail 50 --follow --timestamps $(sudo docker ps | grep rkilchmn/zoomrec:latest | awk '{print $1}') or docker logs --tail 50 --follow --timestamps rkilchmn/zoomrec</li>
 <h4 align="center">
    Usefull commands
 </h4>
