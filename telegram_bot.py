@@ -25,8 +25,8 @@ PAGE_EVENTS = 10
 USAGE_ADD = "/add <description> <weekday> <time> <duration> <id/url> [required with id: <password>] [optional, default is 'true': <record>]\n" + \
             "example: /add important_meeting tuesday 14:00 60 123456789 secret_passwd true\n"  + \
             "example: /add important_meeting tuesday 14:00 60 https://zoom.us?123...ASE\n"
-USAGE_LIST = "/list [optional <index or part of description>] - list specifc event or alse all\n" + \
-             f"/list page <index> - list a particular page if number of events exceeds {PAGE_EVENTS}\n"
+USAGE_FIND = "/find <index or part of description>] - list matching event\n"
+USAGE_LIST = f"/list [optional: page <index>] - list a particular page if number of events exceeds {PAGE_EVENTS}\n"
 USAGE_MODIFY = "/modify <index or part of description> <attribute name1> <new attribute value1> <attribute name2> <new attribute value2> ..."
 USAGE_DELETE = "/delete <index or part of description>"
 USAGE_INFO = "/info - return some session info such as the chat id"
@@ -35,24 +35,47 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Sends explanation on how to use the bot."""
     await update.message.reply_text("Hi! Use /add to add a new event, /list to list events, /modify to modify an event, and /delete to delete an event. Use /help for further information.")
 
+async def find_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    global CSV_PATH
+    args = context.args
+    if len(args) != 1:
+        await update.message.reply_text("Usage: " + USAGE_FIND)
+        return
+    events = read_events_from_csv( CSV_PATH)
+
+    target_index = ''
+    if len(args) == 1:
+        try:
+            target_index = find_event(context.args[0], events)
+        except ValueError as error:
+            await update.message.reply_text( error.args[0])
+            return
+
+    output = "List of events:\n"
+    for i, event in enumerate(events):
+        i += 1
+        if target_index:
+            if i != target_index+1:
+                continue
+            
+        output += f"Event {i}\n"
+        output += f"  description : {event['description']}\n"
+        for attribute_name, attribute_value in event.items():
+            if attribute_name == 'description':
+                continue
+            output += f"  {attribute_name} : {attribute_value}\n"
+    await update.message.reply_text(output)
+
 async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global CSV_PATH
     args = context.args
-    if len(args) > 2:
+    if len(args) == 1 or len(args) > 2:
         await update.message.reply_text("Usage: " + USAGE_LIST)
         return
 
     events = read_events_from_csv(CSV_PATH)
     total_events = len(events)
-
-    target_index = ''
     current_page = 1
-    if len(args) == 1:
-        try:
-            target_index = find_event(context.args[0], events)
-        except ValueError as error:
-            await update.message.reply_text(error.args[0])
-            return
         
     if len(args) == 2:
         # Get the current page number from the user's input (default to 1 if not provided or invalid)
@@ -74,7 +97,7 @@ async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if not events_to_display:
         await update.message.reply_text("No events found for the specified page.")
 
-    output = f"List of events (Page {current_page}/{(total_events-1)//PAGE_EVENTS + 1}):\n"
+    output = f"List of {total_events} event(s) (Page {current_page}/{(total_events-1)//PAGE_EVENTS + 1}):\n"
     for i, event in enumerate(events_to_display, start=start_index):
         i += 1
         output += f"Event {i}\n"
@@ -196,6 +219,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     response = "Use these commands to manage events:\n"
     response += USAGE_ADD + "\n"
     response += USAGE_LIST + "\n"
+    response += USAGE_FIND + "\n"
     response += USAGE_MODIFY + "\n"
     response += USAGE_DELETE + "\n"
     response += USAGE_INFO + "\n"
@@ -229,6 +253,7 @@ def start_bot( csv_path, telegram_token) -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("add", add_event))
     application.add_handler(CommandHandler("list", list_events))
+    application.add_handler(CommandHandler("find", find_events))
     application.add_handler(CommandHandler("modify", modify_event))
     application.add_handler(CommandHandler("delete", delete_event))
     application.add_handler(CommandHandler("help", help_command))
