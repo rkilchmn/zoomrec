@@ -18,11 +18,15 @@ from events import read_events_from_csv, write_events_to_csv, validate_event, fi
 global CSV_PATH
 global TELEGRAM_TOKEN
 
+# Define the number of events per page
+PAGE_EVENTS = 10
+
 
 USAGE_ADD = "/add <description> <weekday> <time> <duration> <id/url> [required with id: <password>] [optional, default is 'true': <record>]\n" + \
             "example: /add important_meeting tuesday 14:00 60 123456789 secret_passwd true\n"  + \
             "example: /add important_meeting tuesday 14:00 60 https://zoom.us?123...ASE\n"
-USAGE_LIST = "/list [optional <index or part of description>} - list specifc event or alse all"
+USAGE_LIST = "/list [optional <index or part of description>] - list specifc event or alse all\n" + \
+             f"/list page <index> - list a particular page if number of events exceeds {PAGE_EVENTS}\n"
 USAGE_MODIFY = "/modify <index or part of description> <attribute name1> <new attribute value1> <attribute name2> <new attribute value2> ..."
 USAGE_DELETE = "/delete <index or part of description>"
 USAGE_INFO = "/info - return some session info such as the chat id"
@@ -34,33 +38,54 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global CSV_PATH
     args = context.args
-    if len(args) > 1:
+    if len(args) > 2:
         await update.message.reply_text("Usage: " + USAGE_LIST)
         return
-    events = read_events_from_csv( CSV_PATH)
+
+    events = read_events_from_csv(CSV_PATH)
+    total_events = len(events)
 
     target_index = ''
+    current_page = 1
     if len(args) == 1:
         try:
             target_index = find_event(context.args[0], events)
         except ValueError as error:
-            await update.message.reply_text( error.args[0])
+            await update.message.reply_text(error.args[0])
+            return
+        
+    if len(args) == 2:
+        # Get the current page number from the user's input (default to 1 if not provided or invalid)
+        if args[0].lower() == "page":
+            try:
+                current_page = int(args[1])
+            except ValueError:
+                await update.message.reply_text("Invalid page number. Please enter a valid page number: /list page <number>.")
+                return
+        else:
+            await update.message.reply_text("Usage: " + USAGE_LIST)
             return
 
-    output = "List of events:\n"
-    for i, event in enumerate(events):
+    start_index = (current_page - 1) * PAGE_EVENTS
+    end_index = min(start_index + PAGE_EVENTS, total_events)
+    events_to_display = events[start_index:end_index]
+
+    # If there are no events to display for the specified page, send a message accordingly
+    if not events_to_display:
+        await update.message.reply_text("No events found for the specified page.")
+
+    output = f"List of events (Page {current_page}/{(total_events-1)//PAGE_EVENTS + 1}):\n"
+    for i, event in enumerate(events_to_display, start=start_index):
         i += 1
-        if target_index:
-            if i != target_index+1:
-                continue
-            
         output += f"Event {i}\n"
         output += f"  description : {event['description']}\n"
         for attribute_name, attribute_value in event.items():
             if attribute_name == 'description':
                 continue
             output += f"  {attribute_name} : {attribute_value}\n"
+
     await update.message.reply_text(output)
+
 
 async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global CSV_PATH
