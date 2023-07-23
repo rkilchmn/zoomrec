@@ -7,7 +7,7 @@ from events import write_events_to_csv
 from requests.exceptions import ConnectionError
 import base64
 
-def start_client(CSV_PATH, BASE_URL, USERNAME, PASSWORD):
+def start_client(CSV_PATH, SERVER_URL, USERNAME, PASSWORD):
     interval_seconds = 60  # Adjust this value to your desired interval in seconds
     while True:
         try:
@@ -17,7 +17,7 @@ def start_client(CSV_PATH, BASE_URL, USERNAME, PASSWORD):
                 params = {'last_change': last_change}
             else:
                 params = {}
-            response = requests.get(f"{BASE_URL}/event", params, headers = {'Content-Type': 'application/json'}, 
+            response = requests.get(f"{SERVER_URL}/event", params, headers = {'Content-Type': 'application/json'}, 
                                     auth=(USERNAME, PASSWORD))
             if response.status_code == 200:
                 events = response.json()
@@ -37,4 +37,4 @@ def start_client(CSV_PATH, BASE_URL, USERNAME, PASSWORD):
                 print( error.args[0], flush=True)
 
 if __name__ == "__main__":
-    start_client( CSV_PATH = sys.argv[1], BASE_URL = sys.argv[2], USERNAME = sys.argv[3], PASSWORD = sys.argv[4])
+    start_client( CSV_PATH = sys.argv[1], SERVER_URL = sys.argv[2], USERNAME = sys.argv[3], PASSWORD = sys.argv[4])

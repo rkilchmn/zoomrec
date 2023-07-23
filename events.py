@@ -199,9 +199,9 @@ def validate_event(event):
                 raise ValueError("Invalid URL format.")
             
             # resolve to effective URL address
-            command = ["curl", "-Ls", "-w", "%{url_effective}", "-o", "/dev/null", event['id']]
-            result = subprocess.run(command, capture_output=True, text=True)
-            event['id'] = result.stdout.strip()
+            # command = ["curl", "-Ls", "-w", "%{url_effective}", "-o", "/dev/null", event['id']]
+            # result = subprocess.run(command, capture_output=True, text=True)
+            # event['id'] = result.stdout.strip()
             
         else:    
             if not re.search( r'\d{9,}', event['id']):

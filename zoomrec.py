@@ -44,15 +44,22 @@ DEBUG_PATH = os.path.join(REC_PATH, "screenshots")
 FFMPEG_INPUT_PARAMS = os.getenv('FFMPEG_INPUT_PARAMS')
 FFMPEG_OUTPUT_PARAMS = os.getenv('FFMPEG_OUTPUT_PARAMS')
 
+# telegram / bot
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 TELEGRAM_RETRIES = 5
 
+# enail bot
 EMAIL_TYPE_PATH = os.path.join(BASE_PATH, "email_types.yaml")
 IMAP_SERVER = os.getenv('IMAP_SERVER')
 IMAP_PORT = os.getenv('IMAP_PORT')
 EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS')
 EMAIL_PASSWORD  = os.getenv('EMAIL_PASSWORD')
+
+# client mode (get meetings from server)
+SERVER_USERNAME = os.getenv('SERVER_USERNAME')
+SERVER_PASSWORD = os.getenv('SERVER_PASSWORD')
+SERVER_URL = os.getenv('SERVER_URL')
 
 DISPLAY_NAME = os.getenv('DISPLAY_NAME')
 if DISPLAY_NAME is None or  len(DISPLAY_NAME) < 3:
@@ -1012,6 +1019,22 @@ def start_imap_bot():
     
     logging.info("IMAP email bot started!")
 
+def start_client():
+    if not (SERVER_USERNAME and SERVER_PASSWORD):
+        logging.info("Server credentials details missing. Client not started!")
+        return
+    
+    client_log_file = open(f"{log_file}.client", "w")
+    
+    command = f"python3 zoomrec_client.py {CSV_PATH} {SERVER_URL} {SERVER_USERNAME} {SERVER_PASSWORD}"
+    client = subprocess.Popen(
+        command, stdout=client_log_file, stderr=client_log_file, shell=True, preexec_fn=os.setsid, universal_newlines=True, bufsize=1)
+
+    atexit.register(os.killpg, os.getpgid(
+        client.pid), signal.SIGQUIT)
+    
+    logging.info("Client started!")
+
 def main():
     try:
         if DEBUG and not os.path.exists(DEBUG_PATH):
@@ -1020,9 +1043,13 @@ def main():
         logging.error("Failed to create screenshot folder!")
         raise
 
-    # start bots
-    start_telegram_bot()
-    start_imap_bot()
+    if SERVER_URL:
+        # client mode: server runs bots and has master of meetings that client retrieves from server
+        start_client()
+    else:
+        # standalone mode with local bosts
+        start_telegram_bot()
+        start_imap_bot()
         
     last_timestamp = ''
     while True:
