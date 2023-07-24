@@ -4,6 +4,11 @@ import re
 import validators
 import subprocess
 from datetime import datetime, timedelta
+try:
+    from zoneinfo import ZoneInfo # >= 3.9
+except ImportError:
+    from backports.zoneinfo import ZoneInfo # < 3.9
+
 
 CSV_DELIMITER = ";"
 
@@ -159,8 +164,38 @@ def find_next_event(events, timezone):
                 continue
     return next_event
 
-def validate_event(event):
+def check_past_event(event, timezone):
+    now = datetime.now(timezone)
+    past_event = True
+    for day in expand_days(event["weekday"]):
+        if day in WEEKDAYS: # weekdays are recurring events
+            past_event = False
+        else:
+            try:
+                start_date_str = getDate(day, event['description'])
+                start_datetime = datetime.strptime(start_date_str + ' ' + event['time'], DATE_FORMAT + ' ' + TIME_FORMAT)
+                end_datetime = start_datetime + timedelta(minutes=int(event['duration']))
+                if 'timezone' in event and event['timezone']:
+                    end_datetime.replace(tzinfo=ZoneInfo(event['timezone']))
+                else: # default timezone
+                    end_datetime = end_datetime.astimezone(timezone)
+                # Check if the event has ended
+                if end_datetime < now:
+                    continue
+                else:
+                    past_event = False
+            except ValueError as e:
+                continue
+    return past_event   
 
+def remove_past_events(events, timezone):  
+    filtered_events = []
+    for event in events:
+        if not check_past_event(event, timezone):
+            filtered_events.append( event)       
+    return filtered_events
+
+def validate_event(event):
     if event['description']:
         event['description'] = convert_to_safe_filename(event['description'])
     
@@ -217,6 +252,10 @@ def validate_event(event):
             raise ValueError(f"Invalid record '{event['record']}'. Record must be either 'true' or 'false'")
     else:
         raise ValueError("Missing attribute record.")
+    
+    # validate if in past
+    if check_past_event( event, datetime.now().astimezone().tzinfo):
+        raise ValueError("Event end date/time is in past.")
     
     return event
 

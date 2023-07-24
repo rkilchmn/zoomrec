@@ -13,7 +13,8 @@ if __version_info__ < (20, 0, 0, "alpha", 1):
         f"This example is not compatible with your current PTB version {TG_VER}" )
 from telegram import ForceReply, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
-from events import read_events_from_csv, write_events_to_csv, validate_event, find_event
+from datetime import datetime
+from events import read_events_from_csv, write_events_to_csv, validate_event, find_event, remove_past_events
 
 global CSV_PATH
 global TELEGRAM_TOKEN
@@ -140,6 +141,7 @@ async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     events = read_events_from_csv(CSV_PATH)
+    events = remove_past_events( events, datetime.now().astimezone().tzinfo)
     events.append(event)
     write_events_to_csv(CSV_PATH, events)
     await update.message.reply_text(f"Event with description '{args[0]}' added successfully!")

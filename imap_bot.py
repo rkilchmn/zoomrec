@@ -7,7 +7,7 @@ import yaml
 import html
 from datetime import datetime
 from bs4 import BeautifulSoup
-from events import read_events_from_csv, write_events_to_csv, validate_event, DATE_FORMAT, TIME_FORMAT, RECORD
+from events import read_events_from_csv, write_events_to_csv, validate_event, remove_past_events, DATE_FORMAT, TIME_FORMAT, RECORD
 try:
     from zoneinfo import ZoneInfo # >= 3.9
 except ImportError:
@@ -131,6 +131,7 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                                     print( error.args[0])
 
                                 events = read_events_from_csv(CSV_PATH)
+                                events = remove_past_events( events, datetime.now().astimezone().tzinfo)
                                 events.append(event)
                                 write_events_to_csv(CSV_PATH, events)
                                 eventStr = f"Event {event['description']} {event['weekday']} {event['time']}"
