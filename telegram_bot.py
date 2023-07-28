@@ -23,9 +23,9 @@ global TELEGRAM_TOKEN
 PAGE_EVENTS = 10
 
 
-USAGE_ADD = "/add <description> <weekday> <time> <duration> <id/url> [required with id: <password>] [optional, default is 'true': <record>]\n" + \
-            "example: /add important_meeting tuesday 14:00 60 123456789 secret_passwd true\n"  + \
-            "example: /add important_meeting tuesday 14:00 60 https://zoom.us?123...ASE\n"
+USAGE_ADD = "/add <description> <weekday> <time> <timezone> <duration> <id/url> [required with id: <password>] [optional, default is 'true': <record>]\n" + \
+            "example: /add important_meeting tuesday 14:00 America/New_York 60 123456789 secret_passwd true\n" + \
+            "example: /add new_year_time_square 31/12/2023 23:45 America/New_York 60 https://zoom.us?123...ASE\n"
 USAGE_FIND = "/find <index or part of description>] - list matching event\n"
 USAGE_LIST = f"/list [optional: page <index>] - list a particular page if number of events exceeds {PAGE_EVENTS}\n"
 USAGE_MODIFY = "/modify <index or part of description> <attribute name1> <new attribute value1> <attribute name2> <new attribute value2> ..."
@@ -113,26 +113,29 @@ async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     global CSV_PATH
+
     """Add a new event to the meeting.csv file."""
     args = context.args
-    if len(args) < 5:
+    if len(args) < 6:
         await update.message.reply_text("Usage: " + USAGE_ADD)
         return
 
-    recordArgNo = 6 # last arg is record (unless URL is provided - see following)
+    recordArgNo = 7 # last arg is record (unless URL is provided - see following)
     # Validate id
-    if args[4].startswith("http"):
+    if args[5].startswith("http"):
         password = ""
-        recordArgNo = 5 # password was skipped
+        recordArgNo = 6 # password was skipped
     else:    
-        password = args[5]
+        password = args[6]
 
     if (len(args)-1) == recordArgNo: 
         record = args[recordArgNo]
     else: # omitted as its optional
         record = 'true' # default
 
-    event = {'description': args[0], 'weekday': args[1].lower(), 'time': args[2], 'duration': args[3], 'id': args[4], 'password': password, 'record': record}
+    event = {'description': args[0], 'weekday': args[1].lower(), 'time': args[2], 
+             'timezone': args[3], 'duration': args[4], 'id': args[5], 'password': password, 
+             'record': record, 'user' : "telegram-chatid:{}".format(update.effective_chat.id)}
 
     try:
         event = validate_event( event)
@@ -141,7 +144,7 @@ async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     events = read_events_from_csv(CSV_PATH)
-    events = remove_past_events( events, datetime.now().astimezone().tzinfo)
+    events = remove_past_events( events)
     events.append(event)
     write_events_to_csv(CSV_PATH, events)
     await update.message.reply_text(f"Event with description '{args[0]}' added successfully!")

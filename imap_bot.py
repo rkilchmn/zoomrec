@@ -112,15 +112,16 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                                 # add local timezone of event
                                 date_local = date.replace(tzinfo=ZoneInfo(content['timezone']))
                                 # convert to system timezone
-                                date_system = date_local.astimezone(datetime.now().astimezone().tzinfo)
+                                # date_system = date_local.astimezone(datetime.now().astimezone().tzinfo)
                                 # list of dates
                                 if dates:
                                     dates = dates + ","
-                                dates = dates + date_system.strftime(DATE_FORMAT)
+                                dates = dates + date_local.strftime(DATE_FORMAT)
                             if dates:    
                                 event = {'description': content['description'].strip().replace(" ", "_"),
                                         'weekday': dates,
-                                        'time': date_system.strftime(TIME_FORMAT), 
+                                        'timezone': content['timezone'],
+                                        'time': date_local.strftime(TIME_FORMAT), 
                                         'duration': content['duration'], 
                                         'id': content['url'], 
                                         'password': content['password'],
@@ -131,7 +132,7 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                                     print( error.args[0])
 
                                 events = read_events_from_csv(CSV_PATH)
-                                events = remove_past_events( events, datetime.now().astimezone().tzinfo)
+                                events = remove_past_events( events)
                                 events.append(event)
                                 write_events_to_csv(CSV_PATH, events)
                                 eventStr = f"Event {event['description']} {event['weekday']} {event['time']}"

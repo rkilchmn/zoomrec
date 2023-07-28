@@ -16,7 +16,9 @@ DATE_FORMAT = '%d/%m/%Y'
 TIME_FORMAT = '%H:%M'
 RECORD = 'true'
 
+
 WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+FIELDNAMES =['weekday', 'time', 'duration', 'id', 'password', 'description', 'record','timezone', 'user']
 
 def getWeekday(weekday, description):
     if weekday in WEEKDAYS:
@@ -142,7 +144,7 @@ def read_events_from_csv(file_name):
 def write_events_to_csv(file_name, events):
     global CSV_DELIMITER
     with open(file_name, 'w', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=['weekday', 'time', 'duration', 'id', 'password', 'description', 'record'], delimiter=CSV_DELIMITER)
+        writer = csv.DictWriter(file, FIELDNAMES, delimiter=CSV_DELIMITER)
         writer.writeheader()
         for event in events:
             writer.writerow(event)
@@ -164,8 +166,8 @@ def find_next_event(events, timezone):
                 continue
     return next_event
 
-def check_past_event(event, timezone):
-    now = datetime.now(timezone)
+def check_past_event(event):
+    now = datetime.now(ZoneInfo(event['timezone']))
     past_event = True
     for day in expand_days(event["weekday"]):
         if day in WEEKDAYS: # weekdays are recurring events
@@ -175,10 +177,7 @@ def check_past_event(event, timezone):
                 start_date_str = getDate(day, event['description'])
                 start_datetime = datetime.strptime(start_date_str + ' ' + event['time'], DATE_FORMAT + ' ' + TIME_FORMAT)
                 end_datetime = start_datetime + timedelta(minutes=int(event['duration']))
-                if 'timezone' in event and event['timezone']:
-                    end_datetime.replace(tzinfo=ZoneInfo(event['timezone']))
-                else: # default timezone
-                    end_datetime = end_datetime.astimezone(timezone)
+                end_datetime = end_datetime.replace(tzinfo=ZoneInfo(event['timezone']))
                 # Check if the event has ended
                 if end_datetime < now:
                     continue
@@ -188,10 +187,10 @@ def check_past_event(event, timezone):
                 continue
     return past_event   
 
-def remove_past_events(events, timezone):  
+def remove_past_events(events):  
     filtered_events = []
     for event in events:
-        if not check_past_event(event, timezone):
+        if not check_past_event(event):
             filtered_events.append( event)       
     return filtered_events
 
@@ -215,7 +214,16 @@ def validate_event(event):
             raise ValueError(f"Invalid time format '{event['time']}'. Use HH:MM format.")
     else:
         raise ValueError("Missing attribute time.")
-
+    
+    if event['timezone']:
+        # Validate timezone
+        try:
+           ZoneInfo(event['timezone'])
+        except ValueError:
+            raise ValueError(f"Invalid timezone'{event['timezone']}'. Use values such as 'America/New_York'.")
+    else:
+        raise ValueError("Missing attribute timezone.")
+    
     if event['duration']:
     # Validate duration
         try:
@@ -254,7 +262,7 @@ def validate_event(event):
         raise ValueError("Missing attribute record.")
     
     # validate if in past
-    if check_past_event( event, datetime.now().astimezone().tzinfo):
+    if check_past_event( event):
         raise ValueError("Event end date/time is in past.")
     
     return event
