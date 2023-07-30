@@ -120,17 +120,17 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                             if dates:    
                                 event = {'description': content['description'].strip().replace(" ", "_"),
                                         'weekday': dates,
-                                        'timezone': content['timezone'],
                                         'time': date_local.strftime(TIME_FORMAT), 
                                         'duration': content['duration'], 
                                         'id': content['url'], 
                                         'password': content['password'],
-                                        'record': RECORD}
-                                try:
-                                    event = validate_event( event)
-                                except ValueError as error:
-                                    print( error.args[0])
+                                        'record': RECORD,
+                                        'timezone': content['timezone'],
+                                        'user' : type['user']
+                                }
 
+                                event = validate_event( event)
+                    
                                 events = read_events_from_csv(CSV_PATH)
                                 events = remove_past_events( events)
                                 events.append(event)

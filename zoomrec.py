@@ -13,16 +13,17 @@ import datetime
 import atexit
 import requests
 from datetime import datetime, timedelta
-from telegram_bot import start_bot
-from events import getWeekday, expand_days, WEEKDAYS, DATE_FORMAT
+from events import now_system_datetime, remove_past_events, expand_days, read_events_from_csv, get_next_event_local_start_datetime, convert_to_system_datetime, get_telegramchatid, WEEKDAYS, DATE_FORMAT
 
 global ONGOING_MEETING
 global VIDEO_PANEL_HIDED
 global TELEGRAM_BOT_TOKEN
 global TELEGRAM_RETRIES
-global TELEGRAM_CHAT_ID
 
 UC_CONNECTED_NOPOPUPS = 1
+
+LEAD_TIME_SEC = 60 # start meeting x secs before official start date
+TRAIL_TIME_SEC = 300 # end meeting x secs after official end date
 
 # Turn DEBUG on:
 #   - screenshot on error
@@ -46,7 +47,6 @@ FFMPEG_OUTPUT_PARAMS = os.getenv('FFMPEG_OUTPUT_PARAMS')
 
 # telegram / bot
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 TELEGRAM_RETRIES = 5
 
 # enail bot
@@ -223,24 +223,23 @@ class HideViewOptionsThread:
 
             time.sleep(self.interval)
 
-def send_telegram_message(text):
+def send_telegram_message(chat_id, text):
     global TELEGRAM_BOT_TOKEN
-    global TELEGRAM_CHAT_ID
     global TELEGRAM_RETRIES
 	
     if TELEGRAM_BOT_TOKEN is None:
         logging.error("Telegram token is missing. No Telegram messages will be send!")
         return
     
-    if TELEGRAM_CHAT_ID is None:
+    if chat_id is None:
         logging.error("Telegram chat_id is missing. No Telegram messages will be send!")
         return
         
-    if len(TELEGRAM_BOT_TOKEN) < 3 or len(TELEGRAM_CHAT_ID) < 3:
+    if len(TELEGRAM_BOT_TOKEN) < 3 or len(chat_id) < 3:
         logging.error("Telegram token or chat_id missing. No Telegram messages will be send!")
         return
 
-    url_req = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage" + "?chat_id=" + TELEGRAM_CHAT_ID + "&text=" + text 
+    url_req = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage" + "?chat_id=" + chat_id + "&text=" + text 
     tries = 0
     done = False
     while not done:
@@ -458,7 +457,7 @@ def mute(description):
         return False
 
 
-def join(meet_id, meet_pw, duration, description):
+def join(meet_id, meet_pw, duration, user, description):
     global VIDEO_PANEL_HIDED
     ffmpeg_debug = None
 
@@ -536,7 +535,7 @@ def join(meet_id, meet_pw, duration, description):
             joined = join_meeting_url()
 
     if not joined:
-        send_telegram_message("Failed to join meeting {}!".format(description))
+        send_telegram_message( get_telegramchatid(user), "Failed to join meeting {}!".format(description))
         logging.error("Failed to join meeting!")
         os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
         if DEBUG and ffmpeg_debug is not None:
@@ -843,13 +842,13 @@ def join(meet_id, meet_pw, duration, description):
         ffmpeg.pid), signal.SIGQUIT)
 
     start_date = datetime.now()
-    end_date = start_date + timedelta(seconds=duration + 300)  # Add 5 minutes
+    end_date = start_date + timedelta(seconds=duration + TRAIL_TIME_SEC)  # Add 5 minutes
 
     # Start thread to check active screensharing
     HideViewOptionsThread(description)
     
     # Send Telegram Notification
-    send_telegram_message("Joined Meeting '{}' and started recording.".format(description))
+    send_telegram_message( get_telegramchatid(user),"Joined Meeting '{}' and started recording.".format(description))
     
     meeting_running = True
     while meeting_running:
@@ -882,7 +881,7 @@ def join(meet_id, meet_pw, duration, description):
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                     TIME_FORMAT) + "-" + description) + "_ok_error.png")
                 
-    send_telegram_message("Meeting '{}' ended.".format(description))
+    send_telegram_message( get_telegramchatid(user),"Meeting '{}' ended.".format(description))
 
 def play_audio(description):
     # Get all files in audio directory
@@ -922,70 +921,56 @@ def exit_process_by_name(name):
 
 
 def join_ongoing_meeting():
-    with open(CSV_PATH, mode='r') as csv_file:
-        csv_reader = csv.DictReader(csv_file, delimiter=CSV_DELIMITER)
-        for row in csv_reader:
-            # Check and join ongoing meeting
-            curr_date = datetime.now()
+    current_datetime = now_system_datetime()
 
-            for day in expand_days(row["weekday"]):
-                try:
-                    weekday = getWeekday(day, row["description"])
-                    if weekday:
-                        # Monday, tuesday, ..
-                        if weekday.lower() == curr_date.strftime('%A').lower():
-                            curr_time = curr_date.time()
+    events = read_events_from_csv(CSV_PATH)
+    events = remove_past_events( events)
+    for event in events:
+        # Check and join ongoing meeting
+        for day in expand_days(event["weekday"]):
+            try:
+                start_datetime_local = get_next_event_local_start_datetime( day, event)
+                start_datetime = convert_to_system_datetime(start_datetime_local)
 
-                            start_time_csv = datetime.strptime(row["time"], '%H:%M')
-                            start_date = curr_date.replace(
-                                hour=start_time_csv.hour, minute=start_time_csv.minute)
-                            start_time = start_date.time()
+                end_datetime = start_datetime + \
+                    timedelta(seconds=int(event["duration"]) * 60 + TRAIL_TIME_SEC)  # Add x secconds
 
-                            end_date = start_date + \
-                                timedelta(seconds=int(row["duration"]) * 60 + 300)  # Add 5 minutes
-                            end_time = end_date.time()
-
-                            recent_duration = (end_date - curr_date).total_seconds()
-
-                            if start_time < end_time:
-                                if start_time <= curr_time <= end_time and str(row["record"]) == 'true':
-                                    logging.info(
-                                        "Join meeting that is currently running..")
-                                    join(meet_id=row["id"], meet_pw=row["password"],
-                                         duration=recent_duration, description=row["description"])
-                            else:  # crosses midnight
-                                if curr_time >= start_time or curr_time <= end_time and str(row["record"]) == 'true':
-                                    logging.info(
-                                        "Join meeting that is currently running..")
-                                    join(meet_id=row["id"], meet_pw=row["password"],
-                                         duration=recent_duration, description=row["description"])
-                except ValueError as e:
-                    logging.error(str(e))
+                if start_datetime <= current_datetime <= end_datetime and str(event["record"]) == 'true':
+                    recent_duration = (end_datetime - current_datetime).total_seconds()
+                    logging.info("Join meeting that is currently running..")
+                    join(meet_id=event["id"], meet_pw=event["password"],
+                            duration=recent_duration, user=event["id"] ,description=event["description"])
+            except ValueError as e:
+                logging.error(str(e))
 
 def setup_schedule():
     schedule.clear()
-    with open(CSV_PATH, mode='r') as csv_file:
-        csv_reader = csv.DictReader(csv_file, delimiter=CSV_DELIMITER)
-        line_count = 0
-        for row in csv_reader:
-            if str(row["record"]) == 'true':
-                # expand date/weekday ranges and lists
-                for day in expand_days( row["weekday"]):
-                    try:
-                        weekday = getWeekday(day, row["description"])
-                        cmd_string = "schedule.every()." + weekday \
-                                    + ".at(\"" \
-                                    + (datetime.strptime(row["time"], '%H:%M') - timedelta(minutes=1)).strftime('%H:%M') \
-                                    + "\").do(join, meet_id=\"" + row["id"] \
-                                    + "\", meet_pw=\"" + row["password"] \
-                                    + "\", duration=" + str(int(row["duration"]) * 60) \
-                                    + ", description=\"" + row["description"] + "\")"
-                        cmd = compile(cmd_string, "<string>", "eval")
-                        eval(cmd)
-                        line_count += 1
-                    except ValueError as e:
-                        logging.error(str(e))
-        logging.info("Added %s meetings to schedule." % line_count)
+    events = read_events_from_csv(CSV_PATH)
+    events = remove_past_events( events)
+    line_count = 0
+    for event in events:
+        if str(event["record"]) == 'true':
+            # expand date/weekday ranges and lists
+            for day in expand_days( event["weekday"]):
+                try:
+                    start_datetime_local = get_next_event_local_start_datetime( day, event)
+                    start_datetime = convert_to_system_datetime(start_datetime_local)
+                    weekday = start_datetime.strftime("%A").lower() 
+
+                    cmd_string = "schedule.every()." + weekday \
+                                + ".at(\"" \
+                                + (start_datetime - timedelta(seconds=LEAD_TIME_SEC)).strftime('%H:%M') \
+                                + "\").do(join, meet_id=\"" + event["id"] \
+                                + "\", meet_pw=\"" + event["password"] \
+                                + "\", duration=" + str(int(event["duration"]) * 60) \
+                                + ", user=\"" + event["user"]  \
+                                + "\", description=\"" + event["description"] + "\")"
+                    cmd = compile(cmd_string, "<string>", "eval")
+                    eval(cmd)
+                    line_count += 1
+                except ValueError as e:
+                    logging.error(str(e))
+    logging.info("Added %s meetings to schedule." % line_count)
 
 def start_telegram_bot():
     if not TELEGRAM_BOT_TOKEN:

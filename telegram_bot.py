@@ -14,7 +14,7 @@ if __version_info__ < (20, 0, 0, "alpha", 1):
 from telegram import ForceReply, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from datetime import datetime
-from events import read_events_from_csv, write_events_to_csv, validate_event, find_event, remove_past_events
+from events import read_events_from_csv, write_events_to_csv, validate_event, find_event, remove_past_events,set_telegramchatid
 
 global CSV_PATH
 global TELEGRAM_TOKEN
@@ -135,7 +135,7 @@ async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     event = {'description': args[0], 'weekday': args[1].lower(), 'time': args[2], 
              'timezone': args[3], 'duration': args[4], 'id': args[5], 'password': password, 
-             'record': record, 'user' : "telegram-chatid:{}".format(update.effective_chat.id)}
+             'record': record, 'user' : set_telegramchatid( update.effective_chat.id)}
 
     try:
         event = validate_event( event)

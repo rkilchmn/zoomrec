@@ -2,7 +2,7 @@ import csv
 import time
 import re
 import validators
-import subprocess
+# import subprocess # to run curl
 from datetime import datetime, timedelta
 try:
     from zoneinfo import ZoneInfo # >= 3.9
@@ -20,21 +20,13 @@ RECORD = 'true'
 WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 FIELDNAMES =['weekday', 'time', 'duration', 'id', 'password', 'description', 'record','timezone', 'user']
 
-def getWeekday(weekday, description):
-    if weekday in WEEKDAYS:
-        return weekday  
-    else:
-        # try if weekday is a date
-        try:
-            event_date = datetime.strptime(weekday, DATE_FORMAT)
-            if (datetime.now() - event_date).days >= 1:
-                # date has already passed
-                raise ValueError("Date {} in meeting {} is in the past.".format(weekday, description))
-            else:
-                return event_date.strftime("%A").lower()  # Monday, Tuesday, ...
-        except ValueError:
-            raise ValueError("Invalid date {} in {}.".format(weekday, description))
-        
+def now_system_datetime():
+    current_datetime = datetime.now()
+    current_datetime = current_datetime.astimezone(datetime.now().astimezone().tzinfo) # with system timezone
+
+    return current_datetime
+
+
 def getDate(weekday, description):
     try:
         event_date = datetime.strptime(weekday, DATE_FORMAT)
@@ -155,13 +147,12 @@ def find_next_event(events, timezone):
     for event in events:
         for day in expand_days(event["weekday"]):
             try:   
-                start_date = getDate( day, event['description'])
-                start_datetime = datetime.strptime(start_date + ' ' + event['time'], DATE_FORMAT + ' ' + TIME_FORMAT)                
-                end_datetime = start_datetime + timedelta(minutes=int(event['duration']))
-                if start_datetime > now and (next_event is None or start_datetime < next_event['start']):
+                start_datetime_local = get_next_event_local_start_datetime( day, event)
+                end_datetime_local = start_datetime_local + timedelta(minutes=int(event['duration']))
+                if start_datetime_local > now and (next_event is None or start_datetime_local < next_event['start']):
                     next_event = event
-                    next_event['start'] = start_datetime
-                    next_event['end'] = end_datetime
+                    next_event['start'] = start_datetime_local
+                    next_event['end'] = end_datetime_local
             except ValueError as e:
                 continue
     return next_event
@@ -193,6 +184,17 @@ def remove_past_events(events):
         if not check_past_event(event):
             filtered_events.append( event)       
     return filtered_events
+
+# datetime of event start in the events local timezone
+def get_next_event_local_start_datetime( day, event): 
+    start_date_str = getDate( day, event['description'])
+    start_datetime = datetime.strptime(start_date_str + ' ' + event['time'], DATE_FORMAT + ' ' + TIME_FORMAT)  
+    start_datetime = start_datetime.replace(tzinfo=ZoneInfo(event['timezone']))
+
+    return start_datetime
+
+def convert_to_system_datetime( datetime_local ):
+    return datetime_local.astimezone(datetime.now().astimezone().tzinfo)
 
 def validate_event(event):
     if event['description']:
@@ -286,3 +288,13 @@ def find_event( search_argument, events):
             raise ValueError(f"No event found with description or index '{search_argument}'")
         elif hits == 1:
             return target_index
+        
+def set_telegramchatid( chat_id):
+    return "telegram-chatid={}".format(chat_id)
+        
+def get_telegramchatid( user):
+    entries = user.split(":")
+    for entry in entries:
+        if "telegram-chatid=" in entry:
+            chat_id = entry.split("telegram-chatid=")[1]
+            return chat_id
