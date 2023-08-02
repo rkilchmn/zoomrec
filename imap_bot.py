@@ -111,8 +111,6 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                                     date = date.replace(year=today_local.year, month=today_local.month, day=today_local.day)
                                 # add local timezone of event
                                 date_local = date.replace(tzinfo=ZoneInfo(content['timezone']))
-                                # convert to system timezone
-                                # date_system = date_local.astimezone(datetime.now().astimezone().tzinfo)
                                 # list of dates
                                 if dates:
                                     dates = dates + ","

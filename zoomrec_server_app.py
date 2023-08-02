@@ -5,7 +5,7 @@ from datetime import datetime
 import os.path
 import yaml
 # import sys
-from events import read_events_from_csv, find_next_event
+from events import read_events_from_csv, find_next_event, is_valid_timezone
 # from io import StringIO
 
 app = Flask(__name__)
@@ -29,28 +29,32 @@ basic_auth = BasicAuth(app)
 @basic_auth.required
 def get_event():
     last_change = request.args.get('last_change')
-    file_path = CSV_PATH
-    file_timestamp = datetime.fromtimestamp(os.path.getmtime((file_path)))
+    file_timestamp = datetime.fromtimestamp(os.path.getmtime((CSV_PATH)))
 
     if last_change:
         last_change_timestamp = datetime.fromisoformat((last_change))
         if file_timestamp <= last_change_timestamp:
             return jsonify([])  # Return an empty list if file timestamp is not later than last_change
 
-    events = read_events_from_csv(file_path)
+    events = read_events_from_csv(CSV_PATH)
     return jsonify(events)
 
-# curl -u myuser:mypassword http://localhost:8080/event/next
+# curl -u myuser:mypassword http://localhost:8080/event/next?astimezone=Australia/Sydney
 @app.route(config['ROUTE_EVENT_NEXT'], methods=['GET'])
 @basic_auth.required
 def get_event_next():
-    timezone = request.args.get('TZ')
-    response_data = find_next_event( read_events_from_csv(config['MEETING_CSV_PAT']), timezone)
-    # return timestamp in ISO 8601 format 
-    if not response_data is None:
-        response_data['start'] = response_data['start'].isoformat()
-        response_data['end'] = response_data['end'].isoformat()
-    return jsonify(response_data)
+    astimezone = request.args.get('astimezone')
+    if is_valid_timezone(astimezone):
+        response_data = find_next_event( read_events_from_csv(CSV_PATH), astimezone)
+        # return timestamp in ISO 8601 format 
+        if not response_data is None:
+            response_data['start'] = response_data['start'].isoformat()
+            response_data['end'] = response_data['end'].isoformat()
+            response_data['start_astimezone'] = response_data['start_astimezone'].isoformat()
+            response_data['end_astimezone'] = response_data['end_astimezone'].isoformat()
+        return jsonify(response_data)
+    else:
+        return 'invalid paramter timezone ', 404
 
 def get_file_mtime(file_path):
     mtime = os.path.getmtime(file_path)

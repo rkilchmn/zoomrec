@@ -141,18 +141,27 @@ def write_events_to_csv(file_name, events):
         for event in events:
             writer.writerow(event)
 
-def find_next_event(events, timezone):
-    now = datetime.now(timezone)
+def find_next_event(events, astimezone):
+    now = datetime.now(ZoneInfo(astimezone))
     next_event = None
     for event in events:
         for day in expand_days(event["weekday"]):
-            try:   
+            try:
+                # in local timezone of event   
                 start_datetime_local = get_next_event_local_start_datetime( day, event)
                 end_datetime_local = start_datetime_local + timedelta(minutes=int(event['duration']))
-                if start_datetime_local > now and (next_event is None or start_datetime_local < next_event['start']):
+                # converted to astimezone provided 
+                start_datetime = start_datetime_local.astimezone(ZoneInfo(astimezone))
+                end_datetime = end_datetime_local.astimezone(ZoneInfo(astimezone))
+                # prioriy is given to the meeting ending first - TBD
+                if now < end_datetime and (next_event is None or end_datetime < next_event['end']):
                     next_event = event
                     next_event['start'] = start_datetime_local
                     next_event['end'] = end_datetime_local
+                    next_event['astimezone'] = astimezone
+                    next_event['start_astimezone'] = start_datetime
+                    next_event['end_astimezone'] = end_datetime
+                    
             except ValueError as e:
                 continue
     return next_event
@@ -168,7 +177,7 @@ def check_past_event(event):
                 start_date_str = getDate(day, event['description'])
                 start_datetime = datetime.strptime(start_date_str + ' ' + event['time'], DATE_FORMAT + ' ' + TIME_FORMAT)
                 end_datetime = start_datetime + timedelta(minutes=int(event['duration']))
-                end_datetime = end_datetime.replace(tzinfo=ZoneInfo(event['timezone']))
+                end_datetime = end_datetime.astimezone(ZoneInfo(event['timezone']))
                 # Check if the event has ended
                 if end_datetime < now:
                     continue
@@ -195,6 +204,14 @@ def get_next_event_local_start_datetime( day, event):
 
 def convert_to_system_datetime( datetime_local ):
     return datetime_local.astimezone(datetime.now().astimezone().tzinfo)
+
+def is_valid_timezone(timezone):
+    # Validate timezone
+        try:
+           ZoneInfo(timezone)
+           return True
+        except ValueError:
+            return False
 
 def validate_event(event):
     if event['description']:

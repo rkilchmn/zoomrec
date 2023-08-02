@@ -22,9 +22,6 @@ global TELEGRAM_RETRIES
 
 UC_CONNECTED_NOPOPUPS = 1
 
-LEAD_TIME_SEC = 60 # start meeting x secs before official start date
-TRAIL_TIME_SEC = 300 # end meeting x secs after official end date
-
 # Turn DEBUG on:
 #   - screenshot on error
 #   - record joining
@@ -55,6 +52,9 @@ IMAP_SERVER = os.getenv('IMAP_SERVER')
 IMAP_PORT = os.getenv('IMAP_PORT')
 EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS')
 EMAIL_PASSWORD  = os.getenv('EMAIL_PASSWORD')
+
+LEAD_TIME_SEC = os.getenv('LEAD_TIME_SEC',60) # start meeting x secs before official start date
+TRAIL_TIME_SEC = os.getenv('TRAIL_TIME_SEC',300) # end meeting x secs after official end date
 
 # client mode (get meetings from server)
 SERVER_USERNAME = os.getenv('SERVER_USERNAME')
