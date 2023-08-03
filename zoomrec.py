@@ -53,8 +53,19 @@ IMAP_PORT = os.getenv('IMAP_PORT')
 EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS')
 EMAIL_PASSWORD  = os.getenv('EMAIL_PASSWORD')
 
-LEAD_TIME_SEC = os.getenv('LEAD_TIME_SEC',60) # start meeting x secs before official start date
-TRAIL_TIME_SEC = os.getenv('TRAIL_TIME_SEC',300) # end meeting x secs after official end date
+def getIntEnv( env_str, default_value):
+    int_val = default_value
+    try:
+        val_str = os.getenv(env_str)
+        if val_str:
+            int_val = int(val_str)
+    except ValueError or TypeError:
+        logging.error(f"error converting env {env_str} value {val_str} to integer. Default value {default_value} used.")
+
+    return int_val
+
+LEAD_TIME_SEC = getIntEnv( 'LEAD_TIME_SEC', 60) # start meeting x secs before official start date
+TRAIL_TIME_SEC = getIntEnv( 'TRAIL_TIME_SEC', 300) # end meeting x secs after official end date
 
 # client mode (get meetings from server)
 SERVER_USERNAME = os.getenv('SERVER_USERNAME')
@@ -939,7 +950,7 @@ def join_ongoing_meeting():
                     recent_duration = (end_datetime - current_datetime).total_seconds()
                     logging.info("Join meeting that is currently running..")
                     join(meet_id=event["id"], meet_pw=event["password"],
-                            duration=recent_duration, user=event["id"] ,description=event["description"])
+                            duration=recent_duration, user=event["user"] ,description=event["description"])
             except ValueError as e:
                 logging.error(str(e))
 

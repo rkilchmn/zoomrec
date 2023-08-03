@@ -5,7 +5,7 @@ from datetime import datetime
 import os.path
 import yaml
 # import sys
-from events import read_events_from_csv, find_next_event, is_valid_timezone
+from events import read_events_from_csv, find_next_event, is_valid_timezone, get_telegramchatid
 # from io import StringIO
 
 app = Flask(__name__)
