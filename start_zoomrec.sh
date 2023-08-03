@@ -30,6 +30,11 @@ if [[ "$2" == "AMD" ]]; then
     -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
     -e FFMPEG_OUTPUT_PARAMS="-acodec aac -b:a 128k -vaapi_device /dev/dri/renderD128 -vf 'hwupload,scale_vaapi=format=nv12' -c:v hevc_vaapi -b:v 1M" \
     -e LIBVA_DRIVER_NAME=radeonsi \
+    -e SERVER_USERNAME="$SERVER_USERNAME" \
+    -e SERVER_PASSWORD="$SERVER_PASSWORD" \
+    -e SERVER_URL="$SERVER_URL" \
+    -e LEAD_TIME_SEC="$LEAD_TIME_SEC" \
+    -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
     -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
@@ -61,6 +66,11 @@ elif [[ "$2" == "INTEL" ]]; then
     -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
     -e FFMPEG_ENCODE="-acodec aac -b:a 128k -vaapi_device /dev/dri/renderD128 -vf 'hwupload,scale_vaapi=format=nv12' -c:v h264_vaapi -qp 24" \
     -e LIBVA_DRIVER_NAME=i965 \
+    -e SERVER_USERNAME="$SERVER_USERNAME" \
+    -e SERVER_PASSWORD="$SERVER_PASSWORD" \
+    -e SERVER_URL="$SERVER_URL" \
+    -e LEAD_TIME_SEC="$LEAD_TIME_SEC" \
+    -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
     -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
@@ -88,6 +98,11 @@ elif [[ "$2" == "NVIDIA" ]]; then
     -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
     -e FFMPEG_INPUT_PARAMS="-hwaccel cuvid" \
     -e FFMPEG_OUTPUT_PARAMS="-c:v hevc_nvenc -b:v 1M -gpu 0 -preset slow -acodec aac -b:a 128k" \
+    -e SERVER_USERNAME="$SERVER_USERNAME" \
+    -e SERVER_PASSWORD="$SERVER_PASSWORD" \
+    -e SERVER_URL="$SERVER_URL" \
+    -e LEAD_TIME_SEC="$LEAD_TIME_SEC" \
+    -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
     -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
@@ -111,6 +126,11 @@ else
     -e IMAP_PORT="$IMAP_PORT" \
     -e EMAIL_ADDRESS="$EMAIL_ADDRESS" \
     -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
+    -e SERVER_USERNAME="$SERVER_USERNAME" \
+    -e SERVER_PASSWORD="$SERVER_PASSWORD" \
+    -e SERVER_URL="$SERVER_URL" \
+    -e LEAD_TIME_SEC="$LEAD_TIME_SEC" \
+    -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
     -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
