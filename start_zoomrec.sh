@@ -10,7 +10,7 @@ fi
 source $1
 
 docker stop zoomrec
-docker rm $(docker ps -a -q -f status=exited)
+docker rm $(docker ps -aqf "name=zoomrec")
 
 if [[ "$2" == "AMD" ]]; then
   RENDER_GROUPID=$(getent group render | cut -d':' -f3)

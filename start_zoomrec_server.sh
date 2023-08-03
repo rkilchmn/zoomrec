@@ -15,7 +15,7 @@ LOG_SUBDIR=logs
 FIRMWARE_SUBDIR=firmware
 
 docker stop zoomrec_server
-docker rm $(docker ps -a -q -f status=exited)
+docker rm $(docker ps -aqf "name=zoomrec_server")
 
 docker run -d --restart unless-stopped --name zoomrec_server \
     -e DOCKER_API_PORT=$DOCKER_API_PORT \
