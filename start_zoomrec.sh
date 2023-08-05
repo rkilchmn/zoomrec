@@ -19,7 +19,6 @@ if [[ "$2" == "AMD" ]]; then
   docker run -d --restart unless-stopped --name zoomrec \
     -e DEBUG="$DEBUG" \
     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
-    -e TELEGRAM_CHAT_ID="$TELEGRAM_CHAT_ID" \
     -e TZ="$TZ" \
     -e DISPLAY_NAME="$DISPLAY_NAME" \
     -e SAMBA_USER="$SAMBA_USER" \
@@ -55,7 +54,6 @@ elif [[ "$2" == "INTEL" ]]; then
   docker run -d --restart unless-stopped --name zoomrec \
     -e DEBUG="$DEBUG" \
     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
-    -e TELEGRAM_CHAT_ID="$TELEGRAM_CHAT_ID" \
     -e TZ="$TZ" \
     -e DISPLAY_NAME="$DISPLAY_NAME" \
     -e SAMBA_USER="$SAMBA_USER" \
@@ -87,7 +85,6 @@ elif [[ "$2" == "NVIDIA" ]]; then
   docker run -d --restart unless-stopped --name zoomrec \
     -e DEBUG="$DEBUG" \
     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
-    -e TELEGRAM_CHAT_ID="$TELEGRAM_CHAT_ID" \
     -e TZ="$TZ" \
     -e DISPLAY_NAME="$DISPLAY_NAME" \
     -e SAMBA_USER="$SAMBA_USER" \
@@ -117,7 +114,6 @@ else
   docker run -d --restart unless-stopped --name zoomrec \
     -e DEBUG="$DEBUG" \
     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
-    -e TELEGRAM_CHAT_ID="$TELEGRAM_CHAT_ID" \
     -e TZ="$TZ" \
     -e DISPLAY_NAME="$DISPLAY_NAME" \
     -e SAMBA_USER="$SAMBA_USER" \

@@ -24,7 +24,6 @@ docker run -d --restart unless-stopped --name zoomrec_server \
     -e LOG_SUBDIR=$LOG_SUBDIR \
     -e FIRMWARE_SUBDIR=$FIRMWARE_SUBDIR \
     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
-    -e TELEGRAM_CHAT_ID="$TELEGRAM_CHAT_ID" \
     -e TZ="$TZ" \
     -e IMAP_SERVER="$IMAP_SERVER" \
     -e IMAP_PORT="$IMAP_PORT" \
