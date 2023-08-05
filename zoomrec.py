@@ -692,7 +692,7 @@ def join(meet_id, meet_pw, duration, user, description):
                 os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
                 atexit.unregister(os.killpg)
             time.sleep(2)
-            join(meet_id, meet_pw, duration, description)
+            join(meet_id, meet_pw, duration, user, description)
 
     # 'Say' something if path available (mounted)
     if os.path.exists(AUDIO_PATH):
