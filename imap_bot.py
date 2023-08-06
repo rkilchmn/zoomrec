@@ -5,6 +5,7 @@ import time
 import sys
 import yaml
 import html
+import logging
 from datetime import datetime
 from bs4 import BeautifulSoup
 from events import read_events_from_csv, write_events_to_csv, validate_event, remove_past_events, get_telegramchatid, DATE_FORMAT, TIME_FORMAT, RECORD
@@ -22,7 +23,10 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
     with open( CNFG_PATH, 'r') as file:
         config = yaml.safe_load(file)
 
-    print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Config file {CNFG_PATH} found", flush=True) 
+    # Configure the logging
+    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
+
+    logging.info( f"Config file {CNFG_PATH} found") 
 
     # Loop and evaluate every new message based on the configuration
     while True:
@@ -134,11 +138,14 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                                 events.append(event)
                                 write_events_to_csv(CSV_PATH, events)
                                 eventStr = f"Event {event['description']} {event['weekday']} {event['time']} {event['timezone']}"
-                                print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {eventStr} added", flush=True)
+                                logging.info( f"{eventStr} added")
                                 # try to send telegramm message
                                 chat_id = get_telegramchatid(event['user'])
                                 if chat_id:
-                                    send_telegram_message( TELEGRAM_BOT_TOKEN, chat_id, f"{eventStr} added.")                         
+                                    if send_telegram_message( TELEGRAM_BOT_TOKEN, chat_id, f"Email bot has added {eventStr}."):
+                                        logging.info( "Telegram message successfully sent.")
+                                    else:
+                                        logging.error( "Error sending Telegram message.")
 
                         # Mark the message as read
                         imap.store(msg_id, '+FLAGS', '\\Seen')
