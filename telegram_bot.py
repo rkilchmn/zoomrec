@@ -18,6 +18,7 @@ from events import read_events_from_csv, write_events_to_csv, validate_event, fi
 # for send telegram message
 import time
 import requests
+from urllib.parse import quote
 
 global CSV_PATH
 global TELEGRAM_TOKEN
@@ -244,7 +245,7 @@ async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("Invalid command. Use /help to see a list of available commands.")
 
 def send_telegram_message( bot_token, chat_id, text, retries=5):
-    url_req = "https://api.telegram.org/bot" + bot_token + "/sendMessage" + "?chat_id=" + chat_id + "&text=" + text 
+    url_req = "https://api.telegram.org/bot" + bot_token + "/sendMessage" + "?chat_id=" + chat_id + "&text=" + quote(text)
     tries = 0
     success = False
     while not success:
