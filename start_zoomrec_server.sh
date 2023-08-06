@@ -29,7 +29,7 @@ docker run -d --restart unless-stopped --name zoomrec_server \
     -e IMAP_PORT="$IMAP_PORT" \
     -e EMAIL_ADDRESS="$EMAIL_ADDRESS" \
     -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
-    -v $ZOOMREC_HOME/server.csv:/home/zoomrec/meetings.csv \
+    -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
     -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
     -v $ZOOMREC_HOME/$LOG_SUBDIR:/home/zoomrec/$LOG_SUBDIR \
     -v $ZOOMREC_HOME/$FIRMWARE_SUBDIR:/home/zoomrec/$FIRMWARE_SUBDIR \
