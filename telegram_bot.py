@@ -174,7 +174,7 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         for i in range(1, len(context.args), 2):
             attribute_name = context.args[i]
             new_attribute_value = context.args[i + 1]
-            if attribute_name not in target_event:
+            if attribute_name.lower() not in target_event:
                 await update.message.reply_text(f"Attribute '{attribute_name}' not found in event")
                 return
 
