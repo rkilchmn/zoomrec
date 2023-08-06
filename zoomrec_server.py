@@ -56,7 +56,7 @@ def start_imap_bot():
     
     bot_log_file = open(f"{log_file}.imap_bot", "w")
     
-    command = f"python3 imap_bot.py {CSV_PATH} {EMAIL_TYPE_PATH} {IMAP_SERVER} {IMAP_PORT} {EMAIL_ADDRESS} {EMAIL_PASSWORD}"
+    command = f"python3 imap_bot.py {CSV_PATH} {EMAIL_TYPE_PATH} {IMAP_SERVER} {IMAP_PORT} {EMAIL_ADDRESS} {EMAIL_PASSWORD} {TELEGRAM_BOT_TOKEN}"
     imap_bot = subprocess.Popen(
         command, stdout=bot_log_file, stderr=bot_log_file, shell=True, preexec_fn=os.setsid, universal_newlines=True, bufsize=1)
 

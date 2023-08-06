@@ -11,7 +11,7 @@ import threading
 import time
 import datetime
 import atexit
-import requests
+from telegram_bot import send_telegram_message
 from datetime import datetime, timedelta
 from events import now_system_datetime, remove_past_events, expand_days, read_events_from_csv, get_next_event_local_start_datetime, convert_to_system_datetime, get_telegramchatid, WEEKDAYS, DATE_FORMAT
 
@@ -233,37 +233,6 @@ class HideViewOptionsThread:
                 VIDEO_PANEL_HIDED = False
 
             time.sleep(self.interval)
-
-def send_telegram_message(chat_id, text):
-    global TELEGRAM_BOT_TOKEN
-    global TELEGRAM_RETRIES
-	
-    if TELEGRAM_BOT_TOKEN is None:
-        logging.error("Telegram token is missing. No Telegram messages will be send!")
-        return
-    
-    if chat_id is None:
-        logging.error("Telegram chat_id is missing. No Telegram messages will be send!")
-        return
-        
-    if len(TELEGRAM_BOT_TOKEN) < 3 or len(chat_id) < 3:
-        logging.error("Telegram token or chat_id missing. No Telegram messages will be send!")
-        return
-
-    url_req = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage" + "?chat_id=" + chat_id + "&text=" + text 
-    tries = 0
-    done = False
-    while not done:
-        results = requests.get(url_req)
-        results = results.json()
-        done = 'ok' in results and results['ok']
-        tries+=1
-        if not done and tries < TELEGRAM_RETRIES:
-            logging.error("Sending Telegram message failed, retring in 5 seconds...")
-            time.sleep(5)
-        if not done and tries >= TELEGRAM_RETRIES:
-            logging.error("Sending Telegram message failed {} times, please check your credentials!".format(tries))
-            done = True
        
 def check_connecting(zoom_pid, start_date, duration):
     # Check if connecting
@@ -546,7 +515,7 @@ def join(meet_id, meet_pw, duration, user, description):
             joined = join_meeting_url()
 
     if not joined:
-        send_telegram_message( get_telegramchatid(user), "Failed to join meeting {}!".format(description))
+        send_telegram_message( TELEGRAM_BOT_TOKEN, get_telegramchatid(user), "Failed to join meeting {}!".format(description), TELEGRAM_RETRIES)
         logging.error("Failed to join meeting!")
         os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
         if DEBUG and ffmpeg_debug is not None:
@@ -859,7 +828,7 @@ def join(meet_id, meet_pw, duration, user, description):
     HideViewOptionsThread(description)
     
     # Send Telegram Notification
-    send_telegram_message( get_telegramchatid(user),"Joined Meeting '{}' and started recording.".format(description))
+    send_telegram_message( TELEGRAM_BOT_TOKEN, get_telegramchatid(user),"Joined Meeting '{}' and started recording.".format(description), TELEGRAM_RETRIES)
     
     meeting_running = True
     while meeting_running:
@@ -1006,7 +975,7 @@ def start_imap_bot():
     
     bot_log_file = open(f"{log_file}.imap_bot", "w")
     
-    command = f"python3 imap_bot.py {CSV_PATH} {EMAIL_TYPE_PATH} {IMAP_SERVER} {IMAP_PORT} {EMAIL_ADDRESS} {EMAIL_PASSWORD}"
+    command = f"python3 imap_bot.py {CSV_PATH} {EMAIL_TYPE_PATH} {IMAP_SERVER} {IMAP_PORT} {EMAIL_ADDRESS} {EMAIL_PASSWORD} {TELEGRAM_BOT_TOKEN}"
     imap_bot = subprocess.Popen(
         command, stdout=bot_log_file, stderr=bot_log_file, shell=True, preexec_fn=os.setsid, universal_newlines=True, bufsize=1)
 

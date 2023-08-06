@@ -15,6 +15,9 @@ from telegram import ForceReply, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from datetime import datetime
 from events import read_events_from_csv, write_events_to_csv, validate_event, find_event, remove_past_events,set_telegramchatid
+# for send telegram message
+import time
+import requests
 
 global CSV_PATH
 global TELEGRAM_TOKEN
@@ -237,9 +240,24 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     await update.message.reply_text(response)
 
-
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("Invalid command. Use /help to see a list of available commands.")
+
+def send_telegram_message( bot_token, chat_id, text, retries=5):
+    url_req = "https://api.telegram.org/bot" + bot_token + "/sendMessage" + "?chat_id=" + chat_id + "&text=" + text 
+    tries = 0
+    success = False
+    while not success:
+        results = requests.get(url_req)
+        results = results.json()
+        success = 'ok' in results and results['ok']
+        tries+=1
+        if not success and tries < retries:
+            time.sleep(5)
+        if not success and tries >= retries:
+            break
+    return success
+
 
 def start_bot( csv_path, telegram_token) -> None:
     global CSV_PATH

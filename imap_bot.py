@@ -7,7 +7,8 @@ import yaml
 import html
 from datetime import datetime
 from bs4 import BeautifulSoup
-from events import read_events_from_csv, write_events_to_csv, validate_event, remove_past_events, DATE_FORMAT, TIME_FORMAT, RECORD
+from events import read_events_from_csv, write_events_to_csv, validate_event, remove_past_events, get_telegramchatid, DATE_FORMAT, TIME_FORMAT, RECORD
+from telegram_bot import send_telegram_message
 try:
     from zoneinfo import ZoneInfo # >= 3.9
 except ImportError:
@@ -16,7 +17,7 @@ except ImportError:
 CONTENT_TYPE_PLAIN = "text/plain"
 CONTENT_TYPE_HTML = "text/html"
 
-def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD):   
+def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD, TELEGRAM_BOT_TOKEN):   
     # Load the YAML config file
     with open( CNFG_PATH, 'r') as file:
         config = yaml.safe_load(file)
@@ -128,14 +129,16 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                                 }
 
                                 event = validate_event( event)
-                    
                                 events = read_events_from_csv(CSV_PATH)
                                 events = remove_past_events( events)
                                 events.append(event)
                                 write_events_to_csv(CSV_PATH, events)
-                                eventStr = f"Event {event['description']} {event['weekday']} {event['time']}"
+                                eventStr = f"Event {event['description']} {event['weekday']} {event['time']} {event['timezone']}"
                                 print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {eventStr} added", flush=True)
-                                
+                                # try to send telegramm message
+                                chat_id = get_telegramchatid(event['user'])
+                                if chat_id:
+                                    send_telegram_message( TELEGRAM_BOT_TOKEN, chat_id, f"{eventStr} added.")                         
 
                         # Mark the message as read
                         imap.store(msg_id, '+FLAGS', '\\Seen')
@@ -155,4 +158,4 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                     print( error.args[0], flush=True)
             
 if __name__ == "__main__":
-    start_bot( CSV_PATH = sys.argv[1], CNFG_PATH = sys.argv[2], IMAP_SERVER = sys.argv[3], IMAP_PORT = sys.argv[4], EMAIL_ADDRESS = sys.argv[5], EMAIL_PASSWORD = sys.argv[6])
+    start_bot( sys.argv[1], CNFG_PATH = sys.argv[2], IMAP_SERVER = sys.argv[3], IMAP_PORT = sys.argv[4], EMAIL_ADDRESS = sys.argv[5], EMAIL_PASSWORD = sys.argv[6], TELEGRAM_BOT_TOKEN = sys.argv[7])
