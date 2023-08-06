@@ -26,7 +26,7 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
     # Configure the logging
     logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
 
-    logging.info( f"Config file {CNFG_PATH} found", flush=True)
+    logging.info( f"Config file {CNFG_PATH} found") 
 
     # Loop and evaluate every new message based on the configuration
     while True:
@@ -138,14 +138,14 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                                 events.append(event)
                                 write_events_to_csv(CSV_PATH, events)
                                 eventStr = f"Event {event['description']} {event['weekday']} {event['time']} {event['timezone']}"
-                                logging.info( f"{eventStr} added", flush=True)
+                                logging.info( f"{eventStr} added")
                                 # try to send telegramm message
                                 chat_id = get_telegramchatid(event['user'])
                                 if chat_id:
                                     if send_telegram_message( TELEGRAM_BOT_TOKEN, chat_id, f"Email bot has added {eventStr}."):
-                                        logging.info( "Telegram message successfully sent.", flush=True)
+                                        logging.info( "Telegram message successfully sent.")
                                     else:
-                                        logging.error( "Error sending Telegram message.", flush=True)
+                                        logging.error( "Error sending Telegram message.")
 
                         # Mark the message as read
                         imap.store(msg_id, '+FLAGS', '\\Seen')
@@ -162,7 +162,7 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                     # Exit the program if the exception is a KeyboardInterrupt
                     raise error
                 else:
-                    logging.error( error.args[0], flush=True)
+                    logging.error( error.args[0])
             
 if __name__ == "__main__":
     start_bot( sys.argv[1], CNFG_PATH = sys.argv[2], IMAP_SERVER = sys.argv[3], IMAP_PORT = sys.argv[4], EMAIL_ADDRESS = sys.argv[5], EMAIL_PASSWORD = sys.argv[6], TELEGRAM_BOT_TOKEN = sys.argv[7])
