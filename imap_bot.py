@@ -134,7 +134,7 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
 
                                 event = validate_event( event)
                                 events = read_events_from_csv(CSV_PATH)
-                                events = remove_past_events( events)
+                                events = remove_past_events( events, 300)
                                 events.append(event)
                                 write_events_to_csv(CSV_PATH, events)
                                 eventStr = f"Event {event['description']} {event['weekday']} {event['time']} {event['timezone']}"

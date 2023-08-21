@@ -141,7 +141,7 @@ def write_events_to_csv(file_name, events):
         for event in events:
             writer.writerow(event)
 
-def find_next_event(events, astimezone,leadInSecs = 0, leadOutSecs = 0):
+def find_next_event(events, astimezone, leadInSecs = 0, leadOutSecs = 0):
     now = datetime.now(ZoneInfo(astimezone))
     next_event = None
     for event in events:
@@ -171,7 +171,7 @@ def find_next_event(events, astimezone,leadInSecs = 0, leadOutSecs = 0):
                 continue
     return next_event
 
-def check_past_event(event):
+def check_past_event(event, graceSecs=0):
     now = datetime.now(ZoneInfo(event['timezone']))
     past_event = True
     for day in expand_days(event["weekday"]):
@@ -183,6 +183,7 @@ def check_past_event(event):
                 start_datetime = datetime.strptime(start_date_str + ' ' + event['time'], DATE_FORMAT + ' ' + TIME_FORMAT)
                 end_datetime = start_datetime + timedelta(minutes=int(event['duration']))
                 end_datetime = end_datetime.astimezone(ZoneInfo(event['timezone']))
+                end_datetime += timedelta(seconds=graceSecs)
                 # Check if the event has ended
                 if end_datetime < now:
                     continue
@@ -192,10 +193,10 @@ def check_past_event(event):
                 continue
     return past_event   
 
-def remove_past_events(events):  
+def remove_past_events(events, graceSecs=0):  
     filtered_events = []
     for event in events:
-        if not check_past_event(event):
+        if not check_past_event(event, graceSecs):
             filtered_events.append( event)       
     return filtered_events
 

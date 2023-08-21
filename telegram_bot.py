@@ -148,7 +148,7 @@ async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     events = read_events_from_csv(CSV_PATH)
-    events = remove_past_events( events)
+    events = remove_past_events( events, 300)
     events.append(event)
     write_events_to_csv(CSV_PATH, events)
     await update.message.reply_text(f"Event with description '{args[0]}' added successfully!")
