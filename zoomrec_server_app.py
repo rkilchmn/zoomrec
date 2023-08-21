@@ -39,7 +39,7 @@ def get_event():
     events = read_events_from_csv(CSV_PATH)
     return jsonify(events)
 
-# curl -u myuser:mypassword http://localhost:8080/event/next?astimezone=Australia/Sydney&leadinsecs=60&leadoutsecs=60
+# curl -u myuser:mypassword "http://localhost:8080/event/next?astimezone=Australia/Sydney&leadinsecs=60&leadoutsecs=60"
 @app.route(config['ROUTE_EVENT_NEXT'], methods=['GET'])
 @basic_auth.required
 def get_event_next():
