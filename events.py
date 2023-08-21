@@ -141,7 +141,7 @@ def write_events_to_csv(file_name, events):
         for event in events:
             writer.writerow(event)
 
-def find_next_event(events, astimezone):
+def find_next_event(events, astimezone,leadInSecs = 0, leadOutSecs = 0):
     now = datetime.now(ZoneInfo(astimezone))
     next_event = None
     for event in events:
@@ -153,6 +153,11 @@ def find_next_event(events, astimezone):
                 # converted to astimezone provided 
                 start_datetime = start_datetime_local.astimezone(ZoneInfo(astimezone))
                 end_datetime = end_datetime_local.astimezone(ZoneInfo(astimezone))
+
+                # incorparate lead in/out
+                start_datetime -= timedelta(seconds=leadInSecs)
+                end_datetime += timedelta(seconds=leadOutSecs)
+
                 # prioriy is given to the meeting ending first - TBD
                 if now < end_datetime and (next_event is None or end_datetime < next_event['end']):
                     next_event = event

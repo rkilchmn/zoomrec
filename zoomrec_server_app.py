@@ -39,13 +39,24 @@ def get_event():
     events = read_events_from_csv(CSV_PATH)
     return jsonify(events)
 
-# curl -u myuser:mypassword http://localhost:8080/event/next?astimezone=Australia/Sydney
+# curl -u myuser:mypassword http://localhost:8080/event/next?astimezone=Australia/Sydney&leadinsecs=60&leadoutsecs=60
 @app.route(config['ROUTE_EVENT_NEXT'], methods=['GET'])
 @basic_auth.required
 def get_event_next():
+    # Retrieve leadInSecs and leadOutSecs from request parameters
+    leadInSecs = 0
+    leadOutSecs = 0
+    try:
+        leadInSecs = int(request.args.get('leadinsecs'))
+        leadOutSecs = int(request.args.get('leadoutsecs'))
+    except ValueError:
+        return 'invalid paramter leadinsecs and/or leadoutsecs', 404
+    except TypeError:
+        pass
+
     astimezone = request.args.get('astimezone')
     if is_valid_timezone(astimezone):
-        response_data = find_next_event( read_events_from_csv(CSV_PATH), astimezone)
+        response_data = find_next_event( read_events_from_csv(CSV_PATH), astimezone, leadInSecs, leadOutSecs)
         # return timestamp in ISO 8601 format 
         if not response_data is None:
             response_data['start'] = response_data['start'].isoformat()
@@ -98,5 +109,3 @@ def get_firmware():
     
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0',port=os.getenv("DOCKER_API_PORT", "8080"))
-
-
