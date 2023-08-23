@@ -185,7 +185,7 @@ ADD imap_bot.py ${HOME}/
 ADD events.py ${HOME}/
 ADD res/img ${HOME}/img
 
-# Set permissions
+# Set permissions 
 USER 0
 RUN chown -R zoomrec:zoomrec ${HOME} && \
     chmod a+x ${START_DIR}/entrypoint.sh && \
