@@ -195,6 +195,11 @@ RUN chmod a+x ${START_DIR}/entrypoint.sh && \
     find ${HOME}/ -name '*.sh' -exec chmod -v a+x {} + && \
     find ${HOME}/ -name '*.desktop' -exec chmod -v a+x {} +
 
+# vnc
+RUN mkdir ${HOME}/.vnc && \
+    chmod 700 ${HOME}/.vnc && \
+    chown zoomrec:zoomrec ${HOME}/.vnc
+
 # samba server setup
 COPY res/smb.conf /etc/samba/smb.conf
 RUN useradd $SAMBA_USER
