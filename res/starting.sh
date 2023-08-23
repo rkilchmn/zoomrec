@@ -17,6 +17,9 @@ if [[ -f $PASSWD_PATH ]]; then
     rm -f "$PASSWD_PATH"
 fi
 
+# temporary for debug
+sleep 3600
+
 echo "$VNC_PW" | vncpasswd -f >> "$PASSWD_PATH"
 chmod 600 "$PASSWD_PATH"
 
