@@ -197,7 +197,6 @@ RUN chmod a+x ${START_DIR}/entrypoint.sh && \
 
 # vnc
 RUN mkdir ${HOME}/.vnc && \
-    chmod 700 ${HOME}/.vnc && \
     chown zoomrec:zoomrec ${HOME}/.vnc
 
 # samba server setup
