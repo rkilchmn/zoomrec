@@ -187,11 +187,11 @@ ADD res/img ${HOME}/img
 
 # Set permissions
 USER 0
-RUN chmod a+x ${START_DIR}/entrypoint.sh && \
+RUN chown -R zoomrec:zoomrec ${HOME} && \
+    chmod a+x ${START_DIR}/entrypoint.sh && \
     chmod a+x ${START_DIR}/starting.sh && \
     chmod a+x ${START_DIR}/xfce.sh && \
     chmod -R a+rw ${START_DIR} && \
-    chown -R zoomrec:zoomrec ${HOME} && \
     find ${HOME}/ -name '*.sh' -exec chmod -v a+x {} + && \
     find ${HOME}/ -name '*.desktop' -exec chmod -v a+x {} +
 
