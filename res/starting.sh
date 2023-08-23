@@ -9,6 +9,10 @@ trap cleanup SIGINT SIGTERM
 
 VNC_IP=$(hostname -i)
 
+# temporary for debug
+echo -e "sleep"
+sleep 3600
+
 # Change vnc password
 mkdir -p "$HOME/.vnc"
 PASSWD_PATH="$HOME/.vnc/passwd"
@@ -16,10 +20,6 @@ PASSWD_PATH="$HOME/.vnc/passwd"
 if [[ -f $PASSWD_PATH ]]; then
     rm -f "$PASSWD_PATH"
 fi
-
-# temporary for debug
-echo -e "sleep"
-sleep 3600
 
 echo "$VNC_PW" | vncpasswd -f >> "$PASSWD_PATH"
 chmod 600 "$PASSWD_PATH"
