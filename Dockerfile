@@ -186,7 +186,7 @@ ADD events.py ${HOME}/
 ADD res/img ${HOME}/img
 
 # Set permissions 
-USER 0
+USER root
 RUN chown -R zoomrec:zoomrec ${HOME} && \
     chmod a+x ${START_DIR}/entrypoint.sh && \
     chmod a+x ${START_DIR}/starting.sh && \
