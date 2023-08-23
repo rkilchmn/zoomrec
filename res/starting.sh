@@ -18,6 +18,7 @@ if [[ -f $PASSWD_PATH ]]; then
 fi
 
 # temporary for debug
+echo -e "sleep"
 sleep 3600
 
 echo "$VNC_PW" | vncpasswd -f >> "$PASSWD_PATH"
