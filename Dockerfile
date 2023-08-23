@@ -166,7 +166,6 @@ RUN adduser zoomrec pulse-access
 
 # Allow access to intel VAAPI hardware acceleration
 
-
 USER zoomrec
 
 # Add home resources
