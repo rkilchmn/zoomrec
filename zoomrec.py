@@ -861,7 +861,7 @@ def join(meet_id, meet_pw, duration, user, description):
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                     TIME_FORMAT) + "-" + description) + "_ok_error.png")
                 
-    send_telegram_message( get_telegramchatid(user),"Meeting '{}' ended.".format(description))
+    send_telegram_message( TELEGRAM_BOT_TOKEN, get_telegramchatid(user),"Meeting '{}' ended.".format(description))
 
 def play_audio(description):
     # Get all files in audio directory
