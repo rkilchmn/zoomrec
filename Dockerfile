@@ -121,8 +121,11 @@ RUN apt-get update && \
         python3-tk \
         python3-dev \
         python3-setuptools \
-        scrot && \
+        scrot \
+        gnome-screenshot && \
     pip3 install --upgrade --no-cache-dir -r ${HOME}/res/requirements.txt && \
+    pip3 uninstall --yes opencv-python && \ 
+    pip3 install opencv-python-headless && \ 
 # Install VLC - optional
     apt-get install --no-install-recommends -y vlc && \
 # install samba server
