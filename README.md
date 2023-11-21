@@ -38,6 +38,9 @@ docker run -d --restart unless-stopped \
   --device /dev/dri/card0:/dev/dri/card0 \
   rkilchmn/zoomrec:latest
 </li>
+<li>
+(h)top like tool for supporting all GPU vendors: https://github.com/Syllo/nvtop
+</li>
 
 
 <h4 align="center">
