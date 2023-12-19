@@ -6,7 +6,7 @@ import os.path
 import yaml
 # import sys
 from events import read_events_from_csv, find_next_event, is_valid_timezone, get_telegramchatid
-# from io import StringIO
+from urllib.parse import unquote
 
 app = Flask(__name__)
 
@@ -18,6 +18,7 @@ with open( 'zoomrec_server.yaml', "r") as f:
     config = yaml.safe_load(f)
 
 FIRMWARE_PATH = os.path.join(BASE_PATH, os.getenv('FIRMWARE_SUBDIR'))
+LOG_PATH = os.path.join(BASE_PATH, os.getenv('LOG_SUBDIR'))
 
 # Configure basic authentication
 app.config['BASIC_AUTH_USERNAME'] = os.getenv('SERVER_USERNAME')
@@ -106,6 +107,38 @@ def get_firmware():
         return send_file(filepath, as_attachment=True, mimetype='application/octet-stream')
     else:
         return '', 304  # Not Modified
+    
+# curl -X POST -H "Content-Type: application/json" -u admin:myadminpw -d @log_entry.json http://localhost:8080/log
+@app.route('/log', methods=['POST'])
+@basic_auth.required
+def log_handler():
+    data = request.json
+    log_id = data.get('id')
+    log_content = data.get('content')
+    if log_content:
+        log_content = unquote(log_content)
+
+    if log_id is None or log_content is None:
+        return jsonify({'error': 'id and content are required'}), 400
+
+    log_filename = f'{LOG_PATH}{log_id}.log'
+
+    try:
+        # Check if the log file exists
+        if os.path.exists(log_filename):
+            mode = 'a'
+        else:
+            mode = 'w'
+
+        # Open the log file in the determined mode
+        with open(log_filename, mode) as log_file:
+            log_file.write(log_content)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    return jsonify({'message': 'Log appended successfully'}), 200
+ 
     
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0',port=os.getenv("DOCKER_API_PORT", "8080"))

@@ -937,6 +937,14 @@ def join_ongoing_meeting():
             except ValueError as e:
                 logging.error(str(e))
 
+def adjust_start_time(start_datetime):
+    current_time = convert_to_system_datetime(datetime.now())
+    current_weekday = current_time.strftime("%A").lower()
+    
+    if start_datetime <= current_time and start_datetime.strftime("%A").lower() == current_weekday:
+        start_datetime = current_time
+    return start_datetime
+
 def setup_schedule():
     schedule.clear()
     events = read_events_from_csv(CSV_PATH)
@@ -949,11 +957,14 @@ def setup_schedule():
                 try:
                     start_datetime_local = get_next_event_local_start_datetime( day, event)
                     start_datetime = convert_to_system_datetime(start_datetime_local)
+                    start_datetime = start_datetime - timedelta(seconds=LEAD_TIME_SEC)
                     weekday = start_datetime.strftime("%A").lower() 
+
+                    start_datetime_local = adjust_start_time( start_datetime)
 
                     cmd_string = "schedule.every()." + weekday \
                                 + ".at(\"" \
-                                + (start_datetime - timedelta(seconds=LEAD_TIME_SEC)).strftime('%H:%M') \
+                                + start_datetime.strftime('%H:%M') \
                                 + "\").do(join, meet_id=\"" + event["id"] \
                                 + "\", meet_pw=\"" + event["password"] \
                                 + "\", duration=" + str(int(event["duration"]) * 60) \
