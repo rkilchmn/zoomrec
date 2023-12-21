@@ -472,7 +472,7 @@ def join(meet_id, meet_pw, duration, user, description):
             resolution + " " + FFMPEG_INPUT_PARAMS + " -i " + disp + " " + FFMPEG_OUTPUT_PARAMS + \
             " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
 
-        logging.info("Recording command:" + command)
+        logging.debug("Recording command:" + command)
 
         ffmpeg_debug = subprocess.Popen(
             command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
@@ -960,7 +960,8 @@ def setup_schedule():
                     start_datetime = start_datetime - timedelta(seconds=LEAD_TIME_SEC)
                     weekday = start_datetime.strftime("%A").lower() 
 
-                    start_datetime_local = adjust_start_time( start_datetime)
+                    # adjust start time if already passed e.g. sytem woke up very close to start time
+                    start_datetime = adjust_start_time( start_datetime)
 
                     cmd_string = "schedule.every()." + weekday \
                                 + ".at(\"" \
@@ -970,9 +971,10 @@ def setup_schedule():
                                 + "\", duration=" + str(int(event["duration"]) * 60) \
                                 + ", user=\"" + event["user"]  \
                                 + "\", description=\"" + event["description"] + "\")"
-                    cmd = compile(cmd_string, "<string>", "eval")
+                    cmd = compile(cmd_string, "<string>", "eval", )
                     eval(cmd)
                     line_count += 1
+                    logging.debug(f"Schedule command {line_count}: {cmd_string}")
                 except ValueError as e:
                     logging.error(str(e))
     logging.info("Added %s meetings to schedule." % line_count)
