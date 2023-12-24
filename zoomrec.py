@@ -476,7 +476,7 @@ def join(meet_id, meet_pw, duration, user, description):
             resolution + " " + FFMPEG_INPUT_PARAMS + " -i " + disp + " " + FFMPEG_OUTPUT_PARAMS + \
             " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
 
-        logging.debug("Recording command:" + command)
+        logging.debug("Recording command: {command}")
 
         ffmpeg_debug = subprocess.Popen(
             command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
@@ -946,7 +946,8 @@ def adjust_start_time(start_datetime):
     current_weekday = current_time.strftime("%A").lower()
     
     if start_datetime <= current_time and start_datetime.strftime("%A").lower() == current_weekday:
-        start_datetime = current_time
+        # one minute in future
+        start_datetime = current_time + timedelta(minutes=1)
     return start_datetime
 
 def setup_schedule():
