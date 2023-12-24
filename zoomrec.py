@@ -929,6 +929,7 @@ def join_ongoing_meeting():
             try:
                 start_datetime_local = get_next_event_local_start_datetime( day, event)
                 start_datetime = convert_to_system_datetime(start_datetime_local)
+                start_datetime = start_datetime - timedelta(seconds=LEAD_TIME_SEC)
 
                 end_datetime = start_datetime + \
                     timedelta(seconds=int(event["duration"]) * 60 + TRAIL_TIME_SEC)  # Add x secconds
@@ -941,14 +942,14 @@ def join_ongoing_meeting():
             except ValueError as e:
                 logging.error(str(e))
 
-def adjust_start_time(start_datetime):
-    current_time = convert_to_system_datetime(datetime.now())
-    current_weekday = current_time.strftime("%A").lower()
+# def adjust_start_time(start_datetime):
+#     current_time = convert_to_system_datetime(datetime.now())
+#     current_weekday = current_time.strftime("%A").lower()
     
-    if start_datetime <= current_time and start_datetime.strftime("%A").lower() == current_weekday:
-        # one minute in future
-        start_datetime = current_time + timedelta(minutes=1)
-    return start_datetime
+#     if start_datetime <= current_time and start_datetime.strftime("%A").lower() == current_weekday:
+#         # one minute in future
+#         start_datetime = current_time + timedelta(minutes=1)
+#     return start_datetime
 
 def setup_schedule():
     schedule.clear()
@@ -965,8 +966,8 @@ def setup_schedule():
                     start_datetime = start_datetime - timedelta(seconds=LEAD_TIME_SEC)
                     weekday = start_datetime.strftime("%A").lower() 
 
-                    # adjust start time if already passed e.g. sytem woke up very close to start time
-                    start_datetime = adjust_start_time( start_datetime)
+                    # # adjust start time if already passed e.g. sytem woke up very close to start time
+                    # start_datetime = adjust_start_time( start_datetime)
 
                     cmd_string = "schedule.every()." + weekday \
                                 + ".at(\"" \
