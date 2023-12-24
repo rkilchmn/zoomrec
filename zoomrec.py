@@ -106,8 +106,12 @@ timestamp = now.strftime('%Y-%m-%d_%H-%M-%S')
 # Create the log file name with the timestamp
 log_file = DEBUG_PATH + "/{}.log".format(timestamp)
 
+logLevel = logging.INFO
+if (DEBUG):
+    logLevel = logging.DEBUG
+
 # Configure the logging
-logging.basicConfig(filename=log_file, format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
+logging.basicConfig(filename=log_file, format='%(asctime)s %(levelname)s %(message)s', level=logLevel)
 
 def wrap(func, *args, **kwargs):
     try:
