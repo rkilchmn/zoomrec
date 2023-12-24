@@ -971,7 +971,7 @@ def setup_schedule():
 
                     cmd_string = "schedule.every()." + weekday \
                                 + ".at(\"" \
-                                + start_datetime.strftime('%H:%M') \
+                                + start_datetime.strftime('%H:%M:%S') \
                                 + "\").do(join, meet_id=\"" + event["id"] \
                                 + "\", meet_pw=\"" + event["password"] \
                                 + "\", duration=" + str(int(event["duration"]) * 60) \
