@@ -476,7 +476,7 @@ def join(meet_id, meet_pw, duration, user, description):
             resolution + " " + FFMPEG_INPUT_PARAMS + " -i " + disp + " " + FFMPEG_OUTPUT_PARAMS + \
             " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
 
-        logging.debug("Recording command: {command}")
+        logging.debug(f"Recording command: {command}")
 
         ffmpeg_debug = subprocess.Popen(
             command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
