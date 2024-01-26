@@ -163,8 +163,20 @@ class BackgroundThread:
                 os.path.join(IMG_PATH, 'meeting_ended_by_host_2.png'), confidence=0.9) is not None):
                 ONGOING_MEETING = False
                 logging.info("Meeting ended by host..")
-            time.sleep(self.interval)
 
+             # Check if crash report window shows
+            if (wrap( pyautogui.locateCenterOnScreen, os.path.join(IMG_PATH, 'zoom_crash_report_not_send.png'), confidence=0.9,
+                                               minSearchTime=2) is not None):
+                logging.info("Zoom unexpectedly crashed..")
+                try:
+                    x, y = wrap( pyautogui.locateCenterOnScreen, os.path.join(
+                        IMG_PATH, 'got_it.png'), confidence=0.9)
+                    pyautogui.click(x, y)
+                    logging.info("Close crash report window by not sending..")
+                except TypeError:
+                    logging.error("Could not close crash report window!")
+
+            time.sleep(self.interval)
 
 class HideViewOptionsThread:
 
