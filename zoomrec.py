@@ -164,7 +164,7 @@ class BackgroundThread:
                 ONGOING_MEETING = False
                 logging.info("Meeting ended by host..")
 
-             # Check if crash report window shows
+            # Check if crash report window shows
             if (wrap( pyautogui.locateCenterOnScreen, os.path.join(IMG_PATH, 'zoom_crash_report_not_send.png'), confidence=0.9,
                                                minSearchTime=2) is not None):
                 logging.info("Zoom unexpectedly crashed..")
@@ -175,6 +175,18 @@ class BackgroundThread:
                     logging.info("Close crash report window by not sending..")
                 except TypeError:
                     logging.error("Could not close crash report window!")
+
+            # Check "an unknown error occured" option "close" or "join from browser"
+            if (wrap( pyautogui.locateCenterOnScreen, os.path.join(IMG_PATH, 'unknown_error_occurred.png'), confidence=0.9,
+                                               minSearchTime=2) is not None):
+                logging.info("Zoom unknown error occured..")
+                try:
+                    x, y = wrap( pyautogui.locateCenterOnScreen, os.path.join(
+                        IMG_PATH, 'unknown_error_close.png'), confidence=0.9)
+                    pyautogui.click(x, y)
+                    logging.info("Close window unknown error occured..")
+                except TypeError:
+                    logging.error("Could not close unknown error occured window!")
 
             time.sleep(self.interval)
 
