@@ -95,7 +95,8 @@ RUN apt-get update && \
         libxslt1.1 \
         libsqlite3-0 \
         libxcb-keysyms1 \
-        libxcb-xtest0 && \
+        libxcb-xtest0 \
+        libxcb-cursor0 && \
 # Install Zoom (original uses Version 5.13.0 (599)
     #wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
     #wget -q -O zoom_amd64.deb https://zoom.us/client/5.13.0.599/zoom_amd64.deb && \
