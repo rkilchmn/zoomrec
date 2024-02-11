@@ -64,7 +64,7 @@ elif [[ "$2" == "INTEL" ]]; then
     -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
     -e FFMPEG_INPUT_PARAMS="-vaapi_device /dev/dri/renderD128" \
 		-e FFMPEG_OUTPUT_PARAMS="-vf 'hwupload,scale_vaapi=format=nv12' -acodec aac -b:a 128k -c:v h264_vaapi -qp 24" \
-    -e LIBVA_DRIVER_NAME=i965 \
+    -e LIBVA_DRIVER_NAME="$LIBVA_DRIVER_NAME" \
     -e SERVER_USERNAME="$SERVER_USERNAME" \
     -e SERVER_PASSWORD="$SERVER_PASSWORD" \
     -e SERVER_URL="$SERVER_URL" \
