@@ -504,6 +504,11 @@ def join(meet_id, meet_pw, duration, user, description):
 
         ffmpeg_debug = subprocess.Popen(
             command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+
+        # Log the output of the subprocess
+        for line in iter(ffmpeg_debug.stdout.readline, b''):
+            logging.debug(line.decode().strip())
+
         atexit.register(os.killpg, os.getpgid(
             ffmpeg_debug.pid), signal.SIGQUIT)
 
