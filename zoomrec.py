@@ -170,7 +170,7 @@ class BackgroundThread:
                 logging.info("Zoom unexpectedly crashed..")
                 try:
                     x, y = wrap( pyautogui.locateCenterOnScreen, os.path.join(
-                        IMG_PATH, 'got_it.png'), confidence=0.9)
+                        IMG_PATH, 'zoom_crash_report_not_send.png'), confidence=0.9)
                     pyautogui.click(x, y)
                     logging.info("Close crash report window by not sending..")
                 except TypeError:
