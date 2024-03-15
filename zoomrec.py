@@ -249,7 +249,7 @@ class HideViewOptionsThread:
                         else:
                             try:
                                 x, y = wrap( pyautogui.locateCenterOnScreen, os.path.join(
-                                    IMG_PATH, 'hide_video_panel.png'), confidence=0.9)
+                                    IMG_PATH, 'hide_video_panel.png'), confidence=0.9) 
                                 pyautogui.click(x, y)
                                 # Move mouse from screen
                                 pyautogui.moveTo(0, 100)
