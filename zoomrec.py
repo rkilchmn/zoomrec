@@ -16,8 +16,6 @@ from telegram_bot import send_telegram_message
 from datetime import datetime, timedelta
 from events import now_system_datetime, remove_past_events, expand_days, read_events_from_csv, get_next_event_local_start_datetime, convert_to_system_datetime, get_telegramchatid, WEEKDAYS, DATE_FORMAT
 
-global ONGOING_MEETING
-global VIDEO_PANEL_HIDED
 global TELEGRAM_BOT_TOKEN
 global TELEGRAM_RETRIES
 
@@ -94,6 +92,7 @@ if DISPLAY_NAME is None or  len(DISPLAY_NAME) < 3:
 TIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
 CSV_DELIMITER = ';'
 
+# initialization of global vars
 ONGOING_MEETING = False
 VIDEO_PANEL_HIDED = False
 
@@ -141,7 +140,7 @@ class BackgroundThread:
         global ONGOING_MEETING
         ONGOING_MEETING = True
 
-        logging.debug("Check continuously if meeting has ended..")
+        logging.info("Check continuously if meeting has ended..")
 
         while ONGOING_MEETING:
 
@@ -203,6 +202,7 @@ class HideViewOptionsThread:
 
     def run(self):
         global VIDEO_PANEL_HIDED
+    
         logging.info("Checking continuously if screensharing, polls or chats need hiding..")
         while ONGOING_MEETING:
             # Check if host is sharing poll results
@@ -246,6 +246,7 @@ class HideViewOptionsThread:
                             pyautogui.moveTo(0, 100)
                             pyautogui.click(0, 100)
                             VIDEO_PANEL_HIDED = True
+                            logging.info("Video panel hidden successfully..")
                         else:
                             try:
                                 x, y = wrap( pyautogui.locateCenterOnScreen, os.path.join(
@@ -254,6 +255,7 @@ class HideViewOptionsThread:
                                 # Move mouse from screen
                                 pyautogui.moveTo(0, 100)
                                 VIDEO_PANEL_HIDED = True
+                                logging.info("Video panel hidden successfully..")
                             except TypeError:
                                 logging.error("Could not hide video panel!")
                     except TypeError:
@@ -261,18 +263,16 @@ class HideViewOptionsThread:
 
             # Check if meeting chat is on screen
             if wrap( pyautogui.locateOnScreen, os.path.join(IMG_PATH, 'meeting_chat.png'), confidence=0.9) is not None:
-                logging.info("Meeting chat popup window detected...")
+                logging.info("Meeting chat popup window detected..")
                 # try to close window
                 x, y = wrap( pyautogui.locateCenterOnScreen, os.path.join(
                             IMG_PATH, 'exit.png'), confidence=0.9)
                 pyautogui.click(x, y)
                 time.sleep(1)
                 if wrap( pyautogui.locateOnScreen, os.path.join(IMG_PATH, 'meeting_chat.png'), confidence=0.9):
-                    logging.info("Failed to close meeting chat popup window...")
+                    logging.info("Failed to close meeting chat popup window..")
                 else:
-                    logging.info("Successfully close meeting chat popup window...")
-            else:
-                VIDEO_PANEL_HIDED = False
+                    logging.info("Successfully close meeting chat popup window..")
 
             time.sleep(self.interval)
        
@@ -491,7 +491,7 @@ def join(meet_id, meet_pw, duration, user, description):
         resolution = str(width) + 'x' + str(height)
         disp = os.getenv('DISPLAY')
 
-        logging.debug("Start recording joining process...")
+        logging.debug("Start recording joining process..")
 
         filename = os.path.join( 
             REC_PATH, time.strftime(TIME_FORMAT)) + "-" + description + "-JOIN.mkv"
@@ -791,6 +791,7 @@ def join(meet_id, meet_pw, duration, user, description):
                 IMG_PATH, 'hide_video_panel.png'), confidence=0.9)
             pyautogui.click(x, y)
             VIDEO_PANEL_HIDED = True
+            logging.info("Video panel hidden successfully..")
         except TypeError:
             logging.error("Could not hide video panel!")
             if DEBUG:
@@ -845,7 +846,7 @@ def join(meet_id, meet_pw, duration, user, description):
 
     # Audio
     # Start recording
-    logging.info("Start recording...")
+    logging.info("Start recording..")
 
     filename = os.path.join(REC_PATH, time.strftime(
         TIME_FORMAT) + "-" + description) + ".mkv"
