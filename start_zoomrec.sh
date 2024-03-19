@@ -1,8 +1,20 @@
 #!/bin/bash
+
+# possible values for GPU Acceleration
+VAAPI="VAAPI"
+NVIDIA="NVIDIA"
+
 # Check if at least one parameter is passed
 if [ $# -lt 1 ]; then
   echo "Error: At least one parameter is required."
-  echo "Usage: $0 config_file GPU (AMD|INTEL|NVIDIA)"
+  echo "Usage: $0 config_file $VAAPI|$NVIDIA"
+  exit 1
+fi
+
+# Check if the provided GPU is either VAAPI or NVIDIA
+if [ "$2" != "$VAAPI" ] && [ "$2" != "$NVIDIA" ]; then
+  echo "Error: Invalid GPU acceleration specified."
+  echo "GPU must be either $VAAPI or $NVIDIA."
   exit 1
 fi
 
@@ -12,7 +24,7 @@ source $1
 docker stop zoomrec
 docker rm $(docker ps -aqf "name=zoomrec")
 
-if [[ "$2" == "AMD" ]]; then
+if [[ "$2" == "$VAAPI" ]]; then
   RENDER_GROUPID=$(getent group render | cut -d':' -f3)
   VIDEO_GROUPID=$(getent group video | cut -d':' -f3)
 
@@ -27,8 +39,9 @@ if [[ "$2" == "AMD" ]]; then
     -e IMAP_PORT="$IMAP_PORT" \
     -e EMAIL_ADDRESS="$EMAIL_ADDRESS" \
     -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
-    -e FFMPEG_OUTPUT_PARAMS="-acodec aac -b:a 128k -vaapi_device /dev/dri/renderD128 -vf 'hwupload,scale_vaapi=format=nv12' -c:v hevc_vaapi -b:v 1M" \
-    -e LIBVA_DRIVER_NAME=radeonsi \
+    -e FFMPEG_INPUT_PARAMS="-vaapi_device /dev/dri/renderD128" \
+    -e FFMPEG_OUTPUT_PARAMS="-acodec aac -b:a 128k -vf 'hwupload,scale_vaapi=format=nv12' -c:v hevc_vaapi -b:v 1M" \
+    -e LIBVA_DRIVER_NAME="$LIBVA_DRIVER_NAME" \
     -e SERVER_USERNAME="$SERVER_USERNAME" \
     -e SERVER_PASSWORD="$SERVER_PASSWORD" \
     -e SERVER_URL="$SERVER_URL" \
@@ -47,42 +60,77 @@ if [[ "$2" == "AMD" ]]; then
     --device /dev/dri:/dev/dri \
     rkilchmn/zoomrec:latest
 
-elif [[ "$2" == "INTEL" ]]; then
-  RENDER_GROUPID=$(getent group render | cut -d':' -f3)
-  VIDEO_GROUPID=$(getent group video | cut -d':' -f3)
+# if [[ "$2" == "AMD" ]]; then
+#   RENDER_GROUPID=$(getent group render | cut -d':' -f3)
+#   VIDEO_GROUPID=$(getent group video | cut -d':' -f3)
 
-  docker run -d --restart unless-stopped --name zoomrec \
-    -e DEBUG="$DEBUG" \
-    -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
-    -e TZ="$TZ" \
-    -e DISPLAY_NAME="$DISPLAY_NAME" \
-    -e SAMBA_USER="$SAMBA_USER" \
-    -e SAMBA_PASS="$SAMBA_PASS" \
-    -e IMAP_SERVER="$IMAP_SERVER" \
-    -e IMAP_PORT="$IMAP_PORT" \
-    -e EMAIL_ADDRESS="$EMAIL_ADDRESS" \
-    -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
-    -e FFMPEG_INPUT_PARAMS="-vaapi_device /dev/dri/renderD128" \
-		-e FFMPEG_OUTPUT_PARAMS="-vf 'hwupload,scale_vaapi=format=nv12' -acodec aac -b:a 128k -c:v h264_vaapi -qp 24" \
-    -e LIBVA_DRIVER_NAME="$LIBVA_DRIVER_NAME" \
-    -e SERVER_USERNAME="$SERVER_USERNAME" \
-    -e SERVER_PASSWORD="$SERVER_PASSWORD" \
-    -e SERVER_URL="$SERVER_URL" \
-    -e LEAD_TIME_SEC="$LEAD_TIME_SEC" \
-    -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
-    -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
-    -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
-    -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
-    -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
-    -p 5901:5901 \
-    --security-opt seccomp:unconfined \
-    --group-add="$VIDEO_GROUPID" \
-    --group-add="$RENDER_GROUPID" \
-    --device /dev/dri/renderD128:/dev/dri/renderD128 \
-    --device /dev/dri/card0:/dev/dri/card0 \
-    rkilchmn/zoomrec:latest
+#   docker run -d --restart unless-stopped --name zoomrec \
+#     -e DEBUG="$DEBUG" \
+#     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
+#     -e TZ="$TZ" \
+#     -e DISPLAY_NAME="$DISPLAY_NAME" \
+#     -e SAMBA_USER="$SAMBA_USER" \
+#     -e SAMBA_PASS="$SAMBA_PASS" \
+#     -e IMAP_SERVER="$IMAP_SERVER" \
+#     -e IMAP_PORT="$IMAP_PORT" \
+#     -e EMAIL_ADDRESS="$EMAIL_ADDRESS" \
+#     -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
+#     -e FFMPEG_OUTPUT_PARAMS="-acodec aac -b:a 128k -vaapi_device /dev/dri/renderD128 -vf 'hwupload,scale_vaapi=format=nv12' -c:v hevc_vaapi -b:v 1M" \
+#     -e LIBVA_DRIVER_NAME=radeonsi \
+#     -e SERVER_USERNAME="$SERVER_USERNAME" \
+#     -e SERVER_PASSWORD="$SERVER_PASSWORD" \
+#     -e SERVER_URL="$SERVER_URL" \
+#     -e LEAD_TIME_SEC="$LEAD_TIME_SEC" \
+#     -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
+#     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
+#     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
+#     -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
+#     -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
+#     -p 5901:5901 \
+#     -p 137-139:137-139 \
+#     -p 445:445 \
+#     --security-opt seccomp:unconfined \
+#     --group-add="$VIDEO_GROUPID" \
+#     --group-add="$RENDER_GROUPID" \
+#     --device /dev/dri:/dev/dri \
+#     rkilchmn/zoomrec:latest
 
-elif [[ "$2" == "NVIDIA" ]]; then
+# elif [[ "$2" == "INTEL" ]]; then
+#   RENDER_GROUPID=$(getent group render | cut -d':' -f3)
+#   VIDEO_GROUPID=$(getent group video | cut -d':' -f3)
+
+#   docker run -d --restart unless-stopped --name zoomrec \
+#     -e DEBUG="$DEBUG" \
+#     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
+#     -e TZ="$TZ" \
+#     -e DISPLAY_NAME="$DISPLAY_NAME" \
+#     -e SAMBA_USER="$SAMBA_USER" \
+#     -e SAMBA_PASS="$SAMBA_PASS" \
+#     -e IMAP_SERVER="$IMAP_SERVER" \
+#     -e IMAP_PORT="$IMAP_PORT" \
+#     -e EMAIL_ADDRESS="$EMAIL_ADDRESS" \
+#     -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
+#     -e FFMPEG_INPUT_PARAMS="-vaapi_device /dev/dri/renderD128" \
+# 		-e FFMPEG_OUTPUT_PARAMS="-vf 'hwupload,scale_vaapi=format=nv12' -acodec aac -b:a 128k -c:v h264_vaapi -qp 24" \
+#     -e LIBVA_DRIVER_NAME="$LIBVA_DRIVER_NAME" \
+#     -e SERVER_USERNAME="$SERVER_USERNAME" \
+#     -e SERVER_PASSWORD="$SERVER_PASSWORD" \
+#     -e SERVER_URL="$SERVER_URL" \
+#     -e LEAD_TIME_SEC="$LEAD_TIME_SEC" \
+#     -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
+#     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
+#     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
+#     -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
+#     -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
+#     -p 5901:5901 \
+#     --security-opt seccomp:unconfined \
+#     --group-add="$VIDEO_GROUPID" \
+#     --group-add="$RENDER_GROUPID" \
+#     --device /dev/dri/renderD128:/dev/dri/renderD128 \
+#     --device /dev/dri/card0:/dev/dri/card0 \
+#     rkilchmn/zoomrec:latest
+
+elif [[ "$2" == "$NVIDIA" ]]; then
   docker run -d --restart unless-stopped --name zoomrec \
     -e DEBUG="$DEBUG" \
     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \

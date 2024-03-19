@@ -22,7 +22,7 @@ ENV HOME=/home/zoomrec \
 
 # build container for specific GPU 
 ARG GPU_BUILD=""
-# group id for the 'render' group (used for AMD)
+# group id for the 'render' group (used for VAAPI)
 ARG RENDER_GROUPID="" 
 
 # Add user
@@ -129,7 +129,7 @@ RUN apt-get update && \
     pip3 uninstall --yes opencv-python && \ 
     pip3 install opencv-python-headless && \ 
 # Install VLC - optional
-    apt-get install --no-install-recommends -y vlc && \
+#    apt-get install --no-install-recommends -y vlc && \
 # install samba server
     apt-get install --no-install-recommends -y \
     samba \
@@ -137,22 +137,32 @@ RUN apt-get update && \
     acl
 
 # Install support for VA-API GPU hardware accelerators used by ffmpeg encoders
-RUN if [ "$GPU_BUILD" = "AMD" ]; then \
+RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
+        apt-get install -y software-properties-common && \
+        add-apt-repository ppa:kisak/kisak-mesa && \
         apt-get install --no-install-recommends -y \
+            vainfo \
             mesa-va-drivers && \
         groupadd -g ${RENDER_GROUPID} render && \
         adduser zoomrec render && \
         adduser zoomrec video ; \
     fi
+# RUN if [ "$GPU_BUILD" = "AMD" ]; then \
+#         apt-get install --no-install-recommends -y \
+#             mesa-va-drivers && \
+#         groupadd -g ${RENDER_GROUPID} render && \
+#         adduser zoomrec render && \
+#         adduser zoomrec video ; \
+#     fi
 
-RUN if [ "$GPU_BUILD" = "INTEL" ]; then \
-        apt-get install --no-install-recommends -y \
-            intel-media-va-driver \
-            i965-va-driver && \
-        groupadd -g ${RENDER_GROUPID} render && \
-        adduser zoomrec render && \
-        adduser zoomrec video ; \
-    fi
+# RUN if [ "$GPU_BUILD" = "INTEL" ]; then \
+#         apt-get install --no-install-recommends -y \
+#             intel-media-va-driver \
+#             i965-va-driver && \
+#         groupadd -g ${RENDER_GROUPID} render && \
+#         adduser zoomrec render && \
+#         adduser zoomrec video ; \
+#     fi
 
 # Install support for NVIDIA GPU hardware accelerators NVENC for ffmpeg encoding
 RUN if [ "$GPU_BUILD" = "NVIDIA" ] ; then \
@@ -168,8 +178,6 @@ RUN apt-get autoremove --purge -y && \
 
 # Allow access to pulseaudio
 RUN adduser zoomrec pulse-access
-
-# Allow access to intel VAAPI hardware acceleration
 
 USER zoomrec
 
