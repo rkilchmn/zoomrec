@@ -2,10 +2,21 @@
 
 git pull
 
+# possible values for GPU Acceleration
+VAAPI="VAAPI"
+NVIDIA="NVIDIA"
+
 # Check if at least one parameter is passed
-if [ $# -lt 1 ]; then
-  echo "Error: At least one parameter is required."
-  echo "Usage: $0 GPU (VAAPI|NVIDIA)"
+if [ $# -gt 1 ]; then
+  echo "Error: Only 1 optional parameter is allowed."
+  echo "Usage: $0 optional:GPU[VAAPI|NVIDIA]"
+  exit 1
+fi
+
+# Check if the provided GPU is either VAAPI or NVIDIA
+if [ "$1" != "$VAAPI" ] && [ "$1" != "$NVIDIA" ]; then
+  echo "Error: Invalid GPU acceleration specified."
+  echo "GPU must be either $VAAPI or $NVIDIA."
   exit 1
 fi
 
