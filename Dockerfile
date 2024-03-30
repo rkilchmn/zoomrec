@@ -97,6 +97,10 @@ RUN apt-get update && \
         libxcb-keysyms1 \
         libxcb-xtest0 \
         libxcb-cursor0 && \
+# WSL2
+    apt-get install --no-install-recommends -y \
+        libxcb-xinerama0 \
+        libqt5x11extras5 && \
 # Install Zoom (original uses Version 5.13.0 (599)
     #wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
     #wget -q -O zoom_amd64.deb https://zoom.us/client/5.13.0.599/zoom_amd64.deb && \
@@ -165,9 +169,19 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
 #     fi
 
 # Install support for NVIDIA GPU hardware accelerators NVENC for ffmpeg encoding
+ENV NVIDIA_DRIVER_CAPABILITIES=video
+ENV NVIDIA_VISIBLE_DEVICES all
 RUN if [ "$GPU_BUILD" = "NVIDIA" ] ; then \
+        # add repo
+        apt-get install -y gnupg && \
+        curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && \
+        curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+        sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+        tee /etc/apt/sources.list.d/nvidia-container-toolkit.list && \
+        # install
+        apt-get update && \
         apt-get install --no-install-recommends -y \
-            nvidia-driver-525 ; \
+            nvidia-container-runtime ; \
     fi
 
 # Clean up
