@@ -98,9 +98,10 @@ RUN apt-get update && \
         libxcb-xtest0 \
         libxcb-cursor0 && \
 # WSL2
-    apt-get install --no-install-recommends -y \
+apt-get install --no-install-recommends -y \
         libxcb-xinerama0 \
         libqt5x11extras5 && \
+
 # Install Zoom (original uses Version 5.13.0 (599)
     #wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
     #wget -q -O zoom_amd64.deb https://zoom.us/client/5.13.0.599/zoom_amd64.deb && \
@@ -140,13 +141,37 @@ RUN apt-get update && \
     samba-common-bin \
     acl
 
+ENV LIBVA_TRACE=${HOME}/recordings/screenshots/libva_trace.log
 # Install support for VA-API GPU hardware accelerators used by ffmpeg encoders
 RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
+        # add repoisitory for latest mesa drivers
         apt-get install -y software-properties-common && \
         add-apt-repository ppa:kisak/kisak-mesa && \
+
+        # add intel non-free repositories
+        # apt-get install -y gnupg && \
+        # curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | apt-key add - > /dev/null && \
+        # echo "deb [trusted=yes arch=amd64] https://repositories.intel.com/graphics/ubuntu focal main" > /etc/apt/sources.list.d/intel-graphics.list  && \
+        # apt-get update && \
+        # add intel packages https://www.intel.com/content/www/us/en/docs/oneapi/installation-guide-linux/2023-1/configure-wsl-2-for-gpu-workflows.html
+        # apt-get install --no-install-recommends -y \
+        #     vainfo \
+        #     clinfo \
+        #     intel-opencl-icd intel-level-zero-gpu level-zero \
+        #     intel-media-va-driver-non-free libmfx1 libmfxgen1 libvpl2 \
+        #     libegl-mesa0 libegl1-mesa libegl1-mesa-dev libgbm1 libgl1-mesa-dev libgl1-mesa-dri \
+        #     libglapi-mesa libgles2-mesa-dev libglx-mesa0 libigdgmm12 libxatracker2 mesa-va-drivers \
+        #     mesa-vdpau-drivers mesa-vulkan-drivers va-driver-all && \
+
+        # standard media drivers
+        apt-get install --no-install-recommends -y \
+            mesa-va-drivers && \
+
+        # va-api related tools for testing
         apt-get install --no-install-recommends -y \
             vainfo \
-            mesa-va-drivers && \
+            clinfo && \
+        # provide access to devices
         groupadd -g ${RENDER_GROUPID} render && \
         adduser zoomrec render && \
         adduser zoomrec video ; \
