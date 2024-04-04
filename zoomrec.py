@@ -271,8 +271,22 @@ class HideViewOptionsThread:
                 time.sleep(1)
                 if wrap( pyautogui.locateOnScreen, os.path.join(IMG_PATH, 'meeting_chat.png'), confidence=0.9):
                     logging.info("Failed to close meeting chat popup window..")
+        
                 else:
                     logging.info("Successfully close meeting chat popup window..")
+
+             # Check if "participant has enabled closed caption" message showing
+            if wrap( pyautogui.locateOnScreen, os.path.join(IMG_PATH, 'participant_enabled_closed_caption.png'), confidence=0.9) is not None:
+                logging.info("Message for participant has enabled closed caption showing..")
+                # try to close window
+                x, y = wrap( pyautogui.locateCenterOnScreen, os.path.join(
+                            IMG_PATH, 'participant_enabled_closed_caption_close.png'), confidence=0.9)
+                pyautogui.click(x, y)
+                time.sleep(1)
+                if wrap( pyautogui.locateOnScreen, os.path.join(IMG_PATH, 'meeting_chat.png'), confidence=0.9):
+                    logging.info("Failed to close message for participant has enabled closed caption...")
+                else:
+                    logging.info("Successfully closed message for participant has enabled closed caption..")
 
             time.sleep(self.interval)
        
