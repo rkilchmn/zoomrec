@@ -134,7 +134,7 @@ apt-get install --no-install-recommends -y \
     pip3 uninstall --yes opencv-python && \ 
     pip3 install opencv-python-headless && \ 
 # Install VLC - optional
-#    apt-get install --no-install-recommends -y vlc && \
+   apt-get install --no-install-recommends -y vlc && \
 # install samba server
     apt-get install --no-install-recommends -y \
     samba \
@@ -163,14 +163,21 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
         #     libglapi-mesa libgles2-mesa-dev libglx-mesa0 libigdgmm12 libxatracker2 mesa-va-drivers \
         #     mesa-vdpau-drivers mesa-vulkan-drivers va-driver-all && \
 
-        # standard media drivers
+        # install media drivers for GPU based on  LIBVA_DRIVER_NAME value
         apt-get install --no-install-recommends -y \
-            mesa-va-drivers && \
+            # standard drivers includes 
+            # "radeonsi" for RX4x0/RC5x0
+            # "d3d12" for IrisXE under WSL2
+            mesa-va-drivers \
+            # "i965" Ivy bridge like HD4000
+            i965-va-driver-shaders && \
+            # untested: "iHD" for Broadwell and above Intel iGPUs        
 
         # va-api related tools for testing
-        apt-get install --no-install-recommends -y \
-            vainfo \
-            clinfo && \
+        # apt-get install --no-install-recommends -y \
+        #     vainfo \
+        #     clinfo && \
+
         # provide access to devices
         groupadd -g ${RENDER_GROUPID} render && \
         adduser zoomrec render && \
