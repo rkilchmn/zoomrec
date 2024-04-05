@@ -171,7 +171,7 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
             mesa-va-drivers \
             # "i965" Ivy bridge like HD4000
             i965-va-driver-shaders && \
-            # untested: "iHD" for Broadwell and above Intel iGPUs        
+            # untested: "iHD" for Broadwell and above Intel iGPUs   
 
         # va-api related tools for testing
         # apt-get install --no-install-recommends -y \
