@@ -181,8 +181,9 @@ def check_past_event(event, graceSecs=0):
             try:
                 start_date_str = getDate(day, event['description'])
                 start_datetime = datetime.strptime(start_date_str + ' ' + event['time'], DATE_FORMAT + ' ' + TIME_FORMAT)
+                 # Convert start_datetime to event's timezone
+                start_datetime = start_datetime.replace(tzinfo=ZoneInfo(event['timezone']))
                 end_datetime = start_datetime + timedelta(minutes=int(event['duration']))
-                end_datetime = end_datetime.astimezone(ZoneInfo(event['timezone']))
                 end_datetime += timedelta(seconds=graceSecs)
                 # Check if the event has ended
                 if end_datetime < now:
