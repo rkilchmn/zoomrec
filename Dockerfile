@@ -167,10 +167,10 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
         apt-get install --no-install-recommends -y \
             # standard drivers includes 
             # "radeonsi" for RX4x0/RC5x0
-            # "d3d12" for IrisXE under WSL2
-            mesa-va-drivers \
+            # " " for IrisXE under WSL2
+            va-driver-all && \
             # "i965" Ivy bridge like HD4000
-            i965-va-driver-shaders && \
+            # i965-va-driver-shaders && \
             # untested: "iHD" for Broadwell and above Intel iGPUs   
 
         # va-api related tools for testing
