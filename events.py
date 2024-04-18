@@ -127,7 +127,10 @@ def read_events_from_csv(file_name):
     events = []
     with open(file_name, 'r') as file:
         reader = csv.reader(file,delimiter=CSV_DELIMITER)
-        headers = next(reader)
+        try:
+            headers = next(reader)
+        except StopIteration:  # Handle empty file/not even header
+            return []
         for row in reader:
             event = {headers[i]: row[i] for i in range(len(headers))}
             events.append(event)
