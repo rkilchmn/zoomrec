@@ -5,7 +5,7 @@ from datetime import datetime
 import os.path
 import yaml
 # import sys
-from events import read_events_from_csv, find_next_event, is_valid_timezone, get_telegramchatid
+from events import FIELDNAMES, EventField, remove_past_events, generate_urlsafe_unique_id, validate_event, write_events_to_csv, read_events_from_csv, find_next_event, is_valid_timezone, get_telegramchatid
 from urllib.parse import unquote
 
 app = Flask(__name__)
@@ -25,6 +25,41 @@ app.config['BASIC_AUTH_USERNAME'] = os.getenv('SERVER_USERNAME')
 app.config['BASIC_AUTH_PASSWORD'] = os.getenv('SERVER_PASSWORD')
 basic_auth = BasicAuth(app)
 
+# curl -u myuser:mypassword -X POST -H "Content-Type: application/json" -d '{"description": "test", "weekday": "05/05/2024", "time": "14:30", "timezone":"Australia/Sydney", "duration": "60", "record": "true", "id": "https://us05web.zoom.us/j/83776483885?pwd=xCzmF3kuxu2NbYSckGI28kErQrpXoC.1"}' "http://localhost:8081/event"
+@app.route(f"{config['ROUTE_EVENT']}", methods=["POST"])
+def create_event():
+    try:
+        event = {}
+        for fieldname in FIELDNAMES:
+            if fieldname in request.json:
+                event[fieldname] = request.json[fieldname]
+        event = validate_event( event)
+        event[EventField.KEY.value] = generate_urlsafe_unique_id()
+        events = read_events_from_csv(CSV_PATH)
+        events = remove_past_events( events, 300)
+        events.append(event)
+        write_events_to_csv(CSV_PATH, events)
+        return jsonify(event) # return created event including 'key' in order to modify
+    except Exception as e:
+        return jsonify({"error": str(e)}), 404
+
+# curl -u myuser:mypassword -X PUT -H "Content-Type: application/json" -d '{"description": "test", "weekday": "05/05/2024", "time": "15:30", "timezone":"Australia/Sydney", "duration": "60", "record": "true", "id": "https://us05web.zoom.us/j/83776483885?pwd=xCzmF3kuxu2NbYSckGI28kErQrpXoC.1"}' "http://localhost:8081/event/G4JbZYQN65Ba35jfbyiHsj"
+@app.route(f"{config['ROUTE_EVENT']}/<key>", methods=["PUT"])
+def update_event(key):
+    try:
+        events = read_events_from_csv(CSV_PATH)
+        for i, e in enumerate(events):
+            if e[EventField.KEY.value] == key:
+                for fieldname in FIELDNAMES:
+                    if fieldname in request.json:
+                        events[i][fieldname] = request.json[fieldname]
+                events[i] = validate_event( events[i])
+                write_events_to_csv(CSV_PATH, events)
+                return jsonify(events[i]) # return updated event
+        return jsonify({"error": "Event not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 404
+
 # curl -u myuser:mypassword "http://localhost:8080/event?last_change=2023-05-10T12:00:00"
 @app.route(config['ROUTE_EVENT'], methods=['GET'])
 @basic_auth.required
@@ -41,7 +76,7 @@ def get_event():
     return jsonify(events)
 
 # curl -u myuser:mypassword "http://localhost:8080/event/next?astimezone=Australia/Sydney&leadinsecs=60&leadoutsecs=60"
-@app.route(config['ROUTE_EVENT_NEXT'], methods=['GET'])
+@app.route(f"{config['ROUTE_EVENT']}/{config['ROUTE_EVENT_NEXT']}", methods=['GET'])
 @basic_auth.required
 def get_event_next():
     # Retrieve leadInSecs and leadOutSecs from request parameters
@@ -113,7 +148,7 @@ def get_firmware():
 @basic_auth.required
 def log_handler():
     data = request.json
-    log_id = data.get('id')
+    log_id = data.get(EventField.ID.value)
     log_content = data.get('content')
     if log_content:
         log_content = unquote(log_content)

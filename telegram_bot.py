@@ -64,9 +64,9 @@ async def find_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 continue
             
         output += f"Event {i}\n"
-        output += f"  description : {event['description']}\n"
+        output += f"  description : {event[EventField.DESCRIPTION.value]}\n"
         for attribute_name, attribute_value in event.items():
-            if attribute_name == 'description':
+            if attribute_name == EventField.DESCRIPTION.value:
                 continue
             output += f"  {attribute_name} : {attribute_value}\n"
     await update.message.reply_text(output)
@@ -106,9 +106,9 @@ async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     for i, event in enumerate(events_to_display, start=start_index):
         i += 1
         output += f"Event {i}\n"
-        output += f"  description : {event['description']}\n"
+        output += f"  description : {event[EventField.DESCRIPTION.value]}\n"
         for attribute_name, attribute_value in event.items():
-            if attribute_name == 'description':
+            if attribute_name == EventField.DESCRIPTION.value:
                 continue
             output += f"  {attribute_name} : {attribute_value}\n"
 
@@ -137,9 +137,9 @@ async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else: # omitted as its optional
         record = 'true' # default
 
-    event = {'description': args[0], 'weekday': args[1].lower(), 'time': args[2], 
-             'timezone': args[3], 'duration': args[4], 'id': args[5], 'password': password, 
-             'record': record, 'user' : set_telegramchatid( update.effective_chat.id)}
+    event = {EventField.DESCRIPTION.value: args[0], EventField.WEEKDAY.value: args[1].lower(), EventField.TIME.value: args[2], 
+             EventField.TIMEZONE.value: args[3], EventField.DURATION.value: args[4], EventField.ID.value: args[5], EventField.PASSWORD.value: password, 
+             EventField.RECORD.value: record, EventField.USER.value : set_telegramchatid( update.effective_chat.id)}
 
     try:
         event = validate_event( event)
@@ -182,7 +182,7 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 await update.message.reply_text(f"Attribute '{attribute_name}' not found in event")
                 return
 
-            if attribute_name in ['weekday']:    
+            if attribute_name in [EventField.WEEKDAY.value]:    
                 target_event[attribute_name] = new_attribute_value.lower()
             else:
                 target_event[attribute_name] = new_attribute_value
@@ -196,7 +196,7 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         events[target_index] = target_event
         write_events_to_csv(CSV_PATH, events)
         events[target_index] = target_event
-        await update.message.reply_text(f"Attributes successfully modified for event '{target_event['description']}' with index {target_index+1}")
+        await update.message.reply_text(f"Attributes successfully modified for event '{target_event[EventField.DESCRIPTION.value]}' with index {target_index+1}")
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")
 
@@ -219,7 +219,7 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         del events[target_index]
         write_events_to_csv(CSV_PATH, events)
-        await update.message.reply_text(f"Event '{target_event['description']}' with index {target_index+1} successfully deleted")
+        await update.message.reply_text(f"Event '{target_event[EventField.DESCRIPTION.value]}' with index {target_index+1} successfully deleted")
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")
 

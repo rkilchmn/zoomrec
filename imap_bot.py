@@ -70,11 +70,11 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                         content['body'] = body[type['content_type']]
                         # by default email is matched unless a match_regex fails end returns empty valu
                         content['match'] = True 
-                        content['record'] = RECORD
-                        content['password'] = ""
+                        content[EventField.RECORD.value] = RECORD
+                        content[EventField.PASSWORD.value] = ""
                         content['datetime'] = ""
                         content['url'] = ""
-                        content['duration'] = ""
+                        content[EventField.DURATION.value] = ""
                         # process sections
                         for section in type['sections']:
                             for key, value in section.items():
@@ -112,24 +112,24 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                             for date in content['datetime']:
                                 # if no date was provided, use todays date in events local timezone
                                 if date.year == 1900 and date.month == 1 and date.day == 1:
-                                    today_local = datetime.now(ZoneInfo(content['timezone'])).date()
+                                    today_local = datetime.now(ZoneInfo(content[EventField.TIMEZONE.value])).date()
                                     date = date.replace(year=today_local.year, month=today_local.month, day=today_local.day)
                                 # add local timezone of event
-                                date_local = date.replace(tzinfo=ZoneInfo(content['timezone']))
+                                date_local = date.replace(tzinfo=ZoneInfo(content[EventField.TIMEZONE.value]))
                                 # list of dates
                                 if dates:
                                     dates = dates + ","
                                 dates = dates + date_local.strftime(DATE_FORMAT)
                             if dates:    
-                                event = {'description': content['description'].strip().replace(" ", "_"),
-                                        'weekday': dates,
-                                        'time': date_local.strftime(TIME_FORMAT), 
-                                        'duration': content['duration'], 
-                                        'id': content['url'], 
-                                        'password': content['password'],
-                                        'record': RECORD,
-                                        'timezone': content['timezone'],
-                                        'user' : type['user']
+                                event = {EventField.DESCRIPTION.value: content[EventField.DESCRIPTION.value].strip().replace(" ", "_"),
+                                        EventField.WEEKDAY.value: dates,
+                                        EventField.TIME.value: date_local.strftime(TIME_FORMAT), 
+                                        EventField.DURATION.value: content[EventField.DURATION.value], 
+                                        EventField.ID.value: content['url'], 
+                                        EventField.PASSWORD.value: content[EventField.PASSWORD.value],
+                                        EventField.RECORD.value: RECORD,
+                                        EventField.TIMEZONE.value: content[EventField.TIMEZONE.value],
+                                        EventField.USER.value : type[EventField.USER.value]
                                 }
 
                                 event = validate_event( event)
@@ -137,10 +137,10 @@ def start_bot(CSV_PATH, CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_
                                 events = remove_past_events( events, 300)
                                 events.append(event)
                                 write_events_to_csv(CSV_PATH, events)
-                                eventStr = f"Event {event['description']} {event['weekday']} {event['time']} {event['timezone']}"
+                                eventStr = f"Event {event[EventField.DESCRIPTION.value]} {event[EventField.WEEKDAY.value]} {event[EventField.TIME.value]} {event[EventField.TIMEZONE.value]}"
                                 logging.info( f"{eventStr} added")
                                 # try to send telegramm message
-                                chat_id = get_telegramchatid(event['user'])
+                                chat_id = get_telegramchatid(event[EventField.USER.value])
                                 if chat_id:
                                     if send_telegram_message( TELEGRAM_BOT_TOKEN, chat_id, f"Email bot has added {eventStr}."):
                                         logging.info( "Telegram message successfully sent.")

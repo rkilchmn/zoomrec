@@ -8,7 +8,8 @@ try:
     from zoneinfo import ZoneInfo # >= 3.9
 except ImportError:
     from backports.zoneinfo import ZoneInfo # < 3.9
-
+from enum import Enum
+import shortuuid
 
 CSV_DELIMITER = ";"
 
@@ -16,9 +17,53 @@ DATE_FORMAT = '%d/%m/%Y'
 TIME_FORMAT = '%H:%M'
 RECORD = 'true'
 
+TELEGRAM_CHAT_ID_KEY = "telegram-chatid"
+
+class EventType(Enum):
+    ZOOM = 1
+    SYSTEM = 2 # used for example to start client in case of manitenance etc
+
+class EventStatus(Enum):
+    SCHEDULED = 1
+    IN_PROGRESS = 2
+    POSTPROCESSING = 3
+
+class EventField(Enum):
+    KEY = 'key'
+    TYPE = 'type'
+    STATUS = 'status'
+    ASSIGNED = 'assigned'
+    POSTPROCESSING = 'postprocessing'
+    WEEKDAY = 'weekday'
+    TIME = 'time'
+    DURATION = 'duration'
+    ID = 'id'
+    PASSWORD = 'password'
+    DESCRIPTION = 'description'
+    RECORD = 'record'
+    TIMEZONE = 'timezone'
+    USER = 'user'
+
+    def __str__(self):
+        return self.value
+
+EVENT_DEFAULT_VALUES = {
+    EventField.TYPE.value: EventType.ZOOM.value,
+    EventField.STATUS.value: EventStatus.SCHEDULED.value,
+    EventField.POSTPROCESSING.value: "transcribe",
+}
 
 WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-FIELDNAMES =['weekday', 'time', 'duration', 'id', 'password', 'description', 'record','timezone', 'user']
+FIELDNAMES = [field.value for field in EventField]
+
+def generate_urlsafe_unique_id(length=22):
+    return shortuuid.ShortUUID().uuid()[:length]
+
+def set_missing_default_values(event):
+    for fieldname, default_value in EVENT_DEFAULT_VALUES.items():
+        if fieldname not in event and default_value is not None:
+            event[fieldname] = default_value
+    return event
 
 def now_system_datetime():
     current_datetime = datetime.now()
@@ -142,6 +187,9 @@ def write_events_to_csv(file_name, events):
         writer = csv.DictWriter(file, FIELDNAMES, delimiter=CSV_DELIMITER)
         writer.writeheader()
         for event in events:
+            event = set_missing_default_values(event)
+            if EventField.KEY.value not in event: # no key defined yet
+                event[EventField.KEY.value] = generate_urlsafe_unique_id()
             writer.writerow(event)
 
 def find_next_event(events, astimezone, leadInSecs = 0, leadOutSecs = 0):
@@ -152,7 +200,7 @@ def find_next_event(events, astimezone, leadInSecs = 0, leadOutSecs = 0):
             try:
                 # in local timezone of event   
                 start_datetime_local = get_next_event_local_start_datetime( day, event)
-                end_datetime_local = start_datetime_local + timedelta(minutes=int(event['duration']))
+                end_datetime_local = start_datetime_local + timedelta(minutes=int(event[EventField.DURATION.value]))
                 # converted to astimezone provided 
                 start_datetime = start_datetime_local.astimezone(ZoneInfo(astimezone))
                 end_datetime = end_datetime_local.astimezone(ZoneInfo(astimezone))
@@ -175,18 +223,18 @@ def find_next_event(events, astimezone, leadInSecs = 0, leadOutSecs = 0):
     return next_event
 
 def check_past_event(event, graceSecs=0):
-    now = datetime.now(ZoneInfo(event['timezone']))
+    now = datetime.now(ZoneInfo(event[EventField.TIMEZONE.value]))
     past_event = True
     for day in expand_days(event["weekday"]):
         if day in WEEKDAYS: # weekdays are recurring events
             past_event = False
         else:
             try:
-                start_date_str = getDate(day, event['description'])
-                start_datetime = datetime.strptime(start_date_str + ' ' + event['time'], DATE_FORMAT + ' ' + TIME_FORMAT)
+                start_date_str = getDate(day, event[EventField.DESCRIPTION.value])
+                start_datetime = datetime.strptime(start_date_str + ' ' + event[EventField.TIME.value], DATE_FORMAT + ' ' + TIME_FORMAT)
                  # Convert start_datetime to event's timezone
-                start_datetime = start_datetime.replace(tzinfo=ZoneInfo(event['timezone']))
-                end_datetime = start_datetime + timedelta(minutes=int(event['duration']))
+                start_datetime = start_datetime.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
+                end_datetime = start_datetime + timedelta(minutes=int(event[EventField.DURATION.value]))
                 end_datetime += timedelta(seconds=graceSecs)
                 # Check if the event has ended
                 if end_datetime < now:
@@ -206,9 +254,9 @@ def remove_past_events(events, graceSecs=0):
 
 # datetime of event start in the events local timezone
 def get_next_event_local_start_datetime( day, event): 
-    start_date_str = getDate( day, event['description'])
-    start_datetime = datetime.strptime(start_date_str + ' ' + event['time'], DATE_FORMAT + ' ' + TIME_FORMAT)  
-    start_datetime = start_datetime.replace(tzinfo=ZoneInfo(event['timezone']))
+    start_date_str = getDate( day, event[EventField.DESCRIPTION.value])
+    start_datetime = datetime.strptime(start_date_str + ' ' + event[EventField.TIME.value], DATE_FORMAT + ' ' + TIME_FORMAT)  
+    start_datetime = start_datetime.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
 
     return start_datetime
 
@@ -224,39 +272,39 @@ def is_valid_timezone(timezone):
             return False
 
 def validate_event(event):
-    if event['description']:
-        event['description'] = convert_to_safe_filename(event['description'])
+    if event[EventField.DESCRIPTION.value]:
+        event[EventField.DESCRIPTION.value] = convert_to_safe_filename(event[EventField.DESCRIPTION.value])
     
-    if event['weekday']:
+    if event[EventField.WEEKDAY.value]:
         try:
-            days = expand_days(event['weekday'])
+            days = expand_days(event[EventField.WEEKDAY.value])
         except ValueError:
-            raise ValueError(f"Invalid weekday or date '{event['weekday']}'. List and ranges of weekays e.g. monday, tuesday or dates in {DATE_FORMAT} format are supported")
+            raise ValueError(f"Invalid weekday or date '{event[EventField.WEEKDAY.value]}'. List and ranges of weekays e.g. monday, tuesday or dates in {DATE_FORMAT} format are supported")
     else:
         raise ValueError("Missing attribute weekday.")
 
-    if event['time']:
+    if event[EventField.TIME.value]:
         # Validate time
         try:
-            time.strptime(event['time'], TIME_FORMAT)
+            time.strptime(event[EventField.TIME.value], TIME_FORMAT)
         except ValueError:
-            raise ValueError(f"Invalid time format '{event['time']}'. Use HH:MM format.")
+            raise ValueError(f"Invalid time format '{event[EventField.TIME.value]}'. Use HH:MM format.")
     else:
         raise ValueError("Missing attribute time.")
     
-    if event['timezone']:
+    if event[EventField.TIMEZONE.value]:
         # Validate timezone
         try:
-           ZoneInfo(event['timezone'])
+           ZoneInfo(event[EventField.TIMEZONE.value])
         except ValueError:
-            raise ValueError(f"Invalid timezone'{event['timezone']}'. Use values such as 'America/New_York'.")
+            raise ValueError(f"Invalid timezone'{event[EventField.TIMEZONE.value]}'. Use values such as 'America/New_York'.")
     else:
         raise ValueError("Missing attribute timezone.")
     
-    if event['duration']:
+    if event[EventField.DURATION.value]:
     # Validate duration
         try:
-            duration = int(event['duration'])
+            duration = int(event[EventField.DURATION.value])
             if duration <= 0:
                 raise ValueError(f"Invalid duration '{duration}'. Duration must be a positive number of minutes.")
         except ValueError:
@@ -265,28 +313,28 @@ def validate_event(event):
         raise ValueError("Missing attribute duration")
             
     # Validate id
-    if event['id']:
-        if event['id'].startswith("http"):
-            if not validators.url(event['id']):
+    if event[EventField.ID.value]:
+        if event[EventField.ID.value].startswith("http"):
+            if not validators.url(event[EventField.ID.value]):
                 raise ValueError("Invalid URL format.")
             
             # resolve to effective URL address
-            # command = ["curl", "-Ls", "-w", "%{url_effective}", "-o", "/dev/null", event['id']]
+            # command = ["curl", "-Ls", "-w", "%{url_effective}", "-o", "/dev/null", event[EventField.ID.value]]
             # result = subprocess.run(command, capture_output=True, text=True)
-            # event['id'] = result.stdout.strip()
+            # event[EventField.ID.value] = result.stdout.strip()
             
         else:    
-            if not re.search( r'\d{9,}', event['id']):
+            if not re.search( r'\d{9,}', event[EventField.ID.value]):
                 raise ValueError("Invalid id. If id starts with 'https://' then it must be a URL, otherwise it must be a number with minimum 9 digits (no blanks)")                
-            if not event['password']:
+            if not event[EventField.PASSWORD.value]:
                 raise ValueError("Password cannot be empty.")
     else:
         raise ValueError("Missing attribute id.")
 
     # Validate record
-    if event['record']:
-        if event['record'] not in ["true", "false"]:
-            raise ValueError(f"Invalid record '{event['record']}'. Record must be either 'true' or 'false'")
+    if event[EventField.RECORD.value]:
+        if event[EventField.RECORD.value] not in ["true", "false"]:
+            raise ValueError(f"Invalid record '{event[EventField.RECORD.value]}'. Record must be either 'true' or 'false'")
     else:
         raise ValueError("Missing attribute record.")
     
@@ -305,7 +353,7 @@ def find_event( search_argument, events):
         # If it's not an index, search for an event whose description contains the argument
         hits = 0
         for i, event in enumerate(events):
-            if search_argument in event['description'].lower():
+            if search_argument in event[EventField.DESCRIPTION.value].lower():
                 target_index = i
                 hits += 1
 
@@ -317,11 +365,11 @@ def find_event( search_argument, events):
             return target_index
         
 def set_telegramchatid( chat_id):
-    return "telegram-chatid={}".format(chat_id)
+    return "{TELEGRAM_CHAT_ID_KEY}={}".format(chat_id)
         
 def get_telegramchatid( user):
     entries = user.split(":")
     for entry in entries:
-        if "telegram-chatid=" in entry:
-            chat_id = entry.split("telegram-chatid=")[1]
+        if "{TELEGRAM_CHAT_ID_KEY}=" in entry:
+            chat_id = entry.split("{TELEGRAM_CHAT_ID_KEY}=")[1]
             return chat_id
