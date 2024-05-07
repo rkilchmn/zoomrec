@@ -373,3 +373,4 @@ def get_telegramchatid( user):
         if "{TELEGRAM_CHAT_ID_KEY}=" in entry:
             chat_id = entry.split("{TELEGRAM_CHAT_ID_KEY}=")[1]
             return chat_id
+        
