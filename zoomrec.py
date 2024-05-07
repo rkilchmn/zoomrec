@@ -725,6 +725,9 @@ def join(meet_id, meet_pw, duration, user, description):
         play_audio(description)
 
     time.sleep(2)
+    logging.info("DoubleClick for Fullscreen..")
+    pyautogui.doubleClick(x=1, y=200, interval=0.1)
+    time.sleep(2)
     logging.info("Enter fullscreen..")
     show_toolbars()
     try:
@@ -767,8 +770,10 @@ def join(meet_id, meet_pw, duration, user, description):
 
         # Switch to fullscreen
         time.sleep(2)
+        logging.info("DoubleClick for Fullscreen..")
+        pyautogui.doubleClick(x=1, y=200, interval=0.1)
+        time.sleep(2)
         show_toolbars()
-
         logging.info("Enter fullscreen..")
         try:
             x, y = wrap( pyautogui.locateCenterOnScreen, os.path.join(
