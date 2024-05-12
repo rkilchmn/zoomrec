@@ -103,11 +103,15 @@ apt-get install --no-install-recommends -y \
         libqt5x11extras5 && \
 
 # Install Zoom (original uses Version 5.13.0 (599)
-    wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
+    #wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
     #wget -q -O zoom_amd64.deb https://zoom.us/client/5.13.0.599/zoom_amd64.deb && \
     #wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.13.5.363/zoom_amd64.deb && \
     #wget -q -O zoom_amd64.deb hhttps://cdn.zoom.us/prod/5.13.4.711/zoom_amd64.deb && \
     #wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.14.5.2430/zoom_amd64.deb && \
+    # Release notes: https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0068973
+    # Zoom Software Quarterly Lifecycle Policy: https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0061130
+    # Version 5.16.6(382) valid until August 3, 2024
+    wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.16.6.382/zoom_amd64.deb
     dpkg -i zoom_amd64.deb && \
     apt-get -f install -y && \
     rm -rf zoom_amd64.deb && \
