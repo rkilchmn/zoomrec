@@ -552,11 +552,13 @@ def join(meet_id, meet_pw, duration, user, description):
         if wrap( pyautogui.locateCenterOnScreen, os.path.join(IMG_PATH, img_name), confidence=0.9):
             loop = False
         else:
-           if wrap( pyautogui.locateCenterOnScreen, os.path.join(IMG_PATH, 'leave_red.png'), confidence=0.9):
+           img_name = 'leave_red.png'
+           if wrap( pyautogui.locateCenterOnScreen, os.path.join(IMG_PATH, img_name), confidence=0.9):
                loop = False
                useCase = UC_CONNECTED_NOPOPUPS
 
         logging.info("Zoom not ready yet!")
+        logging.debug(f"Zoom not ready yet! Image not located: {img_name}")
         time.sleep(1)
 
     logging.info("Zoom started!")
