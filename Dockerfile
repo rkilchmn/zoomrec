@@ -31,7 +31,7 @@ WORKDIR ${HOME}
 
 ADD res/requirements.txt ${HOME}/res/requirements.txt
 
-# Install some tools
+# Install basic dependencies
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
         apt \
@@ -47,26 +47,29 @@ RUN apt-get update && \
         locales \
         bzip2 \
         tzdata && \
-# Generate locales for en_US.UTF-8
-    locale-gen en_US.UTF-8 && \
-# Install tigervnc
-    wget -q -O tigervnc-1.10.0.x86_64.tar.gz https://sourceforge.net/projects/tigervnc/files/stable/1.10.0/tigervnc-1.10.0.x86_64.tar.gz && \
+    locale-gen en_US.UTF-8
+
+# Install TigerVNC
+RUN wget -q -O tigervnc-1.10.0.x86_64.tar.gz https://sourceforge.net/projects/tigervnc/files/stable/1.10.0/tigervnc-1.10.0.x86_64.tar.gz && \
     tar xz -f tigervnc-1.10.0.x86_64.tar.gz --strip 1 -C / && \
-    rm -rf tigervnc-1.10.0.x86_64.tar.gz && \
-# Install xfce ui
-    apt-get install --no-install-recommends -y \
+    rm -rf tigervnc-1.10.0.x86_64.tar.gz
+
+# Install XFCE and other UI components
+RUN apt-get install --no-install-recommends -y \
         supervisor \
         xfce4 \
         xfce4-goodies \
         xfce4-pulseaudio-plugin \
         xfce4-terminal \
-        xubuntu-icon-theme && \
-# Install pulseaudio
-    apt-get install --no-install-recommends -y \
+        xubuntu-icon-theme
+
+# Install audio utilities
+RUN apt-get install --no-install-recommends -y \
         pulseaudio \
-        pavucontrol && \
-# Install necessary packages
-    apt-get install --no-install-recommends -y \
+        pavucontrol
+
+# Install input and X11 utilities
+RUN apt-get install --no-install-recommends -y \
         ibus \
         dbus-user-session \
         dbus-x11 \
@@ -74,9 +77,10 @@ RUN apt-get update && \
         at-spi2-core \
         xauth \
         x11-xserver-utils \
-        libxkbcommon-x11-0 && \
-# Install Zoom dependencies
-    apt-get install --no-install-recommends -y \
+        libxkbcommon-x11-0
+
+# Install X11 and multimedia libraries
+RUN apt-get install --no-install-recommends -y \
         libxcb-xinerama0 \
         libglib2.0-0 \
         libxcb-shape0 \
@@ -91,41 +95,27 @@ RUN apt-get update && \
         libsm6 \
         libxrender1 \
         libpulse0 \
-        libxcomposite1 \ 
+        libxcomposite1 \
         libxslt1.1 \
         libsqlite3-0 \
         libxcb-keysyms1 \
         libxcb-xtest0 \
         libxcb-cursor0 && \
-# WSL2
-apt-get install --no-install-recommends -y \
-        libxcb-xinerama0 \
-        libqt5x11extras5 && \
-# Install Zoom (original uses Version 5.13.0 (599)
-    wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
-    #wget -q -O zoom_amd64.deb https://zoom.us/client/5.13.0.599/zoom_amd64.deb && \
-    #wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.13.5.363/zoom_amd64.deb && \
-    #wget -q -O zoom_amd64.deb hhttps://cdn.zoom.us/prod/5.13.4.711/zoom_amd64.deb && \
-    #wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.14.5.2430/zoom_amd64.deb && \
-    # Release notes: https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0068973
-    # Zoom Software Quarterly Lifecycle Policy: https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0061130
-    # Version 5.16.6(382) valid until August 3, 2024
-    # wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.16.6.382/zoom_amd64.deb \
+    apt-get install --no-install-recommends -y \
+        libqt5x11extras5
+
+# Install Zoom
+RUN wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
     dpkg -i zoom_amd64.deb && \
     apt-get -f install -y && \
-    rm -rf zoom_amd64.deb && \
-# resolve redirected meeting URLs
-    apt-get install --no-install-recommends -y \
-        curl && \
-# debugging tools ( to be removed)
-    apt-get install --no-install-recommends -y \
-        less && \
-# Install FFmpeg 
-    apt-get install --no-install-recommends -y \
+    rm -rf zoom_amd64.deb
+
+# Install other utilities
+RUN apt-get install --no-install-recommends -y \
+        curl \
+        less \
         ffmpeg \
-        libavcodec-extra && \
-# Install Python dependencies for script
-    apt-get install --no-install-recommends -y \
+        libavcodec-extra \
         python3 \
         python3-pip \
         python3-tk \
@@ -134,15 +124,16 @@ apt-get install --no-install-recommends -y \
         scrot \
         gnome-screenshot && \
     pip3 install --upgrade --no-cache-dir -r ${HOME}/res/requirements.txt && \
-    pip3 uninstall --yes opencv-python && \ 
-    pip3 install opencv-python-headless && \ 
-# Install VLC - optional
-   apt-get install --no-install-recommends -y vlc && \
-# install samba server
+    pip3 uninstall --yes opencv-python && \
+    pip3 install opencv-python-headless && \
+    apt-get install --no-install-recommends -y vlc && \
     apt-get install --no-install-recommends -y \
-    samba \
-    samba-common-bin \
-    acl
+        samba \
+        samba-common-bin \
+        acl
+
+# Clean up APT when done.
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ENV LIBVA_TRACE=${HOME}/recordings/screenshots/libva_trace.log
 # Install support for VA-API GPU hardware accelerators used by ffmpeg encoders
