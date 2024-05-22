@@ -125,7 +125,7 @@ RUN apt-get install --no-install-recommends -y \
         gnome-screenshot
 
 # required python module
-RUN pip3 install --upgrade --no-cache-dir -r ${HOME}/res/requirements.txt && \
+RUN pip3 install --upgrade --no-cache-dir -r ${HOME}/res/requirements.txt --default-timeout=100 && \
     pip3 uninstall --yes opencv-python && \
     pip3 install opencv-python-headless
 
