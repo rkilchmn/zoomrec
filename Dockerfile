@@ -122,12 +122,15 @@ RUN apt-get install --no-install-recommends -y \
         python3-dev \
         python3-setuptools \
         scrot \
-        gnome-screenshot && \
-    pip3 install --upgrade --no-cache-dir -r ${HOME}/res/requirements.txt && \
+        gnome-screenshot
+
+# required python module
+RUN pip3 install --upgrade --no-cache-dir -r ${HOME}/res/requirements.txt && \
     pip3 uninstall --yes opencv-python && \
-    pip3 install opencv-python-headless && \
-    apt-get install --no-install-recommends -y vlc && \
-    apt-get install --no-install-recommends -y \
+    pip3 install opencv-python-headless
+
+# samba servr
+RUN apt-get install --no-install-recommends -y \
         samba \
         samba-common-bin \
         acl
