@@ -101,7 +101,6 @@ RUN apt-get update && \
 apt-get install --no-install-recommends -y \
         libxcb-xinerama0 \
         libqt5x11extras5 && \
-
 # Install Zoom (original uses Version 5.13.0 (599)
     wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
     #wget -q -O zoom_amd64.deb https://zoom.us/client/5.13.0.599/zoom_amd64.deb && \
@@ -151,7 +150,6 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
         # add repoisitory for latest mesa drivers
         apt-get install -y software-properties-common && \
         add-apt-repository ppa:kisak/kisak-mesa && \
-
         # add intel non-free repositories
         # apt-get install -y gnupg && \
         # curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | apt-key add - > /dev/null && \
