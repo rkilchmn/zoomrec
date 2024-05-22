@@ -164,7 +164,6 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
         #     libegl-mesa0 libegl1-mesa libegl1-mesa-dev libgbm1 libgl1-mesa-dev libgl1-mesa-dri \
         #     libglapi-mesa libgles2-mesa-dev libglx-mesa0 libigdgmm12 libxatracker2 mesa-va-drivers \
         #     mesa-vdpau-drivers mesa-vulkan-drivers va-driver-all && \
-
         # install media drivers for GPU based on  LIBVA_DRIVER_NAME value
         apt-get install --no-install-recommends -y \
             # standard drivers includes 
@@ -174,12 +173,10 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
             # "i965" Ivy bridge like HD4000
             # i965-va-driver-shaders && \
             # untested: "iHD" for Broadwell and above Intel iGPUs   
-
         # va-api related tools for testing
         # apt-get install --no-install-recommends -y \
         #     vainfo \
         #     clinfo && \
-
         # provide access to devices
         groupadd -g ${RENDER_GROUPID} render && \
         adduser zoomrec render && \
