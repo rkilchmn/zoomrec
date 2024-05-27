@@ -105,7 +105,12 @@ RUN apt-get install --no-install-recommends -y \
         libqt5x11extras5
 
 # Install Zoom
-RUN wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
+# Release notes: https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0068973
+# Zoom Software Quarterly Lifecycle Policy: https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0061130
+# Version 5.16.6(382) valid until August 3, 2024
+# wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.16.6.382/zoom_amd64.deb \
+#RUN wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
+RUN wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.16.6.382/zoom_amd64.deb && \
     dpkg -i zoom_amd64.deb && \
     apt-get -f install -y && \
     rm -rf zoom_amd64.deb
@@ -125,9 +130,9 @@ RUN apt-get install --no-install-recommends -y \
         gnome-screenshot
 
 # required python module
-RUN pip3 install --upgrade --no-cache-dir -r ${HOME}/res/requirements.txt --default-timeout=100 && \
-    pip3 uninstall --yes opencv-python && \
-    pip3 install opencv-python-headless
+RUN pip3 install --upgrade --no-cache-dir -r ${HOME}/res/requirements.txt --default-timeout=100
+#    pip3 uninstall --yes opencv-python && \
+#    pip3 install opencv-python-headless
 
 # samba servr
 RUN apt-get install --no-install-recommends -y \
@@ -190,6 +195,7 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
 #             i965-va-driver && \
 #         groupadd -g ${RENDER_GROUPID} render && \
 #         adduser zoomrec render && \
+#         apt-get update && \
 #         adduser zoomrec video ; \
 #     fi
 
@@ -198,13 +204,14 @@ ENV NVIDIA_DRIVER_CAPABILITIES=video
 ENV NVIDIA_VISIBLE_DEVICES all
 RUN if [ "$GPU_BUILD" = "NVIDIA" ] ; then \
         # add repo
+	apt-get update && \
         apt-get install -y gnupg && \
         curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && \
         curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
         sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
         tee /etc/apt/sources.list.d/nvidia-container-toolkit.list && \
         # install
-        apt-get update && \
+	apt-get update && \
         apt-get install --no-install-recommends -y \
             nvidia-container-runtime ; \
     fi
