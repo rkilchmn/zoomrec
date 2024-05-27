@@ -552,13 +552,11 @@ def join(meet_id, meet_pw, duration, user, description):
         if wrap( pyautogui.locateCenterOnScreen, os.path.join(IMG_PATH, img_name), confidence=0.9):
             loop = False
         else:
-           img_name = 'leave_red.png'
-           if wrap( pyautogui.locateCenterOnScreen, os.path.join(IMG_PATH, img_name), confidence=0.9):
+           if wrap( pyautogui.locateCenterOnScreen, os.path.join(IMG_PATH, 'leave_red.png'), confidence=0.9):
                loop = False
                useCase = UC_CONNECTED_NOPOPUPS
 
         logging.info("Zoom not ready yet!")
-        logging.debug(f"Zoom not ready yet! Image not located: {img_name}")
         time.sleep(1)
 
     logging.info("Zoom started!")
@@ -727,9 +725,6 @@ def join(meet_id, meet_pw, duration, user, description):
         play_audio(description)
 
     time.sleep(2)
-    logging.info("DoubleClick for Fullscreen..")
-    pyautogui.doubleClick(x=1, y=200, interval=0.1)
-    time.sleep(2)
     logging.info("Enter fullscreen..")
     show_toolbars()
     try:
@@ -772,10 +767,8 @@ def join(meet_id, meet_pw, duration, user, description):
 
         # Switch to fullscreen
         time.sleep(2)
-        logging.info("DoubleClick for Fullscreen..")
-        pyautogui.doubleClick(x=1, y=200, interval=0.1)
-        time.sleep(2)
         show_toolbars()
+
         logging.info("Enter fullscreen..")
         try:
             x, y = wrap( pyautogui.locateCenterOnScreen, os.path.join(
