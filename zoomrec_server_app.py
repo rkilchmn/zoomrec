@@ -124,6 +124,9 @@ def log_handler():
     log_filename = f'{LOG_PATH}{log_id}.log'
 
     try:
+        # make log filename safe for windows
+        log_filename = log_filename.replace(':', '')
+
         # Check if the log file exists
         if os.path.exists(log_filename):
             mode = 'a'
