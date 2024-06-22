@@ -19,6 +19,7 @@
 <li>stop container: docker stop $(sudo docker ps | grep rkilchmn/zoomrec:latest | awk '{print $1}')</li>
 <li>start root shell: docker container exec -u 0 -it zoomrec /bin/bash</li>
 <li>remove container: docker rmi -f rkilchmn/zoomrec:latest</li>
+<li>cleanup docker dir with unused garbage: docker system prune -a</li>
 <li>remove stopped containers: docker rm $(docker ps -a -q -f status=exited)</li>
 <li>remove dangling/unrefernced images: docker rmi $(docker images --filter "dangling=true" -q)</li>
 <li>
