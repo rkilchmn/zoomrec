@@ -143,7 +143,7 @@ RUN apt-get install --no-install-recommends -y \
 # Clean up APT when done.
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
-ENV LIBVA_TRACE=${HOME}/recordings/screenshots/libva_trace.log
+# ENV LIBVA_TRACE=${HOME}/recordings/screenshots/libva_trace.log
 # Install support for VA-API GPU hardware accelerators used by ffmpeg encoders
 RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
         # add repoisitory for latest mesa drivers
