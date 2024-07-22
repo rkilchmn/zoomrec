@@ -11,7 +11,7 @@ from urllib.parse import unquote
 app = Flask(__name__)
 
 BASE_PATH = os.getenv('HOME')
-CSV_PATH = os.path.join(BASE_PATH, "meetings.csv")
+CSV_PATH = os.path.join(BASE_PATH, os.getenv('FILENAME_MEETINGS_CSV', "meetings.csv"))
 
 # Load configuration from YAML file
 with open( 'zoomrec_server.yaml', "r") as f:
