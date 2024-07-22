@@ -13,11 +13,13 @@ if [ $# -gt 1 ]; then
   exit 1
 fi
 
-# Check if the provided GPU is either VAAPI or NVIDIA
-if [ "$1" != "$VAAPI" ] && [ "$1" != "$NVIDIA" ]; then
-  echo "Error: Invalid GPU acceleration specified."
-  echo "GPU must be either $VAAPI or $NVIDIA."
-  exit 1
+if [ -n "$2" ]; then
+  # Check if the provided GPU is either VAAPI or NVIDIA
+  if [ "$1" != "$VAAPI" ] && [ "$1" != "$NVIDIA" ]; then
+    echo "Error: Invalid GPU acceleration specified."
+    echo "GPU must be either $VAAPI or $NVIDIA."
+    exit 1
+  fi
 fi
 
 if [ "$1" == "VAAPI" ]; then
