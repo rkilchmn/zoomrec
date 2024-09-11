@@ -47,6 +47,7 @@ if [[ "$2" == "$VAAPI" ]]; then
     -e SERVER_URL="$SERVER_URL" \
     -e LEAD_TIME_SEC="$LEAD_TIME_SEC" \
     -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
+    -e CLIENT_ID="$CLIENT_ID" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
     -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
@@ -149,6 +150,7 @@ elif [[ "$2" == "$NVIDIA" ]]; then
     -e SERVER_URL="$SERVER_URL" \
     -e LEAD_TIME_SEC="$LEAD_TIME_SEC" \
     -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
+    -e CLIENT_ID="$CLIENT_ID" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
     -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \

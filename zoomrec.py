@@ -14,7 +14,8 @@ import datetime
 import atexit
 from telegram_bot import send_telegram_message
 from datetime import datetime, timedelta
-from events import now_system_datetime, remove_past_events, expand_days, read_events_from_csv, get_next_event_local_start_datetime, convert_to_system_datetime, get_telegramchatid, WEEKDAYS, DATE_FORMAT
+from events import convert_to_local_datetime, EventType, EventStatus, now_system_datetime, remove_past_events, expand_days, read_events_from_csv, get_event_local_start_datetime, convert_to_system_datetime, get_telegramchatid, WEEKDAYS, DATE_FORMAT, EventField
+import requests
 
 global TELEGRAM_BOT_TOKEN
 global TELEGRAM_RETRIES
@@ -40,6 +41,8 @@ DEBUG_PATH = os.path.join(REC_PATH, "screenshots")
 
 FFMPEG_INPUT_PARAMS = os.getenv('FFMPEG_INPUT_PARAMS')
 FFMPEG_OUTPUT_PARAMS = os.getenv('FFMPEG_OUTPUT_PARAMS')
+
+CLIENT_ID = os.getenv('CLIENT_ID')
 
 # telegram / bot
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -493,9 +496,25 @@ def mute(description):
         return False
 
 
-def join(meet_id, meet_pw, duration, user, description):
+def join(event_key):
     global VIDEO_PANEL_HIDED
     ffmpeg_debug = None
+
+    event = get_event_by_key(event_key)
+    if not event:
+        logging.error(f"Event with key {event_key} not found.")
+        return
+    
+    if int(event[EventField.STATUS.value]) == int(EventStatus.SCHEDULED.value) and not event[EventField.ASSIGNED.value]:
+        event[EventField.ASSIGNED.value] = CLIENT_ID
+        event[EventField.ASSIGNED_TIMESTAMP.value] = convert_to_local_datetime( datetime.now(), event).isoformat()   
+        update_event(event)
+
+    meet_id = event[EventField.ID.value]
+    meet_pw = event[EventField.PASSWORD.value]
+    duration = int(event[EventField.DURATION.value]) * 60
+    user = event[EventField.USER.value]
+    description = event[EventField.DESCRIPTION.value]
 
     logging.info("Join meeting: " + description)
 
@@ -718,7 +737,7 @@ def join(meet_id, meet_pw, duration, user, description):
                 os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
                 atexit.unregister(os.killpg)
             time.sleep(2)
-            join(meet_id, meet_pw, duration, user, description)
+            join(event_key)
 
     # 'Say' something if path available (mounted)
     if os.path.exists(AUDIO_PATH):
@@ -858,38 +877,47 @@ def join(meet_id, meet_pw, duration, user, description):
         os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
         atexit.unregister(os.killpg)
 
+    event[EventField.STATUS.value] = EventStatus.JOINED.value
+
+    if event[EventField.RECORD.value] == 'true':
     # Audio
     # Start recording
-    logging.info("Start recording..")
+        logging.info("Start recording..")
 
-    filename = os.path.join(REC_PATH, time.strftime(
-        TIME_FORMAT) + "-" + description) + ".mkv"
+        filename = os.path.join(REC_PATH, time.strftime(
+            TIME_FORMAT) + "-" + description) + ".mkv"
 
-    width, height = pyautogui.size()
-    resolution = str(width) + 'x' + str(height)
-    disp = os.getenv('DISPLAY')
+        width, height = pyautogui.size()
+        resolution = str(width) + 'x' + str(height)
+        disp = os.getenv('DISPLAY')
 
-    command = "ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + \
-        resolution + " " + FFMPEG_INPUT_PARAMS + " -i " + disp + " " + FFMPEG_OUTPUT_PARAMS + \
-        " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
+        command = "ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + \
+            resolution + " " + FFMPEG_INPUT_PARAMS + " -i " + disp + " " + FFMPEG_OUTPUT_PARAMS + \
+            " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
 
-    logging.debug(f"Recording command: {command}")
+        logging.debug(f"Recording command: {command}")
 
-    ffmpeg = subprocess.Popen(
-        command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+        ffmpeg = subprocess.Popen(
+            command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
 
-    atexit.register(os.killpg, os.getpgid(
-        ffmpeg.pid), signal.SIGQUIT)
+        atexit.register(os.killpg, os.getpgid(
+            ffmpeg.pid), signal.SIGQUIT)
+        
+        event[EventField.STATUS.value] = EventStatus.RECORDING.value
 
     start_date = datetime.now()
     end_date = start_date + timedelta(seconds=duration + TRAIL_TIME_SEC)  # Add 5 minutes
 
     # Start thread to check active screensharing
     HideViewOptionsThread(description)
-    
+ 
+    # update status
+    update_event(event)
+
     # Send Telegram Notification
-    send_telegram_message( TELEGRAM_BOT_TOKEN, get_telegramchatid(user),"Joined Meeting '{}' and started recording.".format(description), TELEGRAM_RETRIES)
-    
+    # send_telegram_message( TELEGRAM_BOT_TOKEN, get_telegramchatid(user),"Joined Meeting '{}' and started recording.".format(description), TELEGRAM_RETRIES)
+
+        
     meeting_running = True
     while meeting_running:
         time_remaining = end_date - datetime.now()
@@ -920,8 +948,36 @@ def join(meet_id, meet_pw, duration, user, description):
             if DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                     TIME_FORMAT) + "-" + description) + "_ok_error.png")
+    postprocessing = event[EventField.POSTPROCESSING.value]         
+    if postprocessing is not None:
+        command = f"postprocessing.sh {postprocessing} {filename}"
+        logging.debug(f"Postprocessing command: {command}")
+
+        postprocessing_process = subprocess.Popen(
+            command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+        
+        atexit.register(os.killpg, os.getpgid(
+            postprocessing_process.pid), signal.SIGQUIT)
+        
+        if postprocessing_process:
+            logging.info("Starting postprocessing task...")
+            event[EventField.STATUS.value] = EventStatus.POSTPROCESSING.value
+            update_event(event)
+
+            postprocessing_process.wait()
+            logging.info("Postprocessing task completed.")
+
+            event[EventField.STATUS.value] = EventStatus.SCHEDULED.value
+        else:
+            logging.error("Postprocessing script not found or not specified.")
+        
+    else:
+        event[EventField.STATUS.value] = EventStatus.SCHEDULED.value
+
+    update_event(event)
                 
-    send_telegram_message( TELEGRAM_BOT_TOKEN, get_telegramchatid(user),"Meeting '{}' ended.".format(description))
+    # send_telegram_message( TELEGRAM_BOT_TOKEN, get_telegramchatid(user),"Meeting '{}' ended.".format(description))
+
 
 def play_audio(description):
     # Get all files in audio directory
@@ -960,65 +1016,46 @@ def exit_process_by_name(name):
                               "[" + str(process_id) + "]: " + str(ex))
 
 
-def join_ongoing_meeting():
+def join_ongoing_meeting(events):
     current_datetime = now_system_datetime()
 
-    events = read_events_from_csv(CSV_PATH)
-    events = remove_past_events( events)
     for event in events:
-        # Check and join ongoing meeting
-        for day in expand_days(event["weekday"]):
-            try:
-                start_datetime_local = get_next_event_local_start_datetime( day, event)
-                start_datetime = convert_to_system_datetime(start_datetime_local)
-                start_datetime = start_datetime - timedelta(seconds=LEAD_TIME_SEC)
+        if int(event[EventField.TYPE.value]) == int(EventType.ZOOM.value):
+            # Check and join ongoing meeting
+            for day in expand_days(event[EventField.WEEKDAY.value]):
+                try:
+                    start_datetime_local = get_event_local_start_datetime(day, event)
+                    start_datetime = convert_to_system_datetime(start_datetime_local)
+                    start_datetime = start_datetime - timedelta(seconds=LEAD_TIME_SEC)
 
-                end_datetime = start_datetime + \
-                    timedelta(seconds=int(event["duration"]) * 60 + TRAIL_TIME_SEC)  # Add x secconds
+                    end_datetime = start_datetime + \
+                        timedelta(seconds=int(event[EventField.DURATION.value]) * 60 + TRAIL_TIME_SEC)
 
-                if start_datetime <= current_datetime <= end_datetime and str(event["record"]) == 'true':
-                    recent_duration = (end_datetime - current_datetime).total_seconds()
-                    logging.info("Join meeting that is currently running..")
-                    join(meet_id=event["id"], meet_pw=event["password"],
-                            duration=recent_duration, user=event["user"] ,description=event["description"])
-            except ValueError as e:
-                logging.error(str(e))
+                    if start_datetime <= current_datetime <= end_datetime and str(event[EventField.RECORD.value]) == 'true':
+                        recent_duration = (end_datetime - current_datetime).total_seconds()
+                        logging.info("Join meeting that is currently running..")      
+                        
+                        join(event_key=event[EventField.KEY.value])
+                except ValueError as e:
+                    logging.error(str(e))
 
-# def adjust_start_time(start_datetime):
-#     current_time = convert_to_system_datetime(datetime.now())
-#     current_weekday = current_time.strftime("%A").lower()
-    
-#     if start_datetime <= current_time and start_datetime.strftime("%A").lower() == current_weekday:
-#         # one minute in future
-#         start_datetime = current_time + timedelta(minutes=1)
-#     return start_datetime
-
-def setup_schedule():
+def setup_schedule(events):
     schedule.clear()
-    events = read_events_from_csv(CSV_PATH)
-    events = remove_past_events( events)
     line_count = 0
     for event in events:
-        if str(event["record"]) == 'true':
+        if int(event[EventField.TYPE.value]) == int(EventType.ZOOM.value):
             # expand date/weekday ranges and lists
-            for day in expand_days( event["weekday"]):
+            for day in expand_days(event[EventField.WEEKDAY.value]):
                 try:
-                    start_datetime_local = get_next_event_local_start_datetime( day, event)
+                    start_datetime_local = get_event_local_start_datetime(day, event)
                     start_datetime = convert_to_system_datetime(start_datetime_local)
                     start_datetime = start_datetime - timedelta(seconds=LEAD_TIME_SEC)
                     weekday = start_datetime.strftime("%A").lower() 
 
-                    # # adjust start time if already passed e.g. sytem woke up very close to start time
-                    # start_datetime = adjust_start_time( start_datetime)
-
                     cmd_string = "schedule.every()." + weekday \
                                 + ".at(\"" \
                                 + start_datetime.strftime('%H:%M:%S') \
-                                + "\").do(join, meet_id=\"" + event["id"] \
-                                + "\", meet_pw=\"" + event["password"] \
-                                + "\", duration=" + str(int(event["duration"]) * 60) \
-                                + ", user=\"" + event["user"]  \
-                                + "\", description=\"" + event["description"] + "\")"
+                                + "\").do(join, event_key=\"" + event[EventField.KEY.value] + "\")"
                     cmd = compile(cmd_string, "<string>", "eval", )
                     eval(cmd)
                     line_count += 1
@@ -1027,53 +1064,61 @@ def setup_schedule():
                     logging.error(str(e))
     logging.info("Added %s meetings to schedule." % line_count)
 
-def start_telegram_bot():
-    if not TELEGRAM_BOT_TOKEN:
-        logging.info("Telegram token is missing. No Telegram bot will be started!")
-        return
-    
-    bot_log_file = open(f"{log_file}.telegram_bot", "w")
-    
-    command = f"python3 telegram_bot.py {CSV_PATH} {TELEGRAM_BOT_TOKEN}"
-    telegram_bot = subprocess.Popen(
-        command, stdout=bot_log_file, stderr=bot_log_file, shell=True, preexec_fn=os.setsid, universal_newlines=True, bufsize=1)
+def getUpdatedEvents(last_checked_time):
+            
+    if last_checked_time:
+        last_checked_time = last_checked_time.isoformat()
+        params = {'last_change': last_checked_time}
+    else:
+        params = {}
 
-    atexit.register(os.killpg, os.getpgid(
-        telegram_bot.pid), signal.SIGQUIT)  
+    response = requests.get(f"{SERVER_URL}/event", params, headers = {'Content-Type': 'application/json'}, 
+                            auth=(SERVER_USERNAME, SERVER_PASSWORD))
     
-    logging.info("Telegram bot started!")
+    if response.status_code == 200:
+        events = response.json()
+        if events:  # Check if events is not empty
+            print("Events retrived successfully.")
+            return events
+        else:
+            print("No updated events")
+            return None
+    else:
+        print("Error: Failed to retrieve events.")
+        return None
     
-def start_imap_bot():
-    if not (EMAIL_PASSWORD and IMAP_SERVER and IMAP_PORT and EMAIL_ADDRESS):
-        logging.info("IMAP details missing. No IMAP email bot will be started!")
-        return
+def get_event_by_key(event_key):
+    url = f"{SERVER_URL}/event/{event_key}"
+    headers = {'Content-Type': 'application/json'}
     
-    bot_log_file = open(f"{log_file}.imap_bot", "w")
-    
-    command = f"python3 imap_bot.py {CSV_PATH} {EMAIL_TYPE_PATH} {IMAP_SERVER} {IMAP_PORT} {EMAIL_ADDRESS} {EMAIL_PASSWORD} {TELEGRAM_BOT_TOKEN}"
-    imap_bot = subprocess.Popen(
-        command, stdout=bot_log_file, stderr=bot_log_file, shell=True, preexec_fn=os.setsid, universal_newlines=True, bufsize=1)
+    try:
+        response = requests.get(url, headers=headers, auth=(SERVER_USERNAME, SERVER_PASSWORD))
+        if response.status_code == 200:
+            return response.json()
+        else:
+            logging.error(f"Failed to retrieve event {event_key}. Response code: {response.status_code}")
+            return None
+    except Exception as e:
+        logging.error(f"Exception occurred while retrieving event {event_key}: {e}")
+        return None
 
-    atexit.register(os.killpg, os.getpgid(
-        imap_bot.pid), signal.SIGQUIT)
+def update_event(event):
+    """
+    Update the status of an event by calling the API.
+    """
+    event_key = event[EventField.KEY.value]
+    url = f"{SERVER_URL}/event/{event_key}"
+    headers = {'Content-Type': 'application/json'}
     
-    logging.info("IMAP email bot started!")
+    try:
+        response = requests.put(url, json=event, headers=headers, auth=(SERVER_USERNAME, SERVER_PASSWORD))
+        if response.status_code == 200:
+            logging.info(f"Successfully updated event {event_key}.")
+        else:
+            logging.error(f"Failed to update event {event_key}. Response code: {response.status_code}")
+    except Exception as e:
+        logging.error(f"Exception occurred while updating event {event_key}: {e}")
 
-def start_client():
-    if not (SERVER_USERNAME and SERVER_PASSWORD):
-        logging.info("Server credentials details missing. Client not started!")
-        return
-    
-    client_log_file = open(f"{log_file}.client", "w")
-    
-    command = f"python3 zoomrec_client.py {CSV_PATH} {SERVER_URL} {SERVER_USERNAME} {SERVER_PASSWORD}"
-    client = subprocess.Popen(
-        command, stdout=client_log_file, stderr=client_log_file, shell=True, preexec_fn=os.setsid, universal_newlines=True, bufsize=1)
-
-    atexit.register(os.killpg, os.getpgid(
-        client.pid), signal.SIGQUIT)
-    
-    logging.info("Client started!")
 
 def main():
     try:
@@ -1083,23 +1128,18 @@ def main():
         logging.error("Failed to create screenshot folder!")
         raise
 
-    if SERVER_URL:
-        # client mode: server runs bots and has master of meetings that client retrieves from server
-        start_client()
-    else:
-        # standalone mode with local bosts
-        start_telegram_bot()
-        start_imap_bot()
-        
+    interval_seconds = 60  # Adjust this value to your desired interval in seconds
     last_timestamp = ''
     while True:
-        current_timestamp = os.path.getmtime(CSV_PATH)
-        if current_timestamp != last_timestamp:
+        current_timestamp = now
+        if current_timestamp.timestamp() != last_timestamp:
+            logging.info(f"Checking for new events timestamp: {datetime.fromtimestamp(current_timestamp.timestamp()).strftime('%Y-%m-%d %H:%M:%S')}")
+            events = getUpdatedEvents(last_timestamp)
             last_timestamp = current_timestamp
-            logging.info(f"{CSV_PATH} timestamp: {datetime.fromtimestamp(current_timestamp).strftime('%Y-%m-%d %H:%M:%S')}")
 
-            setup_schedule()
-            join_ongoing_meeting()
+            if events:
+                setup_schedule(events)
+                join_ongoing_meeting(events)
     
         schedule.run_pending()
         time_of_next_run = schedule.next_run()
@@ -1109,7 +1149,7 @@ def main():
             print(f"Next meeting in {remaining}", end="\r", flush=True)
         else:
             print(f"No meeting scheduled.", end="\r", flush=True)
-        time.sleep(15)
+        time.sleep(interval_seconds)
 
 if __name__ == '__main__':
     main()

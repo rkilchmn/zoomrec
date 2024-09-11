@@ -25,14 +25,16 @@ class EventType(Enum):
 
 class EventStatus(Enum):
     SCHEDULED = 1
-    IN_PROGRESS = 2
-    POSTPROCESSING = 3
+    JOINED = 2
+    RECORDING = 3
+    POSTPROCESSING = 4
 
 class EventField(Enum):
     KEY = 'key'
     TYPE = 'type'
     STATUS = 'status'
     ASSIGNED = 'assigned'
+    ASSIGNED_TIMESTAMP = 'assigned_timestamp'
     POSTPROCESSING = 'postprocessing'
     WEEKDAY = 'weekday'
     TIME = 'time'
@@ -48,6 +50,8 @@ class EventField(Enum):
         return self.value
 
 EVENT_DEFAULT_VALUES = {
+    EventField.ASSIGNED.value: '',
+    EventField.ASSIGNED_TIMESTAMP.value: '',
     EventField.TYPE.value: EventType.ZOOM.value,
     EventField.STATUS.value: EventStatus.SCHEDULED.value,
     EventField.POSTPROCESSING.value: "transcribe",
@@ -199,7 +203,7 @@ def find_next_event(events, astimezone, leadInSecs = 0, leadOutSecs = 0):
         for day in expand_days(event["weekday"]):
             try:
                 # in local timezone of event   
-                start_datetime_local = get_next_event_local_start_datetime( day, event)
+                start_datetime_local = get_event_local_start_datetime( day, event)
                 end_datetime_local = start_datetime_local + timedelta(minutes=int(event[EventField.DURATION.value]))
                 # converted to astimezone provided 
                 start_datetime = start_datetime_local.astimezone(ZoneInfo(astimezone))
@@ -253,15 +257,18 @@ def remove_past_events(events, graceSecs=0):
     return filtered_events
 
 # datetime of event start in the events local timezone
-def get_next_event_local_start_datetime( day, event): 
+def get_event_local_start_datetime( day, event): 
     start_date_str = getDate( day, event[EventField.DESCRIPTION.value])
     start_datetime = datetime.strptime(start_date_str + ' ' + event[EventField.TIME.value], DATE_FORMAT + ' ' + TIME_FORMAT)  
     start_datetime = start_datetime.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
 
     return start_datetime
 
-def convert_to_system_datetime( datetime_local ):
+def convert_to_system_datetime( datetime_local):
     return datetime_local.astimezone(datetime.now().astimezone().tzinfo)
+
+def convert_to_local_datetime( datetime_system, event):
+    return datetime_system.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
 
 def is_valid_timezone(timezone):
     # Validate timezone
@@ -338,9 +345,17 @@ def validate_event(event):
     else:
         raise ValueError("Missing attribute record.")
     
+    if event.get(EventField.ASSIGNED.value) is not None:
+        if event.get(EventField.ASSIGNED_TIMESTAMP.value) is None:
+            raise ValueError("ASSIGNED_TIMESTAMP cannot be blank if ASSIGNED is provided.")
+    
     # validate if in past
     if check_past_event( event):
         raise ValueError("Event end date/time is in past.")
+    
+    if event.get(EventField.ASSIGNED.value) is not None:
+        if not event.get(EventField.ASSIGNED_TIMESTAMP.value):
+            raise ValueError("ASSIGNED_TIMESTAMP cannot be blank if ASSIGNED is provided.")
     
     return event
 

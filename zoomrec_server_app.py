@@ -11,7 +11,7 @@ from urllib.parse import unquote
 app = Flask(__name__)
 
 BASE_PATH = os.getenv('HOME')
-CSV_PATH = os.path.join(BASE_PATH, "meetings.csv")
+CSV_PATH = os.path.join(BASE_PATH, os.getenv('FILENAME_MEETINGS_CSV'))
 
 # Load configuration from YAML file
 with open( 'zoomrec_server.yaml', "r") as f:
@@ -24,6 +24,21 @@ LOG_PATH = os.path.join(BASE_PATH, os.getenv('LOG_SUBDIR'))
 app.config['BASIC_AUTH_USERNAME'] = os.getenv('SERVER_USERNAME')
 app.config['BASIC_AUTH_PASSWORD'] = os.getenv('SERVER_PASSWORD')
 basic_auth = BasicAuth(app)
+
+# create event
+# curl -u myuser:mypassword \
+#      -X POST \
+#      -H "Content-Type: application/json" \
+#      -d '{
+#            "description": "test", 
+#            "weekday": "05/05/2024", 
+#            "time": "18:15", 
+#            "timezone": "Australia/Sydney", 
+#            "duration": "30", 
+#            "record": "true", 
+#            "id": "https://us05web.zoom.us/j/84548756066?pwd=35dp6HKKTU60LLOlShON9Kb8bMnNb4.1"
+#          }' \
+#      "http://localhost:8081/event"
 
 # curl -u myuser:mypassword -X POST -H "Content-Type: application/json" -d '{"description": "test", "weekday": "05/05/2024", "time": "14:30", "timezone":"Australia/Sydney", "duration": "60", "record": "true", "id": "https://us05web.zoom.us/j/83776483885?pwd=xCzmF3kuxu2NbYSckGI28kErQrpXoC.1"}' "http://localhost:8081/event"
 @app.route(f"{config['ROUTE_EVENT']}", methods=["POST"])
@@ -61,18 +76,27 @@ def update_event(key):
         return jsonify({"error": str(e)}), 404
 
 # curl -u myuser:mypassword "http://localhost:8080/event?last_change=2023-05-10T12:00:00"
+@app.route(f"{config['ROUTE_EVENT']}/<key>", methods=['GET'])
 @app.route(config['ROUTE_EVENT'], methods=['GET'])
 @basic_auth.required
-def get_event():
+def get_event(key=None):
     last_change = request.args.get('last_change')
-    file_timestamp = datetime.fromtimestamp(os.path.getmtime((CSV_PATH)))
+    file_timestamp = datetime.fromtimestamp(os.path.getmtime(CSV_PATH))
 
     if last_change:
-        last_change_timestamp = datetime.fromisoformat((last_change))
+        last_change_timestamp = datetime.fromisoformat(last_change)
         if file_timestamp <= last_change_timestamp:
             return jsonify([])  # Return an empty list if file timestamp is not later than last_change
 
     events = read_events_from_csv(CSV_PATH)
+
+    if key:
+        event = next((e for e in events if e[EventField.KEY.value] == key), None)
+        if event:
+            return jsonify(event)
+        else:
+            return jsonify({"error": "Event not found"}), 404
+
     return jsonify(events)
 
 # curl -u myuser:mypassword "http://localhost:8080/event/next?astimezone=Australia/Sydney&leadinsecs=60&leadoutsecs=60"

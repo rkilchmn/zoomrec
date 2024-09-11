@@ -18,7 +18,8 @@ ENV HOME=/home/zoomrec \
     IMAP_SERVER="" \
     IMAP_PORT="" \
     EMAIL_ADDRESS="" \
-    EMAIL_PASSWORD="" 
+    EMAIL_PASSWORD="" \
+    CLIENT_ID=""
 
 # build container for specific GPU 
 ARG GPU_BUILD=""
