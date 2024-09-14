@@ -10,7 +10,7 @@ from urllib.parse import unquote
 
 app = Flask(__name__)
 
-BASE_PATH = os.getenv('HOME')
+BASE_PATH = os.getenv('ZOOMREC_HOME')
 CSV_PATH = os.path.join(BASE_PATH, os.getenv('FILENAME_MEETINGS_CSV'))
 
 # Load configuration from YAML file
