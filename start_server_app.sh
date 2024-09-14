@@ -4,8 +4,7 @@
 export HOME="/home/roger/zoomrec_home"
 export LOG_SUBDIR="logs"
 export FIRMWARE_SUBDIR="firmware"
-export TELEGRAM_BOT_TOKEN="5640653916:AAH2R49kkJWWoYbHKCZ-ztrOS2HtYVpYLz0"
-export TELEGRAM_CHAT_ID="356350585"
+
 export TZ="Australia/Sydney"
 export IMAP_SERVER="mail.kilchenmann.net"
 export IMAP_PORT="143"
