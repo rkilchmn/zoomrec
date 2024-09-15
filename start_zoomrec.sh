@@ -54,12 +54,16 @@ if [[ "$2" == "$VAAPI" ]]; then
     -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
     -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
     -p 5901:5901 \
-    -p 137-139:137-139 \
+    -p 137-138:137-138 \
     -p 445:445 \
     --security-opt seccomp:unconfined \
     --group-add="$VIDEO_GROUPID" \
     --group-add="$RENDER_GROUPID" \
+    -v /mnt/wslg:/mnt/wslg \
     --device /dev/dri:/dev/dri \
+    -v /usr/lib/wsl:/usr/lib/wsl \
+    --device=/dev/dxg \
+    -e LD_LIBRARY_PATH=/usr/lib/wsl/lib \
     rkilchmn/zoomrec:latest
 
 # if [[ "$2" == "AMD" ]]; then
