@@ -147,7 +147,7 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 # Install support for VA-API GPU hardware accelerators used by ffmpeg encoders
 RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
         # add repoisitory for latest mesa drivers
-        apt-get install -y software-properties-common && \
+        apt update && apt-get install -y software-properties-common && \
         add-apt-repository ppa:kisak/kisak-mesa && \
         # add intel non-free repositories
         # apt-get install -y gnupg && \
@@ -168,7 +168,8 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
             # standard drivers includes 
             # "radeonsi" for RX4x0/RC5x0
             # " " for IrisXE under WSL2
-            va-driver-all && \
+            vainfo \
+            mesa-va-drivers && \
             # "i965" Ivy bridge like HD4000
             # i965-va-driver-shaders && \
             # untested: "iHD" for Broadwell and above Intel iGPUs   
