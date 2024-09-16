@@ -18,8 +18,7 @@ ENV HOME=/home/zoomrec \
     IMAP_SERVER="" \
     IMAP_PORT="" \
     EMAIL_ADDRESS="" \
-    EMAIL_PASSWORD="" \
-    CLIENT_ID=""
+    EMAIL_PASSWORD="" 
 
 # build container for specific GPU 
 ARG GPU_BUILD=""
@@ -32,7 +31,7 @@ WORKDIR ${HOME}
 
 ADD res/requirements.txt ${HOME}/res/requirements.txt
 
-# Install some tools
+# Install basic dependencies
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
         apt \
@@ -48,26 +47,29 @@ RUN apt-get update && \
         locales \
         bzip2 \
         tzdata && \
-# Generate locales for en_US.UTF-8
-    locale-gen en_US.UTF-8 && \
-# Install tigervnc
-    wget -q -O tigervnc-1.10.0.x86_64.tar.gz https://sourceforge.net/projects/tigervnc/files/stable/1.10.0/tigervnc-1.10.0.x86_64.tar.gz && \
+    locale-gen en_US.UTF-8
+
+# Install TigerVNC
+RUN wget -q -O tigervnc-1.10.0.x86_64.tar.gz https://sourceforge.net/projects/tigervnc/files/stable/1.10.0/tigervnc-1.10.0.x86_64.tar.gz && \
     tar xz -f tigervnc-1.10.0.x86_64.tar.gz --strip 1 -C / && \
-    rm -rf tigervnc-1.10.0.x86_64.tar.gz && \
-# Install xfce ui
-    apt-get install --no-install-recommends -y \
+    rm -rf tigervnc-1.10.0.x86_64.tar.gz
+
+# Install XFCE and other UI components
+RUN apt-get install --no-install-recommends -y \
         supervisor \
         xfce4 \
         xfce4-goodies \
         xfce4-pulseaudio-plugin \
         xfce4-terminal \
-        xubuntu-icon-theme && \
-# Install pulseaudio
-    apt-get install --no-install-recommends -y \
+        xubuntu-icon-theme
+
+# Install audio utilities
+RUN apt-get install --no-install-recommends -y \
         pulseaudio \
-        pavucontrol && \
-# Install necessary packages
-    apt-get install --no-install-recommends -y \
+        pavucontrol
+
+# Install input and X11 utilities
+RUN apt-get install --no-install-recommends -y \
         ibus \
         dbus-user-session \
         dbus-x11 \
@@ -75,9 +77,10 @@ RUN apt-get update && \
         at-spi2-core \
         xauth \
         x11-xserver-utils \
-        libxkbcommon-x11-0 && \
-# Install Zoom dependencies
-    apt-get install --no-install-recommends -y \
+        libxkbcommon-x11-0
+
+# Install X11 and multimedia libraries
+RUN apt-get install --no-install-recommends -y \
         libxcb-xinerama0 \
         libglib2.0-0 \
         libxcb-shape0 \
@@ -92,63 +95,60 @@ RUN apt-get update && \
         libsm6 \
         libxrender1 \
         libpulse0 \
-        libxcomposite1 \ 
+        libxcomposite1 \
         libxslt1.1 \
         libsqlite3-0 \
         libxcb-keysyms1 \
         libxcb-xtest0 \
         libxcb-cursor0 && \
-# WSL2
-apt-get install --no-install-recommends -y \
-        libxcb-xinerama0 \
-        libqt5x11extras5 && \
+    apt-get install --no-install-recommends -y \
+        libqt5x11extras5
 
-# Install Zoom (original uses Version 5.13.0 (599)
-    #wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
-    #wget -q -O zoom_amd64.deb https://zoom.us/client/5.13.0.599/zoom_amd64.deb && \
-    #wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.13.5.363/zoom_amd64.deb && \
-    #wget -q -O zoom_amd64.deb hhttps://cdn.zoom.us/prod/5.13.4.711/zoom_amd64.deb && \
-    wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.14.5.2430/zoom_amd64.deb && \
+# Install Zoom
+# Release notes: https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0068973
+# Zoom Software Quarterly Lifecycle Policy: https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0061130
+# Version 5.16.6(382) valid until August 3, 2024
+# wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.16.6.382/zoom_amd64.deb \
+#RUN wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
+RUN wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.16.6.382/zoom_amd64.deb && \
     dpkg -i zoom_amd64.deb && \
     apt-get -f install -y && \
-    rm -rf zoom_amd64.deb && \
-# resolve redirected meeting URLs
-    apt-get install --no-install-recommends -y \
-        curl && \
-# debugging tools ( to be removed)
-    apt-get install --no-install-recommends -y \
-        less && \
-# Install FFmpeg 
-    apt-get install --no-install-recommends -y \
+    rm -rf zoom_amd64.deb
+
+# Install other utilities
+RUN apt-get install --no-install-recommends -y \
+        curl \
+        less \
         ffmpeg \
-        libavcodec-extra && \
-# Install Python dependencies for script
-    apt-get install --no-install-recommends -y \
+        libavcodec-extra \
         python3 \
         python3-pip \
         python3-tk \
         python3-dev \
         python3-setuptools \
         scrot \
-        gnome-screenshot && \
-    pip3 install --upgrade --no-cache-dir -r ${HOME}/res/requirements.txt && \
-    pip3 uninstall --yes opencv-python && \ 
-    pip3 install opencv-python-headless && \ 
-# Install VLC - optional
-   apt-get install --no-install-recommends -y vlc && \
-# install samba server
-    apt-get install --no-install-recommends -y \
-    samba \
-    samba-common-bin \
-    acl
+        gnome-screenshot
 
-ENV LIBVA_TRACE=${HOME}/recordings/screenshots/libva_trace.log
+# required python module
+RUN pip3 install --upgrade --no-cache-dir -r ${HOME}/res/requirements.txt --default-timeout=100
+#    pip3 uninstall --yes opencv-python && \
+#    pip3 install opencv-python-headless
+
+# samba servr
+RUN apt-get install --no-install-recommends -y \
+        samba \
+        samba-common-bin \
+        acl
+
+# Clean up APT when done.
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# ENV LIBVA_TRACE=${HOME}/recordings/screenshots/libva_trace.log
 # Install support for VA-API GPU hardware accelerators used by ffmpeg encoders
 RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
         # add repoisitory for latest mesa drivers
-        apt-get install -y software-properties-common && \
+        apt update && apt-get install -y software-properties-common && \
         add-apt-repository ppa:kisak/kisak-mesa && \
-
         # add intel non-free repositories
         # apt-get install -y gnupg && \
         # curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | apt-key add - > /dev/null && \
@@ -163,22 +163,20 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
         #     libegl-mesa0 libegl1-mesa libegl1-mesa-dev libgbm1 libgl1-mesa-dev libgl1-mesa-dri \
         #     libglapi-mesa libgles2-mesa-dev libglx-mesa0 libigdgmm12 libxatracker2 mesa-va-drivers \
         #     mesa-vdpau-drivers mesa-vulkan-drivers va-driver-all && \
-
         # install media drivers for GPU based on  LIBVA_DRIVER_NAME value
         apt-get install --no-install-recommends -y \
             # standard drivers includes 
             # "radeonsi" for RX4x0/RC5x0
             # " " for IrisXE under WSL2
-            va-driver-all && \
+            vainfo \
+            mesa-va-drivers && \
             # "i965" Ivy bridge like HD4000
             # i965-va-driver-shaders && \
             # untested: "iHD" for Broadwell and above Intel iGPUs   
-
         # va-api related tools for testing
         # apt-get install --no-install-recommends -y \
         #     vainfo \
         #     clinfo && \
-
         # provide access to devices
         groupadd -g ${RENDER_GROUPID} render && \
         adduser zoomrec render && \
@@ -198,6 +196,7 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
 #             i965-va-driver && \
 #         groupadd -g ${RENDER_GROUPID} render && \
 #         adduser zoomrec render && \
+#         apt-get update && \
 #         adduser zoomrec video ; \
 #     fi
 
@@ -206,13 +205,14 @@ ENV NVIDIA_DRIVER_CAPABILITIES=video
 ENV NVIDIA_VISIBLE_DEVICES all
 RUN if [ "$GPU_BUILD" = "NVIDIA" ] ; then \
         # add repo
+	apt-get update && \
         apt-get install -y gnupg && \
         curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg && \
         curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
         sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
         tee /etc/apt/sources.list.d/nvidia-container-toolkit.list && \
         # install
-        apt-get update && \
+	apt-get update && \
         apt-get install --no-install-recommends -y \
             nvidia-container-runtime ; \
     fi

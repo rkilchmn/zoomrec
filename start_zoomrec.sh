@@ -11,11 +11,13 @@ if [ $# -lt 1 ]; then
   exit 1
 fi
 
-# Check if the provided GPU is either VAAPI or NVIDIA
-if [ "$2" != "$VAAPI" ] && [ "$2" != "$NVIDIA" ]; then
-  echo "Error: Invalid GPU acceleration specified."
-  echo "GPU must be either $VAAPI or $NVIDIA."
-  exit 1
+if [ -n "$2" ]; then
+  # Check if the provided GPU is either VAAPI or NVIDIA
+  if [ "$2" != "$VAAPI" ] && [ "$2" != "$NVIDIA" ]; then
+    echo "Error: Invalid GPU acceleration specified."
+    echo "GPU must be either $VAAPI or $NVIDIA."
+    exit 1
+  fi
 fi
 
 # Load configuration from file
@@ -47,18 +49,21 @@ if [[ "$2" == "$VAAPI" ]]; then
     -e SERVER_URL="$SERVER_URL" \
     -e LEAD_TIME_SEC="$LEAD_TIME_SEC" \
     -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
-    -e CLIENT_ID="$CLIENT_ID" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
     -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
     -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
     -p 5901:5901 \
-    -p 137-139:137-139 \
+    -p 137-138:137-138 \
     -p 445:445 \
     --security-opt seccomp:unconfined \
     --group-add="$VIDEO_GROUPID" \
     --group-add="$RENDER_GROUPID" \
+    -v /mnt/wslg:/mnt/wslg \
     --device /dev/dri:/dev/dri \
+    -v /usr/lib/wsl:/usr/lib/wsl \
+    --device=/dev/dxg \
+    -e LD_LIBRARY_PATH=/usr/lib/wsl/lib \
     rkilchmn/zoomrec:latest
 
 # if [[ "$2" == "AMD" ]]; then
@@ -150,7 +155,6 @@ elif [[ "$2" == "$NVIDIA" ]]; then
     -e SERVER_URL="$SERVER_URL" \
     -e LEAD_TIME_SEC="$LEAD_TIME_SEC" \
     -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
-    -e CLIENT_ID="$CLIENT_ID" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
     -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
