@@ -32,15 +32,10 @@ if [[ "$2" == "$VAAPI" ]]; then
 
   docker run -d --restart unless-stopped --name zoomrec \
     -e DEBUG="$DEBUG" \
-    -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
     -e TZ="$TZ" \
     -e DISPLAY_NAME="$DISPLAY_NAME" \
     -e SAMBA_USER="$SAMBA_USER" \
     -e SAMBA_PASS="$SAMBA_PASS" \
-    -e IMAP_SERVER="$IMAP_SERVER" \
-    -e IMAP_PORT="$IMAP_PORT" \
-    -e EMAIL_ADDRESS="$EMAIL_ADDRESS" \
-    -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
     -e FFMPEG_INPUT_PARAMS="-vaapi_device /dev/dri/renderD128" \
     -e FFMPEG_OUTPUT_PARAMS="-acodec aac -b:a 128k -vf 'hwupload,scale_vaapi=format=nv12' -c:v hevc_vaapi -b:v 1M" \
     -e LIBVA_DRIVER_NAME="$LIBVA_DRIVER_NAME" \
@@ -51,8 +46,6 @@ if [[ "$2" == "$VAAPI" ]]; then
     -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
-    -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
-    -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
     -p 5901:5901 \
     -p 137-138:137-138 \
     -p 445:445 \
@@ -64,6 +57,9 @@ if [[ "$2" == "$VAAPI" ]]; then
     -v /usr/lib/wsl:/usr/lib/wsl \
     --device=/dev/dxg \
     -e LD_LIBRARY_PATH=/usr/lib/wsl/lib \
+    -p 5678:5678 \
+    --add-host=host.docker.internal:host-gateway \
+    -e PULSE_SERVER=$PULSE_SERVER \
     rkilchmn/zoomrec:latest
 
 # if [[ "$2" == "AMD" ]]; then

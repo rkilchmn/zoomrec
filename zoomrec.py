@@ -16,6 +16,7 @@ from telegram_bot import send_telegram_message
 from datetime import datetime, timedelta
 from events import convert_to_local_datetime, EventType, EventStatus, now_system_datetime, remove_past_events, expand_days, read_events_from_csv, get_event_local_start_datetime, convert_to_system_datetime, get_telegramchatid, WEEKDAYS, DATE_FORMAT, EventField
 import requests
+import debugpy
 
 global TELEGRAM_BOT_TOKEN
 global TELEGRAM_RETRIES
@@ -26,7 +27,14 @@ UC_CONNECTED_NOPOPUPS = 1
 #   - screenshot on error
 #   - record joining
 #   - do not exit container on error
+#   - wait for debugger attach
 DEBUG = True if os.getenv('DEBUG') == 'True' else False
+
+if DEBUG:
+    debugpy.listen(("0.0.0.0", 5678))
+    print("Waiting for debugger attach")
+    debugpy.wait_for_client()
+    print("Debugger attached")
 
 # Disable failsafe
 pyautogui.FAILSAFE = False

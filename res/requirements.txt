@@ -2,7 +2,7 @@ testresources
 pyautogui
 schedule
 psutil
-opencv-python
+opencv-python-headless
 pillow >= 9.2.0
 requests
 validators
@@ -11,3 +11,4 @@ backports.zoneinfo;python_version<"3.9"
 pyyaml
 beautifulsoup4
 shortuuid
+debugpy

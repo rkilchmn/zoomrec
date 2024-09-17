@@ -31,8 +31,8 @@ basic_auth = BasicAuth(app)
 #      -H "Content-Type: application/json" \
 #      -d '{
 #            "description": "test", 
-#            "weekday": "05/05/2024", 
-#            "time": "18:15", 
+#            "weekday": "17/09/2024", 
+#            "time": "11:00", 
 #            "timezone": "Australia/Sydney", 
 #            "duration": "30", 
 #            "record": "true", 

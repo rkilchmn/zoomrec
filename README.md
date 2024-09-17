@@ -42,6 +42,20 @@ docker run -d --restart unless-stopped \
 (h)top like tool for supporting all GPU vendors: https://github.com/Syllo/nvtop
 </li>
 
+Changelog/Errors
+<p>
+libva error: /usr/lib/x86_64-linux-gnu/dri/d3d12_drv_video.so init failed
+QObject::moveToThread: Current thread (0x55c3336d3600) is not the object's thread (0x55c333717790).
+Cannot move to target thread (0x55c3336d3600)
+
+qt.qpa.plugin: Could not load the Qt platform plugin "xcb" in "/usr/local/lib/python3.8/dist-packages/cv2/qt/plugins" even though it was found.
+This application failed to start because no Qt platform plugin could be initialized. Reinstalling the application may fix this problem.
+Solution: use opencv-python-headless instead of opencv-python
+
+Dev Testing
+
+use hostname "host.docker.internal" to connect to localhost, for example if the server docker or the app is running there local too. Requires to start docker with --add-host=host.docker.internal:host-gateway
+
 
 <h4 align="center">
 	A all-in-one solution to automatically join and record Zoom meetings.

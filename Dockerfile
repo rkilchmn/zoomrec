@@ -244,6 +244,9 @@ ADD imap_bot.py ${HOME}/
 ADD events.py ${HOME}/
 ADD res/img ${HOME}/img
 
+# required by pyautogui 
+ADD res/.Xauthority ${HOME}/
+
 # Set permissions 
 USER root
 RUN chown -R zoomrec:zoomrec ${HOME} && \

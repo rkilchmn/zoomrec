@@ -28,6 +28,9 @@ vncserver "$DISPLAY" -depth "$VNC_COL_DEPTH" -geometry "$VNC_RESOLUTION" &> "$ST
 
 echo -e "\nConnect to $VNC_IP:$VNC_PORT"
 
+# generate .Xauthority required by pyautogui / requires "apt-get install vim-common"
+# xauth add ${HOST}:0 . $(xxd -l 16 -p /dev/urandom)
+
 # Start xfce4
 "$START_DIR"/xfce.sh &> /home/zoomrec/recordings/xfce.log
 
