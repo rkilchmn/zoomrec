@@ -14,7 +14,7 @@ import datetime
 import atexit
 from telegram_bot import send_telegram_message
 from datetime import datetime, timedelta
-from events import convert_to_local_datetime, EventType, EventStatus, now_system_datetime, remove_past_events, expand_days, read_events_from_csv, get_event_local_start_datetime, convert_to_system_datetime, get_telegramchatid, WEEKDAYS, DATE_FORMAT, EventField
+from events import Events, EventType, EventField, EventStatus, WEEKDAYS, DATE_FORMAT, TIME_FORMAT
 import requests
 import debugpy
 
@@ -515,7 +515,7 @@ def join(event_key):
     
     if int(event[EventField.STATUS.value]) == int(EventStatus.SCHEDULED.value) and not event[EventField.ASSIGNED.value]:
         event[EventField.ASSIGNED.value] = CLIENT_ID
-        event[EventField.ASSIGNED_TIMESTAMP.value] = convert_to_local_datetime( datetime.now(), event).isoformat()   
+        event[EventField.ASSIGNED_TIMESTAMP.value] = Events.convert_to_local_datetime(datetime.now(), event).isoformat()   
         update_event(event)
 
     meet_id = event[EventField.ID.value]
@@ -599,7 +599,7 @@ def join(event_key):
             joined = join_meeting_url()
 
     if not joined:
-        send_telegram_message( TELEGRAM_BOT_TOKEN, get_telegramchatid(user), "Failed to join meeting {}!".format(description), TELEGRAM_RETRIES)
+        send_telegram_message( TELEGRAM_BOT_TOKEN, Events.get_telegramchatid(user), "Failed to join meeting {}!".format(description), TELEGRAM_RETRIES)
         logging.error("Failed to join meeting!")
         os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
         if DEBUG and ffmpeg_debug is not None:
@@ -1025,15 +1025,15 @@ def exit_process_by_name(name):
 
 
 def join_ongoing_meeting(events):
-    current_datetime = now_system_datetime()
+    current_datetime = Events.now_system_datetime()
 
     for event in events:
         if int(event[EventField.TYPE.value]) == int(EventType.ZOOM.value):
             # Check and join ongoing meeting
-            for day in expand_days(event[EventField.WEEKDAY.value]):
+            for day in Events.expand_days(event[EventField.WEEKDAY.value]):
                 try:
-                    start_datetime_local = get_event_local_start_datetime(day, event)
-                    start_datetime = convert_to_system_datetime(start_datetime_local)
+                    start_datetime_local = Events.get_event_local_start_datetime(day, event)
+                    start_datetime = Events.convert_to_system_datetime(start_datetime_local)
                     start_datetime = start_datetime - timedelta(seconds=LEAD_TIME_SEC)
 
                     end_datetime = start_datetime + \
@@ -1053,10 +1053,10 @@ def setup_schedule(events):
     for event in events:
         if int(event[EventField.TYPE.value]) == int(EventType.ZOOM.value):
             # expand date/weekday ranges and lists
-            for day in expand_days(event[EventField.WEEKDAY.value]):
+            for day in Events.expand_days(event[EventField.WEEKDAY.value]):
                 try:
-                    start_datetime_local = get_event_local_start_datetime(day, event)
-                    start_datetime = convert_to_system_datetime(start_datetime_local)
+                    start_datetime_local = Events.get_event_local_start_datetime(day, event)
+                    start_datetime = Events.convert_to_system_datetime(start_datetime_local)
                     start_datetime = start_datetime - timedelta(seconds=LEAD_TIME_SEC)
                     weekday = start_datetime.strftime("%A").lower() 
 

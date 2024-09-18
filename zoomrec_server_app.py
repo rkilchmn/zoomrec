@@ -1,11 +1,9 @@
 from flask import Flask, request, Response, jsonify, send_file # pip install flask
 from flask_basicauth import BasicAuth # pip install flask-basicauth
-# import csv
 from datetime import datetime
 import os.path
 import yaml
-# import sys
-from events import FIELDNAMES, EventField, remove_past_events, generate_urlsafe_unique_id, validate_event, write_events_to_csv, read_events_from_csv, find_next_event, is_valid_timezone, get_telegramchatid
+from events import FIELDNAMES, EventField, CSVEvents
 from urllib.parse import unquote
 
 app = Flask(__name__)
@@ -14,7 +12,7 @@ BASE_PATH = os.getenv('ZOOMREC_HOME')
 CSV_PATH = os.path.join(BASE_PATH, os.getenv('FILENAME_MEETINGS_CSV'))
 
 # Load configuration from YAML file
-with open( 'zoomrec_server.yaml', "r") as f:
+with open('zoomrec_server.yaml', "r") as f:
     config = yaml.safe_load(f)
 
 FIRMWARE_PATH = os.path.join(BASE_PATH, os.getenv('FIRMWARE_SUBDIR'))
@@ -25,14 +23,17 @@ app.config['BASIC_AUTH_USERNAME'] = os.getenv('SERVER_USERNAME')
 app.config['BASIC_AUTH_PASSWORD'] = os.getenv('SERVER_PASSWORD')
 basic_auth = BasicAuth(app)
 
+# Initialize event storage
+events = CSVEvents(CSV_PATH, delimiter=';')
+
 # create event
 # curl -u myuser:mypassword \
 #      -X POST \
 #      -H "Content-Type: application/json" \
 #      -d '{
 #            "description": "test", 
-#            "weekday": "17/09/2024", 
-#            "time": "11:00", 
+#            "weekday": "18/09/2024", 
+#            "time": "13:30", 
 #            "timezone": "Australia/Sydney", 
 #            "duration": "30", 
 #            "record": "true", 
@@ -48,12 +49,12 @@ def create_event():
         for fieldname in FIELDNAMES:
             if fieldname in request.json:
                 event[fieldname] = request.json[fieldname]
-        event = validate_event( event)
-        event[EventField.KEY.value] = generate_urlsafe_unique_id()
-        events = read_events_from_csv(CSV_PATH)
-        events = remove_past_events( events, 300)
-        events.append(event)
-        write_events_to_csv(CSV_PATH, events)
+        event = events.validate(event)
+        event[EventField.KEY.value] = events.generate_unique_id()
+        all_events = events.read()
+        all_events = events.remove_past(all_events, 300)
+        all_events.append(event)
+        events.write(all_events)
         return jsonify(event) # return created event including 'key' in order to modify
     except Exception as e:
         return jsonify({"error": str(e)}), 404
@@ -62,15 +63,15 @@ def create_event():
 @app.route(f"{config['ROUTE_EVENT']}/<key>", methods=["PUT"])
 def update_event(key):
     try:
-        events = read_events_from_csv(CSV_PATH)
-        for i, e in enumerate(events):
+        all_events = events.read()
+        for i, e in enumerate(all_events):
             if e[EventField.KEY.value] == key:
                 for fieldname in FIELDNAMES:
                     if fieldname in request.json:
-                        events[i][fieldname] = request.json[fieldname]
-                events[i] = validate_event( events[i])
-                write_events_to_csv(CSV_PATH, events)
-                return jsonify(events[i]) # return updated event
+                        all_events[i][fieldname] = request.json[fieldname]
+                all_events[i] = events.validate(all_events[i])
+                events.write(all_events)
+                return jsonify(all_events[i]) # return updated event
         return jsonify({"error": "Event not found"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 404
@@ -88,16 +89,16 @@ def get_event(key=None):
         if file_timestamp <= last_change_timestamp:
             return jsonify([])  # Return an empty list if file timestamp is not later than last_change
 
-    events = read_events_from_csv(CSV_PATH)
+    all_events = events.read()
 
     if key:
-        event = next((e for e in events if e[EventField.KEY.value] == key), None)
+        event = next((e for e in all_events if e[EventField.KEY.value] == key), None)
         if event:
             return jsonify(event)
         else:
             return jsonify({"error": "Event not found"}), 404
 
-    return jsonify(events)
+    return jsonify(all_events)
 
 # curl -u myuser:mypassword "http://localhost:8080/event/next?astimezone=Australia/Sydney&leadinsecs=60&leadoutsecs=60"
 @app.route(f"{config['ROUTE_EVENT']}/{config['ROUTE_EVENT_NEXT']}", methods=['GET'])
@@ -115,8 +116,8 @@ def get_event_next():
         pass
 
     astimezone = request.args.get('astimezone')
-    if is_valid_timezone(astimezone):
-        response_data = find_next_event( read_events_from_csv(CSV_PATH), astimezone, leadInSecs, leadOutSecs)
+    if events.is_valid_timezone(astimezone):
+        response_data = events.find_next(events.read(), astimezone, leadInSecs, leadOutSecs)
         # return timestamp in ISO 8601 format 
         if not response_data is None:
             response_data['start'] = response_data['start'].isoformat()
