@@ -12,3 +12,5 @@ pyyaml
 beautifulsoup4
 shortuuid
 debugpy
+# for postprocessing
+whisper-ctranslate2-remote-api

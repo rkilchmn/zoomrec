@@ -3,10 +3,15 @@ from flask_basicauth import BasicAuth # pip install flask-basicauth
 from datetime import datetime
 import os.path
 import yaml
-from events import FIELDNAMES, EventField, CSVEvents
+from events import FIELDNAMES, EventStatus, EventField, CSVEvents
 from urllib.parse import unquote
+from telegram_bot import send_telegram_message
 
 app = Flask(__name__)
+
+# telegram / bot
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+TELEGRAM_RETRIES = 5
 
 BASE_PATH = os.getenv('ZOOMREC_HOME')
 CSV_PATH = os.path.join(BASE_PATH, os.getenv('FILENAME_MEETINGS_CSV'))
@@ -23,8 +28,20 @@ app.config['BASIC_AUTH_USERNAME'] = os.getenv('SERVER_USERNAME')
 app.config['BASIC_AUTH_PASSWORD'] = os.getenv('SERVER_PASSWORD')
 basic_auth = BasicAuth(app)
 
-# Initialize event storage
-events = CSVEvents(CSV_PATH, delimiter=';')
+# Define the state_changed_callback function
+def state_changed_callback(old_event, new_event):
+    if old_event[EventField.STATUS.value] != new_event[EventField.STATUS.value]:
+        user = new_event.get(EventField.USER.value)
+        if user:
+            new_status_description = EventStatus.get_description(new_event[EventField.STATUS.value])
+            old_status_description = EventStatus.get_description(old_event[EventField.STATUS.value])
+            telegram_chat_id = events.get_telegramchatid(user)
+            if telegram_chat_id:
+                message = f"Event '{new_event[EventField.DESCRIPTION.value]}' status changed from {old_status_description} to {new_status_description}"
+                send_telegram_message(TELEGRAM_BOT_TOKEN, telegram_chat_id, message, TELEGRAM_RETRIES)
+
+# Initialize event storage with the callback
+events = CSVEvents(CSV_PATH, delimiter=';', stateChanged=state_changed_callback)
 
 # create event
 # curl -u myuser:mypassword \
@@ -33,15 +50,14 @@ events = CSVEvents(CSV_PATH, delimiter=';')
 #      -d '{
 #            "description": "test", 
 #            "weekday": "18/09/2024", 
-#            "time": "13:30", 
+#            "time": "21:45", 
 #            "timezone": "Australia/Sydney", 
 #            "duration": "30", 
 #            "record": "true", 
-#            "id": "https://us05web.zoom.us/j/84548756066?pwd=35dp6HKKTU60LLOlShON9Kb8bMnNb4.1"
+#            "id": "https://us05web.zoom.us/j/84548756066?pwd=35dp6HKKTU60LLOlShON9Kb8bMnNb4.1",
+#            "user": "telegram-chatid=356350585"
 #          }' \
 #      "http://localhost:8081/event"
-
-# curl -u myuser:mypassword -X POST -H "Content-Type: application/json" -d '{"description": "test", "weekday": "05/05/2024", "time": "14:30", "timezone":"Australia/Sydney", "duration": "60", "record": "true", "id": "https://us05web.zoom.us/j/83776483885?pwd=xCzmF3kuxu2NbYSckGI28kErQrpXoC.1"}' "http://localhost:8081/event"
 @app.route(f"{config['ROUTE_EVENT']}", methods=["POST"])
 def create_event():
     try:
@@ -59,7 +75,17 @@ def create_event():
     except Exception as e:
         return jsonify({"error": str(e)}), 404
 
-# curl -u myuser:mypassword -X PUT -H "Content-Type: application/json" -d '{"description": "test", "weekday": "05/05/2024", "time": "15:30", "timezone":"Australia/Sydney", "duration": "60", "record": "true", "id": "https://us05web.zoom.us/j/83776483885?pwd=xCzmF3kuxu2NbYSckGI28kErQrpXoC.1"}' "http://localhost:8081/event/G4JbZYQN65Ba35jfbyiHsj"
+# curl -u myuser:mypassword -X PUT -H "Content-Type: application/json" \
+#   -d '{
+#         "description": "test",
+#         "weekday": "05/05/2024",
+#         "time": "15:30", 
+#         "timezone": "Australia/Sydney",
+#         "duration": "60",
+#         "record": "true",
+#         "id": "https://us05web.zoom.us/j/83776483885?pwd=xCzmF3kuxu2NbYSckGI28kErQrpXoC.1"
+#     }' \
+#     "http://localhost:8081/event/G4JbZYQN65Ba35jfbyiHsj"
 @app.route(f"{config['ROUTE_EVENT']}/<key>", methods=["PUT"])
 def update_event(key):
     try:
@@ -69,10 +95,22 @@ def update_event(key):
                 for fieldname in FIELDNAMES:
                     if fieldname in request.json:
                         all_events[i][fieldname] = request.json[fieldname]
-                all_events[i] = events.validate(all_events[i])
-                events.write(all_events)
-                return jsonify(all_events[i]) # return updated event
+                updated_event = events.validate(all_events[i])
+                events.write(all_events)  # Use the write method to update events
+                return jsonify(updated_event)  # return updated event
         return jsonify({"error": "Event not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 404
+
+# curl -u myuser:mypassword -X DELETE "http://localhost:8081/event/G4JbZYQN65Ba35jfbyiHsj"
+@app.route(f"{config['ROUTE_EVENT']}/<key>", methods=["DELETE"])
+@basic_auth.required
+def delete_event(key):
+    try:
+        all_events = events.read()
+        all_events = [e for e in all_events if e[EventField.KEY.value] != key]
+        events.write(all_events)
+        return jsonify({"message": "Event deleted successfully"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 404
 
@@ -194,11 +232,10 @@ def log_handler():
         with open(log_filename, mode) as log_file:
             log_file.write(log_content)
 
-    except Exception as e:
+    except Exception as e:  
         return jsonify({'error': str(e)}), 500
 
     return jsonify({'message': 'Log appended successfully'}), 200
- 
-    
+     
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0',port=os.getenv("DOCKER_API_PORT", "8080"))

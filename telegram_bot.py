@@ -14,7 +14,8 @@ if __version_info__ < (20, 0, 0, "alpha", 1):
 from telegram import ForceReply, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from datetime import datetime
-from events import read_events_from_csv, write_events_to_csv, validate_event, find_event, remove_past_events,set_telegramchatid
+import events
+from events import EventField, CSVEvents
 # for send telegram message
 import time
 import requests
@@ -46,18 +47,18 @@ async def find_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if len(args) != 1:
         await update.message.reply_text("Usage: " + USAGE_FIND)
         return
-    events = read_events_from_csv( CSV_PATH)
+    events_list = CSVEvents(CSV_PATH).read()
 
     target_index = ''
     if len(args) == 1:
         try:
-            target_index = find_event(context.args[0], events)
+            target_index = events.find_event(context.args[0], events_list)
         except ValueError as error:
             await update.message.reply_text( error.args[0])
             return
 
     output = "List of events:\n"
-    for i, event in enumerate(events):
+    for i, event in enumerate(events_list):
         i += 1
         if target_index:
             if i != target_index+1:
@@ -78,8 +79,8 @@ async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text("Usage: " + USAGE_LIST)
         return
 
-    events = read_events_from_csv(CSV_PATH)
-    total_events = len(events)
+    events_list = CSVEvents(CSV_PATH).read()
+    total_events = len(events_list)
     current_page = 1
         
     if len(args) == 2:
@@ -96,7 +97,7 @@ async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     start_index = (current_page - 1) * PAGE_EVENTS
     end_index = min(start_index + PAGE_EVENTS, total_events)
-    events_to_display = events[start_index:end_index]
+    events_to_display = events_list[start_index:end_index]
 
     # If there are no events to display for the specified page, send a message accordingly
     if not events_to_display:
@@ -139,18 +140,18 @@ async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     event = {EventField.DESCRIPTION.value: args[0], EventField.WEEKDAY.value: args[1].lower(), EventField.TIME.value: args[2], 
              EventField.TIMEZONE.value: args[3], EventField.DURATION.value: args[4], EventField.ID.value: args[5], EventField.PASSWORD.value: password, 
-             EventField.RECORD.value: record, EventField.USER.value : set_telegramchatid( update.effective_chat.id)}
+             EventField.RECORD.value: record, EventField.USER.value : events.set_telegramchatid( update.effective_chat.id)}
 
     try:
-        event = validate_event( event)
+        event = events.validate_event( event)
     except ValueError as error:
         await update.message.reply_text( error.args[0])
         return
 
-    events = read_events_from_csv(CSV_PATH)
-    events = remove_past_events( events, 300)
-    events.append(event)
-    write_events_to_csv(CSV_PATH, events)
+    events_list = CSVEvents(CSV_PATH).read()
+    events_list = events.remove_past_events( events_list, 300)
+    events_list.append(event)
+    CSVEvents(CSV_PATH).write(events_list)
     await update.message.reply_text(f"Event with description '{args[0]}' added successfully!")
 
 
@@ -161,12 +162,12 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await update.message.reply_text("Usage: " + USAGE_MODIFY)
             return
 
-        events = read_events_from_csv(CSV_PATH)
+        events_list = CSVEvents(CSV_PATH).read()
 
         # find target event to process
         try:
-            target_index = find_event(context.args[0], events)
-            target_event = events[target_index]
+            target_index = events.find_event(context.args[0], events_list)
+            target_event = events_list[target_index]
         except ValueError as error:
             await update.message.reply_text( error.args[0])
             return
@@ -188,14 +189,14 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 target_event[attribute_name] = new_attribute_value
 
         try:
-            target_event = validate_event( target_event)
+            target_event = events.validate_event( target_event)
         except ValueError as error:
             await update.message.reply_text( error.args[0])
             return
 
-        events[target_index] = target_event
-        write_events_to_csv(CSV_PATH, events)
-        events[target_index] = target_event
+        events_list[target_index] = target_event
+        CSVEvents(CSV_PATH).write(events_list)
+        events_list[target_index] = target_event
         await update.message.reply_text(f"Attributes successfully modified for event '{target_event[EventField.DESCRIPTION.value]}' with index {target_index+1}")
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")
@@ -207,18 +208,18 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         if not context.args:
             await update.message.reply_text("Usage: " + USAGE_DELETE)
             return
-        events = read_events_from_csv(CSV_PATH)
+        events_list = CSVEvents(CSV_PATH).read()
        
         # find target event to process
         try:
-            target_index = find_event(context.args[0], events)
-            target_event = events[target_index]
+            target_index = events.find_event(context.args[0], events_list)
+            target_event = events_list[target_index]
         except ValueError as error:
             await update.message.reply_text( error.args[0])
             return
 
-        del events[target_index]
-        write_events_to_csv(CSV_PATH, events)
+        del events_list[target_index]
+        CSVEvents(CSV_PATH).write(events_list)
         await update.message.reply_text(f"Event '{target_event[EventField.DESCRIPTION.value]}' with index {target_index+1} successfully deleted")
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")

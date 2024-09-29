@@ -134,6 +134,9 @@ RUN pip3 install --upgrade --no-cache-dir -r ${HOME}/res/requirements.txt --defa
 #    pip3 uninstall --yes opencv-python && \
 #    pip3 install opencv-python-headless
 
+# work around error in Python 3.7: AttributeError: type object 'Callable' has no attribute '_abc_registry'
+RUN if pip3 show typing > /dev/null 2>&1; then pip3 uninstall -y typing; fi
+
 # samba servr
 RUN apt-get install --no-install-recommends -y \
         samba \
@@ -243,6 +246,10 @@ ADD telegram_bot.py ${HOME}/
 ADD imap_bot.py ${HOME}/
 ADD events.py ${HOME}/
 ADD res/img ${HOME}/img
+
+# posprocessing scripts
+ADD res/postprocessing.sh ${HOME}/
+ADD res/transcribe_video.sh ${HOME}/
 
 # required by pyautogui 
 ADD res/.Xauthority ${HOME}/

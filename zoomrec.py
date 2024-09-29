@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from events import Events, EventType, EventField, EventStatus, WEEKDAYS, DATE_FORMAT, TIME_FORMAT
 import requests
 import debugpy
+from events_api import update_event_api, get_event_api, get_events_api  # Ensure you import the function
 
 global TELEGRAM_BOT_TOKEN
 global TELEGRAM_RETRIES
@@ -508,7 +509,11 @@ def join(event_key):
     global VIDEO_PANEL_HIDED
     ffmpeg_debug = None
 
-    event = get_event_by_key(event_key)
+    try:
+        event = get_event_api(event_key, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+    except Exception as e:
+        logging.error(f"Error fetching event: {e}")
+        return
     if not event:
         logging.error(f"Event with key {event_key} not found.")
         return
@@ -516,7 +521,11 @@ def join(event_key):
     if int(event[EventField.STATUS.value]) == int(EventStatus.SCHEDULED.value) and not event[EventField.ASSIGNED.value]:
         event[EventField.ASSIGNED.value] = CLIENT_ID
         event[EventField.ASSIGNED_TIMESTAMP.value] = Events.convert_to_local_datetime(datetime.now(), event).isoformat()   
-        update_event(event)
+        try:
+            update_event_api(event, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+        except Exception as e:
+            logging.error(f"Error updating event: {e}")
+            return
 
     meet_id = event[EventField.ID.value]
     meet_pw = event[EventField.PASSWORD.value]
@@ -920,11 +929,10 @@ def join(event_key):
     HideViewOptionsThread(description)
  
     # update status
-    update_event(event)
-
-    # Send Telegram Notification
-    # send_telegram_message( TELEGRAM_BOT_TOKEN, get_telegramchatid(user),"Joined Meeting '{}' and started recording.".format(description), TELEGRAM_RETRIES)
-
+    try:
+        update_event_api(event, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+    except Exception as e:
+        logging.error(f"Error updating event: {e}")
         
     meeting_running = True
     while meeting_running:
@@ -958,7 +966,7 @@ def join(event_key):
                     TIME_FORMAT) + "-" + description) + "_ok_error.png")
     postprocessing = event[EventField.POSTPROCESSING.value]         
     if postprocessing is not None:
-        command = f"postprocessing.sh {postprocessing} {filename}"
+        command = f"./postprocessing.sh {postprocessing} {filename}"
         logging.debug(f"Postprocessing command: {command}")
 
         postprocessing_process = subprocess.Popen(
@@ -970,7 +978,10 @@ def join(event_key):
         if postprocessing_process:
             logging.info("Starting postprocessing task...")
             event[EventField.STATUS.value] = EventStatus.POSTPROCESSING.value
-            update_event(event)
+            try:
+                update_event_api(event, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+            except Exception as e:
+                logging.error(f"Error updating event: {e}")
 
             postprocessing_process.wait()
             logging.info("Postprocessing task completed.")
@@ -982,10 +993,10 @@ def join(event_key):
     else:
         event[EventField.STATUS.value] = EventStatus.SCHEDULED.value
 
-    update_event(event)
-                
-    # send_telegram_message( TELEGRAM_BOT_TOKEN, get_telegramchatid(user),"Meeting '{}' ended.".format(description))
-
+    try:
+        update_event_api(event, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+    except Exception as e:
+        logging.error(f"Error updating event: {e}")
 
 def play_audio(description):
     # Get all files in audio directory
@@ -1032,7 +1043,7 @@ def join_ongoing_meeting(events):
             # Check and join ongoing meeting
             for day in Events.expand_days(event[EventField.WEEKDAY.value]):
                 try:
-                    start_datetime_local = Events.get_event_local_start_datetime(day, event)
+                    start_datetime_local = Events.get_local_start_datetime(day, event)
                     start_datetime = Events.convert_to_system_datetime(start_datetime_local)
                     start_datetime = start_datetime - timedelta(seconds=LEAD_TIME_SEC)
 
@@ -1055,7 +1066,7 @@ def setup_schedule(events):
             # expand date/weekday ranges and lists
             for day in Events.expand_days(event[EventField.WEEKDAY.value]):
                 try:
-                    start_datetime_local = Events.get_event_local_start_datetime(day, event)
+                    start_datetime_local = Events.get_local_start_datetime(day, event)
                     start_datetime = Events.convert_to_system_datetime(start_datetime_local)
                     start_datetime = start_datetime - timedelta(seconds=LEAD_TIME_SEC)
                     weekday = start_datetime.strftime("%A").lower() 
@@ -1072,62 +1083,6 @@ def setup_schedule(events):
                     logging.error(str(e))
     logging.info("Added %s meetings to schedule." % line_count)
 
-def getUpdatedEvents(last_checked_time):
-            
-    if last_checked_time:
-        last_checked_time = last_checked_time.isoformat()
-        params = {'last_change': last_checked_time}
-    else:
-        params = {}
-
-    response = requests.get(f"{SERVER_URL}/event", params, headers = {'Content-Type': 'application/json'}, 
-                            auth=(SERVER_USERNAME, SERVER_PASSWORD))
-    
-    if response.status_code == 200:
-        events = response.json()
-        if events:  # Check if events is not empty
-            print("Events retrived successfully.")
-            return events
-        else:
-            print("No updated events")
-            return None
-    else:
-        print("Error: Failed to retrieve events.")
-        return None
-    
-def get_event_by_key(event_key):
-    url = f"{SERVER_URL}/event/{event_key}"
-    headers = {'Content-Type': 'application/json'}
-    
-    try:
-        response = requests.get(url, headers=headers, auth=(SERVER_USERNAME, SERVER_PASSWORD))
-        if response.status_code == 200:
-            return response.json()
-        else:
-            logging.error(f"Failed to retrieve event {event_key}. Response code: {response.status_code}")
-            return None
-    except Exception as e:
-        logging.error(f"Exception occurred while retrieving event {event_key}: {e}")
-        return None
-
-def update_event(event):
-    """
-    Update the status of an event by calling the API.
-    """
-    event_key = event[EventField.KEY.value]
-    url = f"{SERVER_URL}/event/{event_key}"
-    headers = {'Content-Type': 'application/json'}
-    
-    try:
-        response = requests.put(url, json=event, headers=headers, auth=(SERVER_USERNAME, SERVER_PASSWORD))
-        if response.status_code == 200:
-            logging.info(f"Successfully updated event {event_key}.")
-        else:
-            logging.error(f"Failed to update event {event_key}. Response code: {response.status_code}")
-    except Exception as e:
-        logging.error(f"Exception occurred while updating event {event_key}: {e}")
-
-
 def main():
     try:
         if DEBUG and not os.path.exists(DEBUG_PATH):
@@ -1142,7 +1097,11 @@ def main():
         current_timestamp = now
         if current_timestamp.timestamp() != last_timestamp:
             logging.info(f"Checking for new events timestamp: {datetime.fromtimestamp(current_timestamp.timestamp()).strftime('%Y-%m-%d %H:%M:%S')}")
-            events = getUpdatedEvents(last_timestamp)
+            try:
+                events = get_events_api(last_timestamp, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+            except Exception as e:
+                logging.error(f"Error getting events: {e}")
+                
             last_timestamp = current_timestamp
 
             if events:

@@ -59,7 +59,6 @@ if [[ "$2" == "$VAAPI" ]]; then
     -e LD_LIBRARY_PATH=/usr/lib/wsl/lib \
     -p 5678:5678 \
     --add-host=host.docker.internal:host-gateway \
-    -e PULSE_SERVER=$PULSE_SERVER \
     rkilchmn/zoomrec:latest
 
 # if [[ "$2" == "AMD" ]]; then
