@@ -14,7 +14,7 @@ import datetime
 import atexit
 from telegram_bot import send_telegram_message
 from datetime import datetime, timedelta
-from events import Events, EventType, EventField, EventStatus, WEEKDAYS, DATE_FORMAT, TIME_FORMAT
+from events import Events, EventType, EventField, EventStatus, DATES, DATE_FORMAT, TIME_FORMAT
 import requests
 import debugpy
 from events_api import update_event_api, get_event_api, get_events_api  # Ensure you import the function
@@ -531,7 +531,7 @@ def join(event_key):
     meet_pw = event[EventField.PASSWORD.value]
     duration = int(event[EventField.DURATION.value]) * 60
     user = event[EventField.USER.value]
-    description = event[EventField.DESCRIPTION.value]
+    description = event[EventField.TITLE.value]
 
     logging.info("Join meeting: " + description)
 
@@ -1041,7 +1041,7 @@ def join_ongoing_meeting(events):
     for event in events:
         if int(event[EventField.TYPE.value]) == int(EventType.ZOOM.value):
             # Check and join ongoing meeting
-            for day in Events.expand_days(event[EventField.WEEKDAY.value]):
+            for day in Events.expand_dates(event[EventField.DTSTART.value]):
                 try:
                     start_datetime_local = Events.get_local_start_datetime(day, event)
                     start_datetime = Events.convert_to_system_datetime(start_datetime_local)
@@ -1064,7 +1064,7 @@ def setup_schedule(events):
     for event in events:
         if int(event[EventField.TYPE.value]) == int(EventType.ZOOM.value):
             # expand date/weekday ranges and lists
-            for day in Events.expand_days(event[EventField.WEEKDAY.value]):
+            for day in Events.expand_dates(event[EventField.DTSTART.value]):
                 try:
                     start_datetime_local = Events.get_local_start_datetime(day, event)
                     start_datetime = Events.convert_to_system_datetime(start_datetime_local)

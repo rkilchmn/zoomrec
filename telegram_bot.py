@@ -65,9 +65,9 @@ async def find_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 continue
             
         output += f"Event {i}\n"
-        output += f"  description : {event[EventField.DESCRIPTION.value]}\n"
+        output += f"  description : {event[EventField.TITLE.value]}\n"
         for attribute_name, attribute_value in event.items():
-            if attribute_name == EventField.DESCRIPTION.value:
+            if attribute_name == EventField.TITLE.value:
                 continue
             output += f"  {attribute_name} : {attribute_value}\n"
     await update.message.reply_text(output)
@@ -107,9 +107,9 @@ async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     for i, event in enumerate(events_to_display, start=start_index):
         i += 1
         output += f"Event {i}\n"
-        output += f"  description : {event[EventField.DESCRIPTION.value]}\n"
+        output += f"  description : {event[EventField.TITLE.value]}\n"
         for attribute_name, attribute_value in event.items():
-            if attribute_name == EventField.DESCRIPTION.value:
+            if attribute_name == EventField.TITLE.value:
                 continue
             output += f"  {attribute_name} : {attribute_value}\n"
 
@@ -138,7 +138,7 @@ async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else: # omitted as its optional
         record = 'true' # default
 
-    event = {EventField.DESCRIPTION.value: args[0], EventField.WEEKDAY.value: args[1].lower(), EventField.TIME.value: args[2], 
+    event = {EventField.TITLE.value: args[0], EventField.DTSTART.value: args[1].lower(), EventField.TIME.value: args[2], 
              EventField.TIMEZONE.value: args[3], EventField.DURATION.value: args[4], EventField.ID.value: args[5], EventField.PASSWORD.value: password, 
              EventField.RECORD.value: record, EventField.USER.value : events.set_telegramchatid( update.effective_chat.id)}
 
@@ -183,7 +183,7 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 await update.message.reply_text(f"Attribute '{attribute_name}' not found in event")
                 return
 
-            if attribute_name in [EventField.WEEKDAY.value]:    
+            if attribute_name in [EventField.DTSTART.value]:    
                 target_event[attribute_name] = new_attribute_value.lower()
             else:
                 target_event[attribute_name] = new_attribute_value
@@ -197,7 +197,7 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         events_list[target_index] = target_event
         CSVEvents(CSV_PATH).write(events_list)
         events_list[target_index] = target_event
-        await update.message.reply_text(f"Attributes successfully modified for event '{target_event[EventField.DESCRIPTION.value]}' with index {target_index+1}")
+        await update.message.reply_text(f"Attributes successfully modified for event '{target_event[EventField.TITLE.value]}' with index {target_index+1}")
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")
 
@@ -220,7 +220,7 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         del events_list[target_index]
         CSVEvents(CSV_PATH).write(events_list)
-        await update.message.reply_text(f"Event '{target_event[EventField.DESCRIPTION.value]}' with index {target_index+1} successfully deleted")
+        await update.message.reply_text(f"Event '{target_event[EventField.TITLE.value]}' with index {target_index+1} successfully deleted")
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")
 

@@ -37,7 +37,7 @@ def state_changed_callback(old_event, new_event):
             old_status_description = EventStatus.get_description(old_event[EventField.STATUS.value])
             telegram_chat_id = events.get_telegramchatid(user)
             if telegram_chat_id:
-                message = f"Event '{new_event[EventField.DESCRIPTION.value]}' status changed from {old_status_description} to {new_status_description}"
+                message = f"Event '{new_event[EventField.TITLE.value]}' status changed from {old_status_description} to {new_status_description}"
                 send_telegram_message(TELEGRAM_BOT_TOKEN, telegram_chat_id, message, TELEGRAM_RETRIES)
 
 # Initialize event storage with the callback

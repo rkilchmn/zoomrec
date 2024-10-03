@@ -8,7 +8,7 @@ import html
 import logging
 from datetime import datetime
 from bs4 import BeautifulSoup
-from events import Events, EventField, DATE_FORMAT, TIME_FORMAT, RECORD
+from events import Events, EventField, DATETIME_FORMAT
 from events_api import create_event_api
 from ics import Calendar
 import math  # Define math module
@@ -65,8 +65,7 @@ def start_bot(CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD, 
                             vcalendar = part.get_payload(decode=True).decode('utf-8')
                             # Parse the vCalendar data
                             calendar = Calendar(vcalendar)
-                            # Access events in the calendar
-                            body[CONTENT_TYPE_CALENDAR] = [event.__dict__ for event in calendar.events]
+                            body[CONTENT_TYPE_CALENDAR] = calendar
 
                     # html can be converted to plain if required
                     if type['content_type'] == CONTENT_TYPE_PLAIN and CONTENT_TYPE_HTML in body:
@@ -80,102 +79,103 @@ def start_bot(CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD, 
                         content = {}
                         content['subject'] = subject
                         content['body'] = body[type['content_type']]
-                        # by default email is matched unless a match_regex fails end returns empty value
+                        
                         event ={}
-                        # default values
-                        event['match'] = True 
-                        event[EventField.RECORD.value] = RECORD
-                        event[EventField.PASSWORD.value] = ""
-                        event['datetime'] = ""
-                        event['url'] = ""
-                        event[EventField.DURATION.value] = ""
+                        event = Events.set_missing_defaults(event)
+                        event['match'] = True # by default email is matched unless a match_regex fails end returns empty value
+                        
                         # process sections
-                        calendar_event_id = 0
+                        first = True
+                        eventIter = None
                         for section in type['sections']:
-                            if section['section'] == 'calendar':
-                                if calendar_event_id < len(body[CONTENT_TYPE_CALENDAR]):
-                                    calendar_event = body[CONTENT_TYPE_CALENDAR][calendar_event_id]
-                                    # finish processing current event
-                                    if calendar_event_id > 0:
-                                        events.append(event)
-                                    calendar_event_id += 1
-                                else:
-                                    # no more calendar events
-                                    break
-
-                            for key, value in section.items():
-                                if "_" in key:
-                                    attribute, category = key.split("_")
-                                    if category == "regex":
-                                        # retrieve from content via regex
-                                        if attribute == 'datetime':
-                                            datetime_matches = re.compile(value).findall(content[section['section']])
-                                            try:
-                                                event[attribute] = [datetime.strptime(dt_str, section['datetime_format']) for dt_str in datetime_matches]
-                                            except ValueError as error:
-                                                event[attribute] = ''
-                                        else:
-                                            match = re.compile(value.replace("\\\\", "\\")).search(content[section['section']])
-                                            if match:
-                                                # group(1) is the first () in regex
-                                                event[attribute] = match.group(1)
+                            # loop for calendar events
+                            while True:
+                                if section['section'] == 'calendar' and content['body']:
+                                    if eventIter is None:
+                                        eventIter = iter(content['body'].events)
+                                    else:
+                                        first = False
+                                    try:
+                                        calendar_event = next(eventIter)
+                                        if not first:
+                                            events.append(event)
+                                    except StopIteration:
+                                        # no more calendar events
+                                        break
+                            
+                                for key, value in section.items():
+                                    if "_" in key:
+                                        attribute, category = key.split("_")
+                                        if category == "regex":
+                                            # retrieve from content via regex
+                                            if attribute == EventField.DTSTART.value:
+                                                datetime_matches = re.compile(value).findall(content[section['section']])
+                                                try:
+                                                    event[attribute] = datetime.strptime(datetime_matches[0], section['dtstart_format']) if datetime_matches else ''
+                                                except ValueError as error:
+                                                    event[attribute] = ''
+                                            else:
+                                                match = re.compile(value.replace("\\\\", "\\")).search(content[section['section']])
+                                                if match:
+                                                    # group(1) is the first () in regex
+                                                    event[attribute] = match.group(1)
+                                                else:
+                                                    event[attribute] = ""
+                                        elif category == "value":
+                                            # value is directly specified
+                                            event[attribute] = value
+                                        elif category == "attribute":
+                                            if section['section'] == 'calendar':
+                                                if value == 'begin':
+                                                    event[attribute] = calendar_event.begin.datetime
+                                                elif value == 'duration':
+                                                    event[attribute] = math.ceil((calendar_event.end - calendar_event.begin).total_seconds() / 60)
+                                                elif value == 'timezone':
+                                                    for item in calendar_event.extra:
+                                                        if item.name == 'TZID':
+                                                            event[attribute] = item.value
+                                                elif value == 'rrule':
+                                                    for item in calendar_event.extra:
+                                                        if item.name == 'RRULE':
+                                                            event[attribute] = item.value
+                                                else:
+                                                    event[attribute] = calendar_event.__dict__[value]
+                                        elif category == "mapping":
+                                            mapping_dict = eval(section[attribute+"_mapping"])
+                                            if event[attribute] in mapping_dict:
+                                                event[attribute] = mapping_dict[event[attribute]]
                                             else:
                                                 event[attribute] = ""
-                                    elif category == "value":
-                                        # value is directly specified
-                                        event[attribute] = value
-                                    elif category == "attribute":
-                                        if section['section'] == 'calendar':
-                                            if value == '_begin':
-                                                event[attribute] = [calendar_event[value].datetime]  # Set as first item of list
-                                            elif value == 'duration':
-                                                event[attribute] = math.ceil((calendar_event['_end_time'] - calendar_event['_begin']).total_seconds() / 60)
-                                            elif value == '_timezone':
-                                                event[attribute] =  next(iter(calendar_event['_classmethod_kwargs']['tz']))
-                                            else:
-                                                event[attribute] = calendar_event[value]
-                                    elif category == "mapping":
-                                        mapping_dict = eval(section[attribute+"_mapping"])
-                                        if event[attribute] in mapping_dict:
-                                            event[attribute] = mapping_dict[event[attribute]]
-                                        else:
-                                            event[attribute] = ""
-                                            logging.warning( f"Mapping {attribute} not found for {event[attribute]}")
-                                
+                                                logging.warning( f"Mapping {attribute} not found for {event[attribute]}")
+
+                                if not section['section'] == 'calendar':
+                                    # only one loop if not calendar
+                                    break
+
                         # add the last event
                         events.append(event)
 
                         # event should be stored 
                         for event in events:
-                            if event['match'] and event['url']:
-                                dates = ''
-                                for date in event['datetime']:
-                                    # if no date was provided, use todays date in events local timezone
-                                    if date.year == 1900 and date.month == 1 and date.day == 1:
-                                        today_local = datetime.now(ZoneInfo(event[EventField.TIMEZONE.value])).date()
-                                        date = date.replace(year=today_local.year, month=today_local.month, day=today_local.day)
-                                    # add local timezone of event
-                                    date_local = date.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
-                                    # list of dates
-                                    if dates:
-                                        dates = dates + ","
-                                    dates = dates + date_local.strftime(DATE_FORMAT)
-                                if dates:    
-                                    # some data cleansing
-                                    event[EventField.DESCRIPTION.value] = event[EventField.DESCRIPTION.value].strip().replace(" ", "_")
-                                    event[EventField.WEEKDAY.value] = dates
-                                    event[EventField.TIME.value] = date_local.strftime(TIME_FORMAT)
-                                    event[EventField.DURATION.value] = event[EventField.DURATION.value]
+                            if event['match']:
+                                dtstart = event[EventField.DTSTART.value]
+                                # if no date was provided, use todays date in events local timezone
+                                if dtstart.year == 1900 and dtstart.month == 1 and dtstart.day == 1:
+                                    today_local = datetime.now(ZoneInfo(event[EventField.TIMEZONE.value])).date()
+                                    dtstart = dtstart.replace(year=today_local.year, month=today_local.month, day=today_local.day)
+                                # add local timezone of event
+                                dtstart_local = dtstart.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
+                                event[EventField.DTSTART.value] = dtstart_local.strftime(DATETIME_FORMAT)
 
-                                    # if id is not set, use url
-                                    if EventField.ID.value not in event and 'url' in event:
-                                        event[EventField.ID.value] = event['url']
-
+                                eventStr = f"Event {event[EventField.TITLE.value]} {event[EventField.DTSTART.value]} {event[EventField.TIMEZONE.value]}"
+                                try:
                                     event = Events.validate( event)
                                     create_event_api(event, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
-                                    eventStr = f"Event {event[EventField.DESCRIPTION.value]} {event[EventField.WEEKDAY.value]} {event[EventField.TIME.value]} {event[EventField.TIMEZONE.value]}"
+                                    
                                     logging.info( f"{eventStr} added")
-
+                                except ValueError as error:
+                                    logging.error( f"Validation error {eventStr}. {error.args[0]}")
+            
                         # Mark the message as read
                         imap.store(msg_id, '+FLAGS', '\\Seen')
                                 
