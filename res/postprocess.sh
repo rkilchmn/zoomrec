@@ -19,7 +19,7 @@ case $POSTPROCESS_COMMAND in
         ;;
     "test")
         # just for testing
-        sleep 120
+        sleep 30
         echo "done" >> "$FILENAME.txt"
         ;;
     *)

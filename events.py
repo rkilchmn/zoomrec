@@ -22,7 +22,7 @@ class EventType(Enum):
     SYSTEM = 2 # used for example to start client in case of manitenance etc
 
 class EventInstructionAttribute(Enum):
-    RECORD = "record"
+    PROCESS = "process"
     POSTPROCESS = "postprocess"
 
 class EventUserAttribute(Enum):
@@ -30,9 +30,8 @@ class EventUserAttribute(Enum):
 
 class EventStatus(Enum):
     SCHEDULED = 1
-    JOINED = 2
-    PROCESS = 3
-    POSTPROCESS = 4
+    PROCESS = 2
+    POSTPROCESS = 3
 
     @classmethod
     def get_description(cls, status):
@@ -211,11 +210,6 @@ class Events(ABC):
 
             else:
                 raise ValueError(f"Invalid user format in '{EventField.USER.value}'. It must be a string.")
-
-    
-        # validate if in past
-        if Events.check_past(event):
-            raise ValueError("Event end date/time is in past.")
 
         if event.get(EventField.ASSIGNED.value) or event.get(EventField.ASSIGNED_TIMESTAMP.value):
             if  not (event.get(EventField.ASSIGNED.value) or event.get(EventField.ASSIGNED_TIMESTAMP.value)):

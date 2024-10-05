@@ -81,8 +81,6 @@ def start_bot(CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD, 
                         content['body'] = body[type['content_type']]
                         
                         event = {}
-                        if 'user' in type:
-                            event[EventField.USER.value] = type['user']
                         event = Events.set_missing_defaults(event)
                         event['match'] = True # by default email is matched unless a match_regex fails end returns empty value
                         

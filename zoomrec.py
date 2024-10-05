@@ -895,8 +895,8 @@ def join(event_key):
         os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
         atexit.unregister(os.killpg)
 
-    record = Events.get_instruction_attribute( EventInstructionAttribute.RECORD, event)
-    if record:
+    process = Events.get_instruction_attribute( EventInstructionAttribute.PROCESS, event)
+    if process == 'record':
         logging.info("Start recording..")
 
         filename = os.path.join(REC_PATH, time.strftime(
@@ -918,20 +918,19 @@ def join(event_key):
         atexit.register(os.killpg, os.getpgid(
             ffmpeg.pid), signal.SIGQUIT)
 
+    # update event
+    try:
+        event[EventField.STATUS.value] = EventStatus.PROCESS.value
+        event[EventField.ASSIGNED_TIMESTAMP.value] = Events.convert_to_local_datetime(datetime.now(), event).isoformat() 
+        update_event_api(event, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+    except Exception as e:
+        logging.error(f"Error updating event: {e}")
+
     start_date = datetime.now()
     end_date = start_date + timedelta(seconds=duration + TRAIL_TIME_SEC)  # Add 5 minutes
 
     # Start thread to check active screensharing
     HideViewOptionsThread(description)
- 
-    # update status
-    event[EventField.STATUS.value] = EventStatus.JOINED.value
-    event[EventField.ASSIGNED.value] = CLIENT_ID
-    event[EventField.ASSIGNED_TIMESTAMP.value] = Events.convert_to_local_datetime(datetime.now(), event).isoformat()   
-    try:
-        update_event_api(event, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
-    except Exception as e:
-        logging.error(f"Error updating event: {e}")
         
     meeting_running = True
     while meeting_running:
