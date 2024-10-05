@@ -14,7 +14,7 @@ import datetime
 import atexit
 from telegram_bot import send_telegram_message
 from datetime import datetime, timedelta
-from events import Events, EventType, EventField, EventStatus, DATES, DATE_FORMAT, TIME_FORMAT
+from events import Events, EventType, EventField, EventStatus, EventInstructionAttribute
 import requests
 import debugpy
 from events_api import update_event_api, get_event_api, get_events_api  # Ensure you import the function
@@ -529,6 +529,7 @@ def join(event_key):
 
     meet_id = event[EventField.ID.value]
     meet_pw = event[EventField.PASSWORD.value]
+    meet_url = event[EventField.URL.value]
     duration = int(event[EventField.DURATION.value]) * 60
     user = event[EventField.USER.value]
     description = event[EventField.TITLE.value]
@@ -561,7 +562,7 @@ def join(event_key):
     # Exit Zoom if running
     exit_process_by_name("zoom")
 
-    join_by_url = meet_id.startswith('https://') or meet_id.startswith('http://')
+    join_by_url = meet_url.startswith('https://') or meet_url.startswith('http://')
 
     if not join_by_url:
         # Start Zoom
@@ -570,7 +571,7 @@ def join(event_key):
         img_name = 'join_meeting.png'
     else:
         logging.info("Starting zoom with url")
-        zoom = subprocess.Popen(f'zoom --url="{meet_id}"', stdout=subprocess.PIPE,
+        zoom = subprocess.Popen(f'zoom --url="{meet_url}"', stdout=subprocess.PIPE,
                                 shell=True, preexec_fn=os.setsid)
         img_name = 'join.png'
     
@@ -894,11 +895,8 @@ def join(event_key):
         os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
         atexit.unregister(os.killpg)
 
-    event[EventField.STATUS.value] = EventStatus.JOINED.value
-
-    if event[EventField.RECORD.value] == 'true':
-    # Audio
-    # Start recording
+    record = Events.get_instruction_attribute( EventInstructionAttribute.RECORD, event)
+    if record:
         logging.info("Start recording..")
 
         filename = os.path.join(REC_PATH, time.strftime(
@@ -919,8 +917,6 @@ def join(event_key):
 
         atexit.register(os.killpg, os.getpgid(
             ffmpeg.pid), signal.SIGQUIT)
-        
-        event[EventField.STATUS.value] = EventStatus.RECORDING.value
 
     start_date = datetime.now()
     end_date = start_date + timedelta(seconds=duration + TRAIL_TIME_SEC)  # Add 5 minutes
@@ -929,6 +925,9 @@ def join(event_key):
     HideViewOptionsThread(description)
  
     # update status
+    event[EventField.STATUS.value] = EventStatus.JOINED.value
+    event[EventField.ASSIGNED.value] = CLIENT_ID
+    event[EventField.ASSIGNED_TIMESTAMP.value] = Events.convert_to_local_datetime(datetime.now(), event).isoformat()   
     try:
         update_event_api(event, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
     except Exception as e:
@@ -964,36 +963,39 @@ def join(event_key):
             if DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                     TIME_FORMAT) + "-" + description) + "_ok_error.png")
-    postprocessing = event[EventField.POSTPROCESSING.value]         
-    if postprocessing is not None:
-        command = f"./postprocessing.sh {postprocessing} {filename}"
-        logging.debug(f"Postprocessing command: {command}")
+                
+    postprocess = Events.get_instruction_attribute( EventInstructionAttribute.POSTPROCESS, event)  
 
-        postprocessing_process = subprocess.Popen(
+    if postprocess:
+        command = f"./postprocess.sh {postprocess} {filename}"
+        logging.debug(f"Postprocess command: {command}")
+
+        postprocess_process = subprocess.Popen(
             command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
         
         atexit.register(os.killpg, os.getpgid(
-            postprocessing_process.pid), signal.SIGQUIT)
+            postprocess_process.pid), signal.SIGQUIT)
         
-        if postprocessing_process:
+        if postprocess_process:
             logging.info("Starting postprocessing task...")
-            event[EventField.STATUS.value] = EventStatus.POSTPROCESSING.value
+            event[EventField.STATUS.value] = EventStatus.POSTPROCESS.value
+            event[EventField.ASSIGNED.value] = CLIENT_ID
+            event[EventField.ASSIGNED_TIMESTAMP.value] = Events.convert_to_local_datetime(datetime.now(), event).isoformat()   
             try:
                 update_event_api(event, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
             except Exception as e:
                 logging.error(f"Error updating event: {e}")
 
-            postprocessing_process.wait()
+            postprocess_process.wait()
             logging.info("Postprocessing task completed.")
 
-            event[EventField.STATUS.value] = EventStatus.SCHEDULED.value
         else:
             logging.error("Postprocessing script not found or not specified.")
-        
-    else:
-        event[EventField.STATUS.value] = EventStatus.SCHEDULED.value
 
     try:
+        event[EventField.STATUS.value] = EventStatus.SCHEDULED.value
+        event[EventField.ASSIGNED.value] = ''
+        event[EventField.ASSIGNED_TIMESTAMP.value] = ''
         update_event_api(event, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
     except Exception as e:
         logging.error(f"Error updating event: {e}")
@@ -1036,22 +1038,20 @@ def exit_process_by_name(name):
 
 
 def join_ongoing_meeting(events):
-    current_datetime = Events.now_system_datetime()
+    dtnow_system = Events.convert_to_system_datetime( datetime.now())
 
     for event in events:
         if int(event[EventField.TYPE.value]) == int(EventType.ZOOM.value):
             # Check and join ongoing meeting
-            for day in Events.expand_dates(event[EventField.DTSTART.value]):
+            for dtstart in Events.get_dtstart_datetime_list(event):
                 try:
-                    start_datetime_local = Events.get_local_start_datetime(day, event)
-                    start_datetime = Events.convert_to_system_datetime(start_datetime_local)
-                    start_datetime = start_datetime - timedelta(seconds=LEAD_TIME_SEC)
+                    dtstart_system = Events.convert_to_system_datetime(dtstart)
+                    dtstart_system = dtstart_system - timedelta(seconds=LEAD_TIME_SEC)
 
-                    end_datetime = start_datetime + \
+                    dtend_system = dtstart_system + \
                         timedelta(seconds=int(event[EventField.DURATION.value]) * 60 + TRAIL_TIME_SEC)
 
-                    if start_datetime <= current_datetime <= end_datetime and str(event[EventField.RECORD.value]) == 'true':
-                        recent_duration = (end_datetime - current_datetime).total_seconds()
+                    if dtstart_system <= dtnow_system <= dtend_system:
                         logging.info("Join meeting that is currently running..")      
                         
                         join(event_key=event[EventField.KEY.value])
@@ -1061,19 +1061,22 @@ def join_ongoing_meeting(events):
 def setup_schedule(events):
     schedule.clear()
     line_count = 0
+    dtnow_system = Events.convert_to_system_datetime( datetime.now())
     for event in events:
         if int(event[EventField.TYPE.value]) == int(EventType.ZOOM.value):
             # expand date/weekday ranges and lists
-            for day in Events.expand_dates(event[EventField.DTSTART.value]):
+            for dtstart in Events.get_dtstart_datetime_list(event):
                 try:
-                    start_datetime_local = Events.get_local_start_datetime(day, event)
-                    start_datetime = Events.convert_to_system_datetime(start_datetime_local)
-                    start_datetime = start_datetime - timedelta(seconds=LEAD_TIME_SEC)
-                    weekday = start_datetime.strftime("%A").lower() 
-
+                    dtstart_system = Events.convert_to_system_datetime(dtstart)
+                    dtstart_system = dtstart_system - timedelta(seconds=LEAD_TIME_SEC)
+                    if dtstart_system < dtnow_system:
+                        # start dt in past
+                        break
+                    
+                    weekday = dtstart_system.strftime("%A").lower() 
                     cmd_string = "schedule.every()." + weekday \
                                 + ".at(\"" \
-                                + start_datetime.strftime('%H:%M:%S') \
+                                + dtstart_system.strftime('%H:%M:%S') \
                                 + "\").do(join, event_key=\"" + event[EventField.KEY.value] + "\")"
                     cmd = compile(cmd_string, "<string>", "eval", )
                     eval(cmd)

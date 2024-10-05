@@ -80,7 +80,9 @@ def start_bot(CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD, 
                         content['subject'] = subject
                         content['body'] = body[type['content_type']]
                         
-                        event ={}
+                        event = {}
+                        if 'user' in type:
+                            event[EventField.USER.value] = type['user']
                         event = Events.set_missing_defaults(event)
                         event['match'] = True # by default email is matched unless a match_regex fails end returns empty value
                         
@@ -131,9 +133,13 @@ def start_bot(CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD, 
                                                 elif value == 'duration':
                                                     event[attribute] = math.ceil((calendar_event.end - calendar_event.begin).total_seconds() / 60)
                                                 elif value == 'timezone':
+                                                    found = False
                                                     for item in calendar_event.extra:
                                                         if item.name == 'TZID':
+                                                            found = True
                                                             event[attribute] = item.value
+                                                    if (not found):
+                                                        event[attribute] = list(calendar_event._classmethod_kwargs['tz'].keys())[0] 
                                                 elif value == 'rrule':
                                                     for item in calendar_event.extra:
                                                         if item.name == 'RRULE':

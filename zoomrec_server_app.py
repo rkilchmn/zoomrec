@@ -3,7 +3,7 @@ from flask_basicauth import BasicAuth # pip install flask-basicauth
 from datetime import datetime
 import os.path
 import yaml
-from events import FIELDNAMES, EventStatus, EventField, CSVEvents
+from events import FIELDNAMES, Events, EventStatus, EventField, EventUserAttribute, CSVEvents
 from urllib.parse import unquote
 from telegram_bot import send_telegram_message
 
@@ -35,7 +35,7 @@ def state_changed_callback(old_event, new_event):
         if user:
             new_status_description = EventStatus.get_description(new_event[EventField.STATUS.value])
             old_status_description = EventStatus.get_description(old_event[EventField.STATUS.value])
-            telegram_chat_id = events.get_telegramchatid(user)
+            telegram_chat_id = Events.get_user_attribute( EventUserAttribute.TELEGRAM_CHAT_ID, old_event)
             if telegram_chat_id:
                 message = f"Event '{new_event[EventField.TITLE.value]}' status changed from {old_status_description} to {new_status_description}"
                 send_telegram_message(TELEGRAM_BOT_TOKEN, telegram_chat_id, message, TELEGRAM_RETRIES)

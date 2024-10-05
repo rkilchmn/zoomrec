@@ -15,28 +15,32 @@ import shortuuid
 DATE_FORMAT = '%d/%m/%Y'
 TIME_FORMAT = '%H:%M'
 DATETIME_FORMAT = DATE_FORMAT + ' ' + TIME_FORMAT
-RECORD = 'true'
-INTERNAL_DELIMITER = ':' # used internally to delimit multiple values in a single fields
-
-TELEGRAM_CHAT_ID_KEY = "telegram-chatid"
+INTERNAL_DELIMITER = ',' # don't use : as it is reserved in yaml files
 
 class EventType(Enum):
     ZOOM = 1
     SYSTEM = 2 # used for example to start client in case of manitenance etc
 
+class EventInstructionAttribute(Enum):
+    RECORD = "record"
+    POSTPROCESS = "postprocess"
+
+class EventUserAttribute(Enum):
+    TELEGRAM_CHAT_ID = "telegram_chat_id"
+
 class EventStatus(Enum):
     SCHEDULED = 1
     JOINED = 2
-    RECORDING = 3
-    POSTPROCESSING = 4
+    PROCESS = 3
+    POSTPROCESS = 4
 
     @classmethod
     def get_description(cls, status):
         return {
             cls.SCHEDULED: "Scheduled",
             cls.JOINED: "Joined",
-            cls.RECORDING: "Recording",
-            cls.POSTPROCESSING: "Postprocessing"
+            cls.PROCESS: "Processing",
+            cls.POSTPROCESS: "Postprocessing"
         }.get(status, "Unknown Status")
 
 class EventField(Enum):
@@ -63,8 +67,7 @@ EVENT_DEFAULT_VALUES = {
     EventField.ASSIGNED.value: '',
     EventField.ASSIGNED_TIMESTAMP.value: '',
     EventField.TYPE.value: EventType.ZOOM.value,
-    EventField.STATUS.value: EventStatus.SCHEDULED.value,
-    EventField.INSTRUCTION.value: "record",
+    EventField.STATUS.value: EventStatus.SCHEDULED.value
 }
 
 FIELDNAMES = [field.value for field in EventField]
@@ -110,27 +113,25 @@ class Events(ABC):
         now = datetime.now(ZoneInfo(astimezone))
         next_event = None
         for event in events:
-            for dtstart_datetime_local in Events.get_dtstart_datetime_list(event):
+            for dtstart_local in Events.get_dtstart_datetime_list(event):
                 try:
-                    # in local timezone of event   
-                    dtstart_datetime_local = Events.get_local_start_datetime(day, event)
-                    end_datetime_local = dtstart_datetime_local + timedelta(minutes=int(event[EventField.DURATION.value]))
+                    dtend_local = dtstart_local + timedelta(minutes=int(event[EventField.DURATION.value]))
                     # converted to astimezone provided 
-                    start_datetime = dtstart_datetime_local.astimezone(ZoneInfo(astimezone))
-                    end_datetime = end_datetime_local.astimezone(ZoneInfo(astimezone))
+                    dtstart_timezone = Events.convert_to_timezone(dtstart_local, ZoneInfo(astimezone))
+                    dtend_timezone =  Events.convert_to_timezone(dtend_timezone, ZoneInfo(astimezone))
 
                     # incorporate lead in/out
-                    start_datetime -= timedelta(seconds=leadInSecs)
-                    end_datetime += timedelta(seconds=leadOutSecs)
+                    dtstart_timezone -= timedelta(seconds=leadInSecs)
+                    dtend_timezone += timedelta(seconds=leadOutSecs)
 
                     # priority is given to the meeting ending first - TBD
-                    if now < end_datetime and (next_event is None or end_datetime < next_event['end']):
+                    if now < dtend_timezone and (next_event is None or dtend_timezone < next_event['end']):
                         next_event = event
-                        next_event['start'] = dtstart_datetime_local
-                        next_event['end'] = end_datetime_local
+                        next_event['start'] = dtstart_local
+                        next_event['end'] = dtend_local
                         next_event['astimezone'] = astimezone
-                        next_event['start_astimezone'] = start_datetime
-                        next_event['end_astimezone'] = end_datetime
+                        next_event['start_astimezone'] = dtstart_timezone
+                        next_event['end_astimezone'] = dtend_timezone
 
                 except ValueError as e:
                     continue
@@ -188,22 +189,37 @@ class Events(ABC):
                         raise ValueError("Invalid Zoom id. Must be a number with minimum 9 digits (no blanks)")                
 
         # Validate instruction
-        if event[EventField.INSTRUCTION.value]:
-            if isinstance(event[EventField.INSTRUCTION.value], str) and INTERNAL_DELIMITER in event[EventField.INSTRUCTION.value]:
-                instruction_parts = event[EventField.INSTRUCTION.value].split(INTERNAL_DELIMITER)
-                if len(instruction_parts) > 1:
-                    event[EventField.INSTRUCTION.value] = instruction_parts[0].strip()  # Keep only the first part
-            elif isinstance(event[EventField.INSTRUCTION.value], str):
-                event[EventField.INSTRUCTION.value] = event[EventField.INSTRUCTION.value].strip()  # Trim whitespace
+        if EventField.INSTRUCTION.value in event:
+            if isinstance(event[EventField.INSTRUCTION.value], str):
+                try:
+                    for instruction_attribute in EventInstructionAttribute:
+                        value = Events.get_instruction_attribute( instruction_attribute, event)
+                except Exception as e:
+                    raise ValueError(f"Invalid instruction format in '{EventField.INSTRUCTION.value}'. Parsing error for '{event[EventField.INSTRUCTION.value]}': {e.error.args[0]}")
+
             else:
                 raise ValueError(f"Invalid instruction format in '{EventField.INSTRUCTION.value}'. It must be a string.")
+            
+        # Validate user
+        if EventField.USER.value in event:
+            if isinstance(event[EventField.USER.value], str):
+                try:
+                    for user_attribute in EventUserAttribute:
+                        value = Events.get_user_attribute( user_attribute, event)
+                except Exception as e:
+                    raise ValueError(f"Invalid user format in '{EventField.USER.value}'. Parsing error for '{event[EventField.USER.value]}': {e.error.args[0]}")
+
+            else:
+                raise ValueError(f"Invalid user format in '{EventField.USER.value}'. It must be a string.")
+
+    
         # validate if in past
         if Events.check_past(event):
             raise ValueError("Event end date/time is in past.")
 
-        if event.get(EventField.ASSIGNED.value):
-            if not event.get(EventField.ASSIGNED_TIMESTAMP.value):
-                raise ValueError(f"Field '{EventField.ASSIGNED_TIMESTAMP}' cannot be blank if field '{EventField.ASSIGNED}' is provided.")
+        if event.get(EventField.ASSIGNED.value) or event.get(EventField.ASSIGNED_TIMESTAMP.value):
+            if  not (event.get(EventField.ASSIGNED.value) or event.get(EventField.ASSIGNED_TIMESTAMP.value)):
+                raise ValueError(f"If any of the both Field '{EventField.ASSIGNED_TIMESTAMP}' and '{EventField.ASSIGNED}' are provided, both have to be provided.")
 
         return event
 
@@ -252,6 +268,10 @@ class Events(ABC):
     @staticmethod
     def convert_to_system_datetime(datetime_local):
         return datetime_local.astimezone(datetime.now().astimezone().tzinfo)
+    
+    @staticmethod
+    def convert_to_timezone(datetime_local, timezone):
+        return datetime_local.astimezone(datetime.now().timezone().tzinfo)
 
     @staticmethod
     def convert_to_local_datetime(datetime_system, event):
@@ -282,20 +302,26 @@ class Events(ABC):
                 raise ValueError(f"No event found with description or index '{search_argument}'")
             elif hits == 1:
                 return target_index
-
+    
     @staticmethod
-    def set_telegramchatid(chat_id):
-        return "{TELEGRAM_CHAT_ID_KEY}={}".format(chat_id)
-
-    @staticmethod
-    def get_telegramchatid(user):
-        entries = user.split(":")
-        search_key = f"{TELEGRAM_CHAT_ID_KEY}="
-        for entry in entries:
+    def get_instruction_attribute(instruction: EventInstructionAttribute, event):
+        if EventField.INSTRUCTION.value in event:
+            entries = event[EventField.INSTRUCTION.value].split(INTERNAL_DELIMITER)
+            search_key = f"{instruction.value}="
+            for entry in entries:
                 if search_key in entry:
-                    chat_id = entry.split(search_key)[1]
-                return chat_id
-        return None 
+                    return entry.split(search_key)[1]
+        return False
+    
+    @staticmethod
+    def get_user_attribute(user_attribute: EventUserAttribute, event):
+        if EventField.USER.value in event:
+            entries = event[EventField.USER.value].split(INTERNAL_DELIMITER)
+            search_key = f"{user_attribute.value}="
+            for entry in entries:
+                if search_key in entry:
+                    return entry.split(search_key)[1]
+        return False
 
 class CSVEvents(Events):
     def __init__(self, csv_path, delimiter=';', stateChanged=None):

@@ -9,11 +9,11 @@ if [ "$#" -ne 2 ]; then
     exit 1
 fi
 
-POSTPROCESSING_COMMAND=$1
+POSTPROCESS_COMMAND=$1
 FILENAME=$2
 
 # Example postprocessing command (modify as needed)
-case $POSTPROCESSING_COMMAND in
+case $POSTPROCESS_COMMAND in
     "transcribe")
         transcribe_video.sh "$FILENAME"
         ;;
@@ -23,7 +23,7 @@ case $POSTPROCESSING_COMMAND in
         echo "done" >> "$FILENAME.txt"
         ;;
     *)
-        echo "Unknown postprocessing command: $POSTPROCESSING_COMMAND"
+        echo "Unknown postprocessing command: $POSTPROCESS_COMMAND"
         exit 1
         ;;
 esac

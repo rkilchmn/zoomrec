@@ -31,6 +31,7 @@ if [[ "$2" == "$VAAPI" ]]; then
   VIDEO_GROUPID=$(getent group video | cut -d':' -f3)
 
   docker run -d --restart unless-stopped --name zoomrec \
+    -e CLIENT_ID="$CLIENT_ID" \
     -e DEBUG="$DEBUG" \
     -e TZ="$TZ" \
     -e DISPLAY_NAME="$DISPLAY_NAME" \
@@ -133,6 +134,7 @@ if [[ "$2" == "$VAAPI" ]]; then
 
 elif [[ "$2" == "$NVIDIA" ]]; then
   docker run -d --restart unless-stopped --name zoomrec \
+    -e CLIENT_ID="$CLIENT_ID" \
     -e DEBUG="$DEBUG" \
     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
     -e TZ="$TZ" \
@@ -162,6 +164,7 @@ elif [[ "$2" == "$NVIDIA" ]]; then
     rkilchmn/zoomrec:latest
 else
   docker run -d --restart unless-stopped --name zoomrec \
+    -e CLIENT_ID="$CLIENT_ID" \
     -e DEBUG="$DEBUG" \
     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
     -e TZ="$TZ" \

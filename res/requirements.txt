@@ -11,6 +11,7 @@ backports.zoneinfo;python_version<"3.9"
 pyyaml
 beautifulsoup4
 shortuuid
-debugpy
+debugpy # only for debug inside docker
+python-dateutil
 # for postprocessing
 whisper-ctranslate2-remote-api

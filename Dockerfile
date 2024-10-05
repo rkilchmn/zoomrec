@@ -245,10 +245,11 @@ ADD zoomrec_client.py ${HOME}/
 ADD telegram_bot.py ${HOME}/
 ADD imap_bot.py ${HOME}/
 ADD events.py ${HOME}/
+ADD events_api.py ${HOME}/
 ADD res/img ${HOME}/img
 
 # posprocessing scripts
-ADD res/postprocessing.sh ${HOME}/
+ADD res/postprocess.sh ${HOME}/
 ADD res/transcribe_video.sh ${HOME}/
 
 # required by pyautogui 
