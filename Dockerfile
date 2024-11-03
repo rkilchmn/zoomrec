@@ -110,7 +110,9 @@ RUN apt-get install --no-install-recommends -y \
 # Version 5.16.6(382) valid until August 3, 2024
 # wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.16.6.382/zoom_amd64.deb \
 #RUN wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
-RUN wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.16.6.382/zoom_amd64.deb && \
+# https://cdn.zoom.us/prod/5.17.5.2543/zoom_amd64.deb
+# https://cdn.zoom.us/prod/5.17.11.3835/zoom_amd64.deb
+RUN wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.17.11.3835/zoom_amd64.deb && \
     dpkg -i zoom_amd64.deb && \
     apt-get -f install -y && \
     rm -rf zoom_amd64.deb
