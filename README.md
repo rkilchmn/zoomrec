@@ -37,12 +37,14 @@ docker run -d --restart unless-stopped \
   --device /dev/dri/renderD128:/dev/dri/renderD128 \
   --device /dev/dri/card0:/dev/dri/card0 \
   rkilchmn/zoomrec:latest
-</li>
 <li>
 (h)top like tool for supporting all GPU vendors: https://github.com/Syllo/nvtop
 </li>
 
 Changelog/Errors
+<p>
+https://cdn.zoom.us/prod/5.17.5.2543/zoom_amd64.deb
+https://cdn.zoom.us/prod/5.17.11.3835/zoom_amd64.deb
 <p>
 libva error: /usr/lib/x86_64-linux-gnu/dri/d3d12_drv_video.so init failed
 QObject::moveToThread: Current thread (0x55c3336d3600) is not the object's thread (0x55c333717790).
