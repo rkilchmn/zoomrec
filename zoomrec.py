@@ -527,15 +527,19 @@ def join(meet_id, meet_pw, duration, user, description):
 
     join_by_url = meet_id.startswith('https://') or meet_id.startswith('http://')
 
+    env = os.environ.copy()
+    del env["LD_LIBRARY_PATH"]
+    del env["QT_QPA_PLATFORM_PLUGIN_PATH"]
+
     if not join_by_url:
         # Start Zoom
         zoom = subprocess.Popen("zoom", stdout=subprocess.PIPE,
-                                shell=True, preexec_fn=os.setsid)
+                                shell=True, preexec_fn=os.setsid, env=env)
         img_name = 'join_meeting.png'
     else:
         logging.info("Starting zoom with url")
         zoom = subprocess.Popen(f'zoom --url="{meet_id}"', stdout=subprocess.PIPE,
-                                shell=True, preexec_fn=os.setsid)
+                                shell=True, preexec_fn=os.setsid, env=env)
         img_name = 'join.png'
     
     # Wait while zoom process is there
