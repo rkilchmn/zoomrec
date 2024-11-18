@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 ENV HOME=/home/zoomrec \
     TZ=Europe/Berlin \
@@ -40,7 +40,7 @@ RUN apt-get update && \
         publicsuffix \
         libapt-pkg6.0 \
         libpsl5 \
-        libssl1.1 \
+        libssl3 \
         libnss3 \
         openssl \
         wget \
@@ -89,8 +89,9 @@ RUN apt-get install --no-install-recommends -y \
         libxcb-randr0 \
         libxcb-image0 \
         libfontconfig1 \
-        libgl1-mesa-glx \
-        libegl1-mesa \
+        # libgl1-mesa-glx \
+        # libegl1-mesa \
+        libatomic1 \
         libxi6 \
         libsm6 \
         libxrender1 \
@@ -110,7 +111,7 @@ RUN apt-get install --no-install-recommends -y \
 # Version 5.16.6(382) valid until August 3, 2024
 # wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.16.6.382/zoom_amd64.deb \
 #RUN wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
-RUN wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.16.6.382/zoom_amd64.deb && \
+RUN wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/6.2.6.2503/zoom_amd64.deb && \
     dpkg -i zoom_amd64.deb && \
     apt-get -f install -y && \
     rm -rf zoom_amd64.deb
@@ -130,12 +131,12 @@ RUN apt-get install --no-install-recommends -y \
         gnome-screenshot
 
 # required python module
-RUN pip3 install --upgrade --no-cache-dir -r ${HOME}/res/requirements.txt --default-timeout=100
+RUN pip3 install --upgrade  --break-system-packages --no-cache-dir -r ${HOME}/res/requirements.txt --default-timeout=100
 #    pip3 uninstall --yes opencv-python && \
 #    pip3 install opencv-python-headless
 
 # work around error in Python 3.7: AttributeError: type object 'Callable' has no attribute '_abc_registry'
-RUN if pip3 show typing > /dev/null 2>&1; then pip3 uninstall -y typing; fi
+RUN if pip3 show typing > /dev/null 2>&1; then pip3 uninstall -y --break-system-packages typing; fi
 
 # samba servr
 RUN apt-get install --no-install-recommends -y \
