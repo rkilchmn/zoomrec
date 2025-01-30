@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 # pylint: disable=unused-argument, wrong-import-position
-import sys
 from telegram import __version__ as TG_VER
 try:
     from telegram import __version_info__
@@ -14,86 +13,114 @@ if __version_info__ < (20, 0, 0, "alpha", 1):
 from telegram import ForceReply, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from datetime import datetime
-import events
-from events import EventField, CSVEvents
-# for send telegram message
-import time
-import requests
-from urllib.parse import quote
+import os
+import events_api  # Import the events_api module
+import users_api  # Import the users_api module
+from events import Events, EventField, EventInstruction
+from users import Users, UserField, UserRole
+from constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT
 
-global CSV_PATH
-global TELEGRAM_TOKEN
+# get env vars
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+SERVER_URL = os.getenv('SERVER_URL')
+SERVER_USERNAME = os.getenv('SERVER_USERNAME')
+SERVER_PASSWORD = os.getenv('SERVER_PASSWORD')
 
 # Define the number of events per page
 PAGE_EVENTS = 10
 
+# Define the number of users per page
+PAGE_USERS = 10
 
-USAGE_ADD = "/add <description> <weekday> <time> <timezone> <duration> <id/url> [required with id: <password>] [optional, default is 'true': <record>]\n" + \
-            "example: /add important_meeting tuesday 14:00 America/New_York 60 123456789 secret_passwd true\n" + \
-            "example: /add new_year_time_square 31/12/2023 23:45 America/New_York 60 https://zoom.us?123...ASE\n"
-USAGE_FIND = "/find <index or part of description>] - list matching event\n"
-USAGE_LIST = f"/list [optional: page <index>] - list a particular page if number of events exceeds {PAGE_EVENTS}\n"
-USAGE_MODIFY = "/modify <index or part of description> <attribute name1> <new attribute value1> <attribute name2> <new attribute value2> ..."
-USAGE_DELETE = "/delete <index or part of description>"
-USAGE_INFO = "/info - return some session info such as the chat id"
+# Constants for event commands
+CMD_ADD_EVENT = "add_event"
+CMD_LIST_EVENT = "list_event"
+CMD_MODIFY_EVENT = "modify_event"
+CMD_DELETE_EVENT = "delete_event"
+
+# Constants for user commands
+CMD_ADD_USER = "add_user"
+CMD_MODIFY_USER = "modify_user"
+CMD_DELETE_USER = "delete_user"
+CMD_LIST_USER = "list_user"
+
+# Constants for other commands
+CMD_INFO = "info"
+CMD_HELP = "help"
+
+# sample requests for events
+EXAMPLE_ADD_EVENT1   = f"/{CMD_ADD_EVENT} important_meeting johndoe 31/12/2025 14:00 America/New_York 60 123456789 mymeetingpassword"
+EXAMPLE_ADD_EVENT2   = f"/{CMD_ADD_EVENT} new_year_time_square johndoe 31/12/2025 23:45 America/New_York 60 https://zoom.us/123 record,transcribe"
+EXAMPLE_LIST_EVENT     = f"/{CMD_LIST_EVENT} new_year_time_square"
+EXAMPLE_MODIFY_EVENT   = f"/{CMD_MODIFY_EVENT} 2 title harbour_bridge timezone Australia/Sydney time 23:55"
+EXAMPLE_DELETE_EVENT   = f"/{CMD_DELETE_EVENT} harbour_bridge"
+
+# Usage help for event commands
+USAGE_ADD_EVENT =       f"/{CMD_ADD_EVENT} <title> <user login> <date> <time> <timezone> <duration> <id/url> [required with id: <password>] [optional instruction, default is 'record': <record,transcribe,upload>]\n" + \
+                        f"example: {EXAMPLE_ADD_EVENT1}\n" + \
+                        f"example:{EXAMPLE_ADD_EVENT2}"
+USAGE_LIST_EVENT =      f"/{CMD_LIST_EVENT} [optional: <page number> or <search term>] - list a particular page if number of events exceeds {PAGE_EVENTS} or provide a search term\n" + \
+                        f"example:{EXAMPLE_LIST_EVENT}"
+USAGE_MODIFY_EVENT =    f"/{CMD_MODIFY_EVENT} <index or search term> <attribute name1> <new attribute value1> <attribute name2> <new attribute value2> ... Note: search term needs to result in single hit to be processed.\n" + \
+                        f"example:{EXAMPLE_MODIFY_EVENT}"
+USAGE_DELETE_EVENT =    f"/{CMD_DELETE_EVENT} <index or search term>. Note: search term needs to result in single hit to be processed.\n" + \
+                        f"example:{EXAMPLE_DELETE_EVENT}"
+
+# sample requests for events
+EXAMPLE_ADD_USER     = f"/{CMD_ADD_USER} JohnDoe johndoe securepassword john.doe@example.com 1"
+EXAMPLE_LIST_USER    = f"/{CMD_LIST_USER} johndoe"
+EXAMPLE_MODIFY_USER  = f"/{CMD_MODIFY_USER} 1 login johndoe2"
+EXAMPLE_DELETE_USER  = f"/{CMD_DELETE_USER} johndoe2"
+
+# Usage help for user commands
+USAGE_ADD_USER =    f"/{CMD_ADD_USER} <name> <login> <password> [optional: <email> <role>]\n" + \
+                    f"example: {EXAMPLE_ADD_USER}"
+USAGE_LIST_USER =   f"/{CMD_LIST_USER}  <page number> or <search term>] - list a particular page if number of users exceeds {PAGE_EVENTS} or provide a search term\n" + \
+                    f"example: {EXAMPLE_LIST_USER}"
+USAGE_MODIFY_USER = f"/{CMD_MODIFY_USER} <index> <attribute name1> <new attribute value1> <attribute name2> <new attribute value2> ...\n" + \
+                    f"example: {EXAMPLE_MODIFY_USER}"
+USAGE_DELETE_USER = f"/{CMD_DELETE_USER} <index>\n" + \
+                    f"example: {EXAMPLE_DELETE_USER}"
+
+# Usage help for other commands
+USAGE_INFO = f"/{CMD_INFO} - return some session info such as the chat id"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Sends explanation on how to use the bot."""
-    await update.message.reply_text("Hi! Use /add to add a new event, /list to list events, /modify to modify an event, and /delete to delete an event. Use /help for further information.")
+    await update.message.reply_text(f"Hi! Use /{CMD_ADD_EVENT} to add a new event, /{CMD_LIST_EVENT} to list events. For further commands and information use /help.")
 
-async def find_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global CSV_PATH
+async def list_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     args = context.args
-    if len(args) != 1:
-        await update.message.reply_text("Usage: " + USAGE_FIND)
+    if len(args) > 1:
+        await update.message.reply_text("Usage: " + USAGE_LIST_EVENT)
         return
-    events_list = CSVEvents(CSV_PATH).read()
 
-    target_index = ''
-    if len(args) == 1:
-        try:
-            target_index = events.find_event(context.args[0], events_list)
-        except ValueError as error:
-            await update.message.reply_text( error.args[0])
+    try:
+        events_list = events_api.get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+        if not events_list:
+            await update.message.reply_text(f"No events found.")
             return
-
-    output = "List of events:\n"
-    for i, event in enumerate(events_list):
-        i += 1
-        if target_index:
-            if i != target_index+1:
-                continue
-            
-        output += f"Event {i}\n"
-        output += f"  description : {event[EventField.TITLE.value]}\n"
-        for attribute_name, attribute_value in event.items():
-            if attribute_name == EventField.TITLE.value:
-                continue
-            output += f"  {attribute_name} : {attribute_value}\n"
-    await update.message.reply_text(output)
-
-async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global CSV_PATH
-    args = context.args
-    if len(args) == 1 or len(args) > 2:
-        await update.message.reply_text("Usage: " + USAGE_LIST)
+    except Exception as error:
+        await update.message.reply_text(f"Error retrieving events: {error}")
         return
 
-    events_list = CSVEvents(CSV_PATH).read()
-    total_events = len(events_list)
     current_page = 1
-        
-    if len(args) == 2:
-        # Get the current page number from the user's input (default to 1 if not provided or invalid)
-        if args[0].lower() == "page":
+    target_indices = list(range(len(events_list))) # default traget list with all events
+
+    if len(args) == 1:  # page or search term
+        try:
+            current_page = int(args[0])
+        except ValueError:
+            # not an integer -> search term
+            # Call the find method to get the indices of the events
             try:
-                current_page = int(args[1])
-            except ValueError:
-                await update.message.reply_text("Invalid page number. Please enter a valid page number: /list page <number>.")
+                target_indices = Events.find(args[0], events_list)
+            except ValueError as error:
+                await update.message.reply_text(f"Error: {str(error)}")
                 return
-        else:
-            await update.message.reply_text("Usage: " + USAGE_LIST)
-            return
+            events_list = [events_list[i] for i in target_indices]  # Keep only the events at target_indices   
+
+    total_events = len(events_list)
 
     start_index = (current_page - 1) * PAGE_EVENTS
     end_index = min(start_index + PAGE_EVENTS, total_events)
@@ -102,137 +129,356 @@ async def list_events(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     # If there are no events to display for the specified page, send a message accordingly
     if not events_to_display:
         await update.message.reply_text("No events found for the specified page.")
+        return
 
     output = f"List of {total_events} event(s) (Page {current_page}/{(total_events-1)//PAGE_EVENTS + 1}):\n"
     for i, event in enumerate(events_to_display, start=start_index):
-        i += 1
-        output += f"Event {i}\n"
-        output += f"  description : {event[EventField.TITLE.value]}\n"
-        for attribute_name, attribute_value in event.items():
-            if attribute_name == EventField.TITLE.value:
-                continue
-            output += f"  {attribute_name} : {attribute_value}\n"
+        index = target_indices[i]
+        output += f"Event {index+1}:\n"
+
+        for field in EventField:  # Iterate over EventField to maintain order
+            output += f"  {field.value}: {event[field.value]}\n"
 
     await update.message.reply_text(output)
 
-
 async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global CSV_PATH
-
-    """Add a new event to the meeting.csv file."""
     args = context.args
-    if len(args) < 6:
-        await update.message.reply_text("Usage: " + USAGE_ADD)
+    if len(args) < 7:
+        await update.message.reply_text("Usage: " + USAGE_ADD_EVENT)
         return
 
-    recordArgNo = 7 # last arg is record (unless URL is provided - see following)
-    # Validate id
-    if args[5].startswith("http"):
-        password = ""
-        recordArgNo = 6 # password was skipped
-    else:    
-        password = args[6]
+    # Retrieve user by login
+    try:
+        user = users_api.get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=[[[UserField.LOGIN.value,"=",args[1]]]])[0] # single user expected
+        if not user:
+            await update.message.reply_text(f"User with login '{args[1]}' not found.")
+            return
+    except Exception as error:
+        await update.message.reply_text(f"Error retrieving user: {error}")
+        return
 
-    if (len(args)-1) == recordArgNo: 
-        record = args[recordArgNo]
-    else: # omitted as its optional
-        record = 'true' # default
+    # Initialize the event dictionary
+    event = {}
 
-    event = {EventField.TITLE.value: args[0], EventField.DTSTART.value: args[1].lower(), EventField.TIME.value: args[2], 
-             EventField.TIMEZONE.value: args[3], EventField.DURATION.value: args[4], EventField.ID.value: args[5], EventField.PASSWORD.value: password, 
-             EventField.RECORD.value: record, EventField.USER.value : events.set_telegramchatid( update.effective_chat.id)}
+    # Validate and parse date and time
+    try:
+        date = datetime.strptime(args[2], DATE_FORMAT).date()  # Parse the date
+        time = datetime.strptime(args[3], TIME_FORMAT).time()  # Parse the time
+        event[EventField.DTSTART.value] = datetime.combine(date, time).strftime(DATETIME_FORMAT).lower()  # Combine into dtstart
+    except ValueError as e:
+        await update.message.reply_text(f"Invalid date or time format: {e}")
+        return
+
+    # Set other event attributes directly
+    event[EventField.TITLE.value] = args[0]
+    event[EventField.TIMEZONE.value] = args[4]
+    event[EventField.DURATION.value] = args[5]
+    event[EventField.USER_KEY.value] = user[UserField.KEY.value]  # Set user_key from retrieved user
+
+    # Validate id and set password and instruction
+    if args[6].startswith("http"):
+        event[EventField.URL.value] = args[6]
+        event[EventField.ID.value] = ""
+        event[EventField.PASSWORD.value] = ""
+        instructionArgNo = 7  # password was skipped
+    else:
+        event[EventField.ID.value] = args[6]
+        event[EventField.PASSWORD.value] = args[7]
+        event[EventField.URL.value] = ""
+        instructionArgNo = 8  # last arg is instruction (unless URL is provided)
+
+    if (len(args) - 1) == instructionArgNo:
+        event[EventField.INSTRUCTION.value] = args[instructionArgNo]
 
     try:
-        event = events.validate_event( event)
-    except ValueError as error:
-        await update.message.reply_text( error.args[0])
-        return
-
-    events_list = CSVEvents(CSV_PATH).read()
-    events_list = events.remove_past_events( events_list, 300)
-    events_list.append(event)
-    CSVEvents(CSV_PATH).write(events_list)
-    await update.message.reply_text(f"Event with description '{args[0]}' added successfully!")
-
+        created_event = events_api.create_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
+        await update.message.reply_text(f"Created event with title '{created_event[EventField.TITLE.value]}' and key '{created_event[EventField.KEY.value]}'")
+    except Exception as error:
+        await update.message.reply_text(f"Error adding event: {error}")
 
 async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global CSV_PATH
     try:
         if not context.args:
-            await update.message.reply_text("Usage: " + USAGE_MODIFY)
+            await update.message.reply_text("Usage: " + USAGE_MODIFY_EVENT)
             return
 
-        events_list = CSVEvents(CSV_PATH).read()
-
-        # find target event to process
         try:
-            target_index = events.find_event(context.args[0], events_list)
-            target_event = events_list[target_index]
-        except ValueError as error:
-            await update.message.reply_text( error.args[0])
+            events_list = events_api.get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+            if not events_list:
+                await update.message.reply_text(f"No events found.")
+                return
+        except Exception as error:
+            await update.message.reply_text(f"Error retrieving events: {error}")
             return
+
+        # Determine if the first argument is an index or a search term
+        if context.args[0].isdigit() and int(context.args[0]) <= 99:
+            index = int(context.args[0])
+            if index < 1 or index > len(events_list):
+                await update.message.reply_text(f"Index {index} is out of range. Please provide a valid index.")
+                return
+            target_event = events_list[index - 1]  # Adjust for 0-based index
+        else:
+            # Find target event to process using search term
+            try:
+                target_indices = Events.find(context.args[0], events_list)
+                if len(target_indices) != 1:
+                    raise ValueError(f"Expected exactly 1 match, but found {len(target_indices)}. Please refine your search.")
+                target_event = events_list[target_indices[0]]
+            except ValueError as error:
+                await update.message.reply_text(f"Error: {str(error)}")
+                return
 
         if len(context.args) < 3 or len(context.args) % 2 != 1:
-            await update.message.reply_text("Usage: " + USAGE_MODIFY)
+            await update.message.reply_text("Usage: " + USAGE_MODIFY_EVENT)
             return
+
+        # Initialize variables for date and time updates
+        new_date = None
+        new_time = None
 
         for i in range(1, len(context.args), 2):
             attribute_name = context.args[i]
             new_attribute_value = context.args[i + 1]
-            if attribute_name.lower() not in target_event:
+
+            if attribute_name.lower() == "date":
+                new_date = new_attribute_value
+            elif attribute_name.lower() == "time":
+                new_time = new_attribute_value
+            elif attribute_name.lower() not in target_event:
                 await update.message.reply_text(f"Attribute '{attribute_name}' not found in event")
                 return
-
-            if attribute_name in [EventField.DTSTART.value]:    
-                target_event[attribute_name] = new_attribute_value.lower()
             else:
                 target_event[attribute_name] = new_attribute_value
 
-        try:
-            target_event = events.validate_event( target_event)
-        except ValueError as error:
-            await update.message.reply_text( error.args[0])
-            return
+        # Update dtstart if date or time is provided
+        if new_date or new_time:
+            try:
+                # Parse the existing dtstart
+                existing_dtstart = datetime.strptime(target_event[EventField.DTSTART.value], DATETIME_FORMAT)
 
-        events_list[target_index] = target_event
-        CSVEvents(CSV_PATH).write(events_list)
-        events_list[target_index] = target_event
-        await update.message.reply_text(f"Attributes successfully modified for event '{target_event[EventField.TITLE.value]}' with index {target_index+1}")
+                # Update the date if provided
+                if new_date:
+                    date_obj = datetime.strptime(new_date, DATE_FORMAT).date()
+                    existing_dtstart = existing_dtstart.replace(year=date_obj.year, month=date_obj.month, day=date_obj.day)
+
+                # Update the time if provided
+                if new_time:
+                    time_obj = datetime.strptime(new_time, TIME_FORMAT).time()
+                    existing_dtstart = existing_dtstart.replace(hour=time_obj.hour, minute=time_obj.minute)
+
+                # Set the updated dtstart back to the event
+                target_event[EventField.DTSTART.value] = existing_dtstart.strftime(DATETIME_FORMAT)
+
+            except ValueError as e:
+                await update.message.reply_text(f"Invalid date or time format: {e}")
+                return
+
+        try:
+            events_api.update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, target_event)
+            await update.message.reply_text(f"Attributes successfully modified for event '{target_event[EventField.TITLE.value]}' with index {target_indices[0] + 1}")
+        except Exception as error:
+            await update.message.reply_text(f"Error updating event: {error}")
+
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")
-
 
 async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    global CSV_PATH
     try:
         if not context.args:
-            await update.message.reply_text("Usage: " + USAGE_DELETE)
-            return
-        events_list = CSVEvents(CSV_PATH).read()
-       
-        # find target event to process
-        try:
-            target_index = events.find_event(context.args[0], events_list)
-            target_event = events_list[target_index]
-        except ValueError as error:
-            await update.message.reply_text( error.args[0])
+            await update.message.reply_text("Usage: " + USAGE_DELETE_EVENT)
             return
 
-        del events_list[target_index]
-        CSVEvents(CSV_PATH).write(events_list)
-        await update.message.reply_text(f"Event '{target_event[EventField.TITLE.value]}' with index {target_index+1} successfully deleted")
+        try:
+            events_list = events_api.get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+            if not events_list:
+                await update.message.reply_text(f"No events found.")
+                return
+        except Exception as error:
+            await update.message.reply_text(f"Error retrieving events: {error}")
+            return
+
+        # find target event to process      
+        try:
+            target_indices = Events.find(context.args[0], events_list)
+            if len(target_indices) != 1:
+                raise ValueError(f"Expected exactly 1 match, but found {len(target_indices)}. Please refine your search.")
+            target_event = events_list[target_indices[0]]
+        except ValueError as error:
+            await update.message.reply_text(error.args[0])
+            return
+
+        try:
+            events_api.delete_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, target_event[EventField.KEY.value])
+            await update.message.reply_text(f"Event '{target_event[EventField.TITLE.value]}' with index {target_indices[0] + 1} successfully deleted")
+        except Exception as error:
+            await update.message.reply_text(f"Error deleting event: {error}")
+
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")
+
+# User management commands
+async def add_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args = context.args
+    if len(args) < 3:
+        await update.message.reply_text("Usage: " + USAGE_ADD_USER)
+        return
+
+    user = {
+        UserField.NAME.value: args[0],
+        UserField.LOGIN.value: args[1],
+        UserField.PASSWORD.value: args[2],
+        UserField.EMAIL.value: args[3] if len(args) > 3 else '',
+        UserField.ROLE.value: int(args[4]) if len(args) > 4 else UserRole.NORMAL
+    }
+
+    try:
+        created_user = users_api.create_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, user)
+        await update.message.reply_text(f"Created user with name '{created_user[UserField.NAME.value]}' and key '{created_user[UserField.NAME.value]}'.")
+    except Exception as error:
+        await update.message.reply_text(f"Error adding user: {error}")
+
+async def modify_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        if len(context.args) < 3 or len(context.args) % 2 != 1:
+            await update.message.reply_text("Usage: " + USAGE_MODIFY_USER)
+            return
+
+        try:
+            users = users_api.get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+            if not users:
+                await update.message.reply_text(f"No users found.")
+                return        
+        except Exception as error:
+            await update.message.reply_text(f"Error retrieving users: {error}")
+            return
+
+        # Find target user to process
+        try:
+            target_indices = Users.find(context.args[0], users)
+            if len(target_indices) != 1:
+                raise ValueError(f"Expected exactly 1 match, but found {len(target_indices)}. Please refine your search.")
+            target_user = users[target_indices[0]]
+        except ValueError as error:
+            await update.message.reply_text(f"Error: {str(error)}")
+            return
+        
+        for i in range(1, len(context.args), 2):
+            attribute_name = context.args[i]
+            new_attribute_value = context.args[i + 1]
+            if attribute_name.lower() not in target_user:
+                await update.message.reply_text(f"Attribute '{attribute_name}' not found in user")
+                return
+            target_user[attribute_name] = new_attribute_value
+
+        try:
+            users_api.update_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, target_user)
+            await update.message.reply_text(f"User '{target_user[UserField.NAME.value]}' updated successfully!")
+        except Exception as error:
+            await update.message.reply_text(f"Error updating user: {error}")
+
+    except Exception as e:
+        await update.message.reply_text(f"Error: {str(e)}")
+
+async def delete_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        if len(context.args) != 1:
+            await update.message.reply_text("Usage: " + USAGE_DELETE_USER)
+            return
+
+        try:
+            users = users_api.get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+            if not users:
+                await update.message.reply_text(f"No users found.")
+                return
+        except Exception as error:
+            await update.message.reply_text(f"Error retrieving users: {error}")
+            return
+
+        # Find target user to process
+        try:
+            target_indices = Users.find(context.args[0], users)
+            if len(target_indices) != 1:
+                raise ValueError(f"Expected exactly 1 match, but found {len(target_indices)}. Please refine your search.")
+            target_user = users[target_indices[0]]
+        except ValueError as error:
+            await update.message.reply_text(f"Error: {str(error)}")
+            return
+
+        try:
+            users_api.delete_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, target_user[UserField.KEY.value])
+            await update.message.reply_text(f"User '{target_user[UserField.NAME.value]}' deleted successfully!")
+        except Exception as error:
+            await update.message.reply_text(f"Error deleting user: {error}")
+
+    except Exception as e:
+        await update.message.reply_text(f"Error: {str(e)}")
+
+async def list_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args = context.args
+    if len(args) > 1:
+        await update.message.reply_text("Usage: " + USAGE_LIST_USER)
+        return
+    try:
+        # get all users
+        users = users_api.get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+        if not users:
+            await update.message.reply_text(f"No users found.")
+            return
+    except Exception as error:
+        await update.message.reply_text(f"Error retrieving users: {error}")
+        return
+    
+    current_page = 1
+    target_indices = list(range(len(users)))  # default traget list with all users
+
+    if len(args) == 1:  # page or search term
+        try:
+            current_page = int(context.args[0])
+        except ValueError:
+            # not an integer -> search term
+            # Call the find method to get the indices of the users
+            try:
+                target_indices = Users.find(args[0], users)
+            except ValueError as error:
+                await update.message.reply_text(f"Error: {str(error)}")
+                return
+            users = [users[i] for i in target_indices]  # Keep only the users at target_indices
+
+    total_users = len(users)
+
+    start_index = (current_page - 1) * PAGE_USERS
+    end_index = min(start_index + PAGE_USERS, total_users)
+    users_to_display = users[start_index:end_index]
+
+    # If there are no users to display for the specified page, send a message accordingly
+    if not users_to_display:
+        await update.message.reply_text("No users found for the specified page.")
+        return
+
+    output = f"List of {total_users} user(s) (Page {current_page}/{(total_users-1)//PAGE_USERS + 1}):\n"
+    for i, user in enumerate(users_to_display, start=start_index):
+        index = target_indices[i]
+        output += f"User {index+1}:\n"
+        for field in UserField:  # Iterate over EventField to maintain order
+            output += f"  {field.value}: {user[field.value]}\n"
+
+    await update.message.reply_text(output)
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /help is issued."""
-    response = "Use these commands to manage events:\n"
-    response += USAGE_ADD + "\n"
-    response += USAGE_LIST + "\n"
-    response += USAGE_FIND + "\n"
-    response += USAGE_MODIFY + "\n"
-    response += USAGE_DELETE + "\n"
-    response += USAGE_INFO + "\n"
+    response = f"Use these commands to manage events:\n"
+    response += f"{USAGE_ADD_EVENT}\n"
+    response += f"{USAGE_LIST_EVENT}\n"
+    response += f"{USAGE_MODIFY_EVENT}\n"
+    response += f"{USAGE_DELETE_EVENT}\n"
+    response += f"\n"
+    response += f"Use these commands to manage users:\n"
+    response += f"{USAGE_ADD_USER}\n"
+    response += f"{USAGE_LIST_USER}\n"
+    response += f"{USAGE_MODIFY_USER}\n"
+    response += f"{USAGE_DELETE_USER}\n"
+    response += f"{USAGE_INFO}\n"
     await update.message.reply_text(response)
 
 async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -245,46 +491,27 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("Invalid command. Use /help to see a list of available commands.")
 
-def send_telegram_message( bot_token, chat_id, text, retries=5):
-    url_req = "https://api.telegram.org/bot" + bot_token + "/sendMessage" + "?chat_id=" + chat_id + "&text=" + quote(text)
-    tries = 0
-    success = False
-    while not success:
-        results = requests.get(url_req)
-        results = results.json()
-        success = 'ok' in results and results['ok']
-        tries+=1
-        if not success and tries < retries:
-            time.sleep(5)
-        if not success and tries >= retries:
-            break
-    return success
-
-
-def start_bot( csv_path, telegram_token) -> None:
-    global CSV_PATH
-    global TELEGRAM_TOKEN
-
-    CSV_PATH = csv_path
-    TELEGRAM_TOKEN = telegram_token
-
+def start_bot() -> None:
     """Start the bot."""
     # Create the Application and pass it your bot's token.
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
+    application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
     # on different commands - answer in Telegram
 
     # Add the handlers for the different commands
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("add", add_event))
-    application.add_handler(CommandHandler("list", list_events))
-    application.add_handler(CommandHandler("find", find_events))
-    application.add_handler(CommandHandler("modify", modify_event))
-    application.add_handler(CommandHandler("delete", delete_event))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("info", info_command))
+    application.add_handler(CommandHandler(CMD_ADD_EVENT, add_event))
+    application.add_handler(CommandHandler(CMD_LIST_EVENT, list_event))
+    application.add_handler(CommandHandler(CMD_MODIFY_EVENT, modify_event))
+    application.add_handler(CommandHandler(CMD_DELETE_EVENT, delete_event))
+    application.add_handler(CommandHandler(CMD_ADD_USER, add_user))
+    application.add_handler(CommandHandler(CMD_MODIFY_USER, modify_user))
+    application.add_handler(CommandHandler(CMD_DELETE_USER, delete_user))
+    application.add_handler(CommandHandler(CMD_LIST_USER, list_user))
+    application.add_handler(CommandHandler(CMD_HELP, help_command))
+    application.add_handler(CommandHandler(CMD_INFO, info_command))
 
-     # on non command
+    # on non command
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unknown))
 
     # Run the bot until the user presses Ctrl-C
@@ -297,4 +524,7 @@ def start_bot( csv_path, telegram_token) -> None:
                 raise e
 
 if __name__ == "__main__":
-    start_bot( csv_path = sys.argv[1], telegram_token = sys.argv[2])
+    if not TELEGRAM_BOT_TOKEN:
+        print("Telegram token is missing. No Telegram bot will be started!")
+    else:
+        start_bot()

@@ -6,7 +6,8 @@ ENV HOME=/home/zoomrec \
     TZ=Europe/Berlin \
     DOCKER_API_PORT=8080 \
     SERVER_USERNAME="myuser" \
-	SERVER_PASSWORD="mypassword"
+	SERVER_PASSWORD="mypassword" \
+	FILENAME_MEETINGS_CSV="meetings_server.csv"
 
 # Set the working directory in the container
 WORKDIR ${HOME}
@@ -24,11 +25,12 @@ COPY gunicorn_conf.py ${HOME}/
 COPY telegram_bot.py ${HOME}/
 COPY imap_bot.py ${HOME}/
 COPY events.py ${HOME}/
+COPY events_api.py ${HOME}/
 COPY zoomrec_server.yaml ${HOME}/
 
 
 # Expose the specified port
-EXPOSE $API_PORT
+EXPOSE $DOCKER_API_PORT
 
 # Set the entrypoint to run the Python application with the specified port
 ENTRYPOINT ["python"]

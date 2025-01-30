@@ -1,4 +1,3 @@
-import csv
 import logging
 import os
 import psutil 
@@ -12,15 +11,10 @@ import threading
 import time
 import datetime
 import atexit
-from telegram_bot import send_telegram_message
 from datetime import datetime, timedelta
 from events import Events, EventType, EventField, EventStatus, EventInstructionAttribute
-import requests
 import debugpy
 from events_api import update_event_api, get_event_api, get_events_api  # Ensure you import the function
-
-global TELEGRAM_BOT_TOKEN
-global TELEGRAM_RETRIES
 
 UC_CONNECTED_NOPOPUPS = 1
 
@@ -42,7 +36,6 @@ pyautogui.FAILSAFE = False
 
 # Get vars
 BASE_PATH = os.getenv('HOME')
-CSV_PATH = os.path.join(BASE_PATH, "meetings.csv")
 IMG_PATH = os.path.join(BASE_PATH, "img")
 REC_PATH = os.path.join(BASE_PATH, "recordings")
 AUDIO_PATH = os.path.join(BASE_PATH, "audio")
@@ -52,17 +45,6 @@ FFMPEG_INPUT_PARAMS = os.getenv('FFMPEG_INPUT_PARAMS')
 FFMPEG_OUTPUT_PARAMS = os.getenv('FFMPEG_OUTPUT_PARAMS')
 
 CLIENT_ID = os.getenv('CLIENT_ID')
-
-# telegram / bot
-TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-TELEGRAM_RETRIES = 5
-
-# enail bot
-EMAIL_TYPE_PATH = os.path.join(BASE_PATH, "email_types.yaml")
-IMAP_SERVER = os.getenv('IMAP_SERVER')
-IMAP_PORT = os.getenv('IMAP_PORT')
-EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS')
-EMAIL_PASSWORD  = os.getenv('EMAIL_PASSWORD')
 
 def getIntEnv( env_str, default_value):
     int_val = default_value
@@ -102,7 +84,6 @@ if DISPLAY_NAME is None or  len(DISPLAY_NAME) < 3:
     DISPLAY_NAME = random.choice(NAME_LIST)
 
 TIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
-CSV_DELIMITER = ';'
 
 # initialization of global vars
 ONGOING_MEETING = False
@@ -510,7 +491,7 @@ def join(event_key):
     ffmpeg_debug = None
 
     try:
-        event = get_event_api(event_key, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+        event = get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event_key)
     except Exception as e:
         logging.error(f"Error fetching event: {e}")
         return
@@ -522,7 +503,7 @@ def join(event_key):
         event[EventField.ASSIGNED.value] = CLIENT_ID
         event[EventField.ASSIGNED_TIMESTAMP.value] = Events.convert_to_local_datetime(datetime.now(), event).isoformat()   
         try:
-            update_event_api(event, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+            update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
         except Exception as e:
             logging.error(f"Error updating event: {e}")
             return
@@ -609,7 +590,6 @@ def join(event_key):
             joined = join_meeting_url()
 
     if not joined:
-        send_telegram_message( TELEGRAM_BOT_TOKEN, Events.get_telegramchatid(user), "Failed to join meeting {}!".format(description), TELEGRAM_RETRIES)
         logging.error("Failed to join meeting!")
         os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
         if DEBUG and ffmpeg_debug is not None:
@@ -922,7 +902,7 @@ def join(event_key):
     try:
         event[EventField.STATUS.value] = EventStatus.PROCESS.value
         event[EventField.ASSIGNED_TIMESTAMP.value] = Events.convert_to_local_datetime(datetime.now(), event).isoformat() 
-        update_event_api(event, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+        update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
     except Exception as e:
         logging.error(f"Error updating event: {e}")
 
@@ -981,7 +961,7 @@ def join(event_key):
             event[EventField.ASSIGNED.value] = CLIENT_ID
             event[EventField.ASSIGNED_TIMESTAMP.value] = Events.convert_to_local_datetime(datetime.now(), event).isoformat()   
             try:
-                update_event_api(event, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+                update_event_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
             except Exception as e:
                 logging.error(f"Error updating event: {e}")
 
@@ -995,7 +975,7 @@ def join(event_key):
         event[EventField.STATUS.value] = EventStatus.SCHEDULED.value
         event[EventField.ASSIGNED.value] = ''
         event[EventField.ASSIGNED_TIMESTAMP.value] = ''
-        update_event_api(event, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+        update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
     except Exception as e:
         logging.error(f"Error updating event: {e}")
 
@@ -1100,15 +1080,14 @@ def main():
         if current_timestamp.timestamp() != last_timestamp:
             logging.info(f"Checking for new events timestamp: {datetime.fromtimestamp(current_timestamp.timestamp()).strftime('%Y-%m-%d %H:%M:%S')}")
             try:
-                events = get_events_api(last_timestamp, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+                events = get_events_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+                if events:
+                    setup_schedule(events)
+                    join_ongoing_meeting(events)
             except Exception as e:
                 logging.error(f"Error getting events: {e}")
                 
             last_timestamp = current_timestamp
-
-            if events:
-                setup_schedule(events)
-                join_ongoing_meeting(events)
     
         schedule.run_pending()
         time_of_next_run = schedule.next_run()

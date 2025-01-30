@@ -1,3 +1,4 @@
 ROUTE_EVENT: "/event"
 ROUTE_EVENT_NEXT: "next"
+ROUTE_USER: "/user"
 ROUTE_FIRMWARE: "/firmware"

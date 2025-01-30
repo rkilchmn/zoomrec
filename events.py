@@ -1,4 +1,4 @@
-import csv
+# import csv
 import time
 import re
 import validators
@@ -11,10 +11,11 @@ except ImportError:
     from backports.zoneinfo import ZoneInfo # < 3.9
 from enum import Enum
 import shortuuid
+import sqlite3
+from users import UserField
+from constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT
 
-DATE_FORMAT = '%d/%m/%Y'
-TIME_FORMAT = '%H:%M'
-DATETIME_FORMAT = DATE_FORMAT + ' ' + TIME_FORMAT
+# Define constants
 INTERNAL_DELIMITER = ',' # don't use : as it is reserved in yaml files
 
 class EventType(Enum):
@@ -24,9 +25,6 @@ class EventType(Enum):
 class EventInstructionAttribute(Enum):
     PROCESS = "process"
     POSTPROCESS = "postprocess"
-
-class EventUserAttribute(Enum):
-    TELEGRAM_CHAT_ID = "telegram_chat_id"
 
 class EventStatus(Enum):
     SCHEDULED = 1
@@ -42,46 +40,68 @@ class EventStatus(Enum):
             cls.POSTPROCESS: "Postprocessing"
         }.get(status, "Unknown Status")
 
+# IMPORTANT: ordering needs to align with table create
 class EventField(Enum):
-    KEY = 'key' # internal technical key
-    TYPE = 'type' # tpe of event e.g. zoom or internal maintenance
-    TITLE = 'title'
-    DTSTART = 'dtstart' # day and time of event start
-    TIMEZONE = 'timezone'
-    DURATION = 'duration'
-    RRULE = 'rrule' # repetition rule 
-    ID = 'id' # external id eg zoom meeting id or zoom link url 
-    PASSWORD = 'password' # meeting password
-    URL = 'url'
-    INSTRUCTION = 'instruction' # what instruction for processing e.g. record, trancribe, upload
-    USER = 'user' # user information to allow notifing or providing access
-    STATUS = 'status'
-    ASSIGNED = 'assigned' # client/worker id that is processing the event
-    ASSIGNED_TIMESTAMP = 'assigned_timestamp' # timestamp when client/worker has assigned himself. Will be used for stale reords if worker died
+    KEY = 'key'  # Internal technical key for the event
+    TYPE = 'type'  # Type of event (e.g., zoom, internal maintenance)
+    TITLE = 'title'  # Title of the event
+    DTSTART = 'dtstart'  # Start date and time of the event
+    TIMEZONE = 'timezone'  # Timezone of the event
+    DURATION = 'duration'  # Duration of the event
+    RRULE = 'rrule'  # Recurrence rule for the event
+    ID = 'id'  # External ID (e.g., Zoom meeting ID)
+    PASSWORD = 'password'  # Meeting password
+    URL = 'url'  # URL for the event
+    INSTRUCTION = 'instruction'  # Instruction for processing the event (e.g., record, transcribe)
+    USER_KEY = 'user_key'  # Foreign key referencing the user
+    STATUS = 'status'  # Status of the event (e.g., scheduled, processing)
+    ASSIGNED = 'assigned'  # Client/worker ID that is processing the event
+    ASSIGNED_TIMESTAMP = 'assigned_timestamp'  # Timestamp when the client/worker was assigned
+    CREATED_TIMESTAMP = 'created_timestamp'  # Timestamp when the event was created
+    LAST_UPDATED_TIMESTAMP = 'last_updated_timestamp'  # Timestamp when the event was last updated
 
     def __str__(self):
         return self.value
 
+class EventInstruction(Enum):
+    RECORD = "record"
+    TRANSCRIBE = "transcribe"
+    UPLOAD = "upload"
+
 EVENT_DEFAULT_VALUES = {
     EventField.ASSIGNED.value: '',
     EventField.ASSIGNED_TIMESTAMP.value: '',
+    EventField.RRULE.value: '',
     EventField.TYPE.value: EventType.ZOOM.value,
-    EventField.STATUS.value: EventStatus.SCHEDULED.value
+    EventField.STATUS.value: EventStatus.SCHEDULED.value,
+    EventField.INSTRUCTION.value: f"{EventInstruction.RECORD.value}"
 }
 
 FIELDNAMES = [field.value for field in EventField]
 
 class Events(ABC):
     @abstractmethod
-    def read(self):
+    def create(self, event):
+        """Create a new event."""
         pass
 
     @abstractmethod
-    def write(self, events):
+    def get(self, event_key=None, filters=None):
+        """Retrieve an event by its key or all events if no key is provided."""
+        pass
+
+    @abstractmethod
+    def update(self, event):
+        """Update an existing event."""
+        pass
+
+    @abstractmethod
+    def delete(self, event_key):
+        """Delete an event by its key."""
         pass
 
     @staticmethod
-    def clean_event(event):
+    def clean(event):
         clean_event = {}
         for field in EventField:
             if field.value in event:
@@ -117,7 +137,7 @@ class Events(ABC):
                     dtend_local = dtstart_local + timedelta(minutes=int(event[EventField.DURATION.value]))
                     # converted to astimezone provided 
                     dtstart_timezone = Events.convert_to_timezone(dtstart_local, ZoneInfo(astimezone))
-                    dtend_timezone =  Events.convert_to_timezone(dtend_timezone, ZoneInfo(astimezone))
+                    dtend_timezone =  Events.convert_to_timezone(dtend_local, ZoneInfo(astimezone))
 
                     # incorporate lead in/out
                     dtstart_timezone -= timedelta(seconds=leadInSecs)
@@ -171,7 +191,7 @@ class Events(ABC):
             except ValueError:
                 raise ValueError(f"Invalid attribute {EventField.RRULE.value} '{event[EventField.RRULE.value]}'. Not a valid RRULE string.")
 
-        if event[EventField.URL.value]:
+        if EventField.URL.value in event and event[EventField.URL.value]:
             if event[EventField.URL.value].startswith("http"):
                 if not validators.url(event[EventField.URL.value]):
                     raise ValueError(f"Invalid URL format in '{EventField.URL.value}'.")
@@ -182,7 +202,7 @@ class Events(ABC):
                 # event[EventField.ID.value] = result.stdout.strip()
 
          # Validate id 
-        if event[EventField.URL.value]:
+        if event[EventField.ID.value]:
                 if event[EventField.TYPE.value] == EventType.ZOOM:
                     if not re.search(r'\d{9,}', event[EventField.ID.value]):
                         raise ValueError("Invalid Zoom id. Must be a number with minimum 9 digits (no blanks)")                
@@ -200,16 +220,10 @@ class Events(ABC):
                 raise ValueError(f"Invalid instruction format in '{EventField.INSTRUCTION.value}'. It must be a string.")
             
         # Validate user
-        if EventField.USER.value in event:
-            if isinstance(event[EventField.USER.value], str):
-                try:
-                    for user_attribute in EventUserAttribute:
-                        value = Events.get_user_attribute( user_attribute, event)
-                except Exception as e:
-                    raise ValueError(f"Invalid user format in '{EventField.USER.value}'. Parsing error for '{event[EventField.USER.value]}': {e.error.args[0]}")
-
-            else:
-                raise ValueError(f"Invalid user format in '{EventField.USER.value}'. It must be a string.")
+        if EventField.USER_KEY.value in event and event[EventField.USER_KEY.value] != '':
+            pass  # User is valid
+        else:
+            raise ValueError(f"Missing or empty mandatory attribute {EventField.USER.value} or it is empty.")
 
         if event.get(EventField.ASSIGNED.value) or event.get(EventField.ASSIGNED_TIMESTAMP.value):
             if  not (event.get(EventField.ASSIGNED.value) or event.get(EventField.ASSIGNED_TIMESTAMP.value)):
@@ -281,21 +295,19 @@ class Events(ABC):
 
     @staticmethod
     def find(search_argument, events):
-        try:
-            target_index = int(search_argument) - 1
-            return target_index
-        except ValueError:
-            hits = 0
-            for i, event in enumerate(events):
-                if search_argument in event[EventField.TITLE.value].lower():
-                    target_index = i
-                    hits += 1
-            if hits > 1:
-                raise ValueError(f"{hits} event found with description '{search_argument}'. Please make it unique such that only 1 event matches.")
-            elif hits == 0:
-                raise ValueError(f"No event found with description or index '{search_argument}'")
-            elif hits == 1:
-                return target_index
+        matching_indices = []
+        for i, event in enumerate(events):
+            # Check if search_argument is part of any event field's value, handling both strings and integers
+            if any(
+                (search_argument.lower() in str(event[field.value]).lower() if isinstance(event[field.value], str) else search_argument == str(event[field.value]))
+                for field in EventField
+            ):
+                matching_indices.append(i)
+        
+        if not matching_indices:
+            raise ValueError(f"No event found for '{search_argument}'")
+        
+        return matching_indices
     
     @staticmethod
     def get_instruction_attribute(instruction: EventInstructionAttribute, event):
@@ -306,51 +318,139 @@ class Events(ABC):
                 if search_key in entry:
                     return entry.split(search_key)[1]
         return False
-    
-    @staticmethod
-    def get_user_attribute(user_attribute: EventUserAttribute, event):
-        if EventField.USER.value in event:
-            entries = event[EventField.USER.value].split(INTERNAL_DELIMITER)
-            search_key = f"{user_attribute.value}="
-            for entry in entries:
-                if search_key in entry:
-                    return entry.split(search_key)[1]
-        return False
 
-class CSVEvents(Events):
-    def __init__(self, csv_path, delimiter=';', stateChanged=None):
-        self.csv_path = csv_path
-        self.delimiter = delimiter
+class SQLLiteEvents(Events):
+    def __init__(self, db_path, stateChanged=None):
+        self.db_path = db_path
         self.stateChanged = stateChanged  # Initialize the callback
+        self._initialize_db()
 
-    def read(self):
-        events = []
-        with open(self.csv_path, 'r') as file:
-            reader = csv.reader(file, delimiter=self.delimiter)
-            try:
-                headers = next(reader)
-            except StopIteration:  # Handle empty file/not even header
-                return []
-            for row in reader:
-                event = {headers[i]: row[i] for i in range(len(headers))}
-                events.append(event)
-        return events
+    def _initialize_db(self):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            # Enable foreign key support
+            cursor.execute('PRAGMA foreign_keys = ON;')
+            
+            # Check if the table exists
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='events'")
+            table_exists = cursor.fetchone()
 
-    def write(self, events):
-        old_events = self.read()
-        old_events = self.remove_past(old_events)
-        old_events_dict = {event[EventField.KEY.value]: event for event in old_events}
+            # IMPORTANT: order of field needs to align with EventFields order
+            if not table_exists:
+                cursor.execute(f'''
+                    CREATE TABLE events (
+                        {EventField.KEY.value} TEXT PRIMARY KEY,
+                        {EventField.TYPE.value} INTEGER,
+                        {EventField.TITLE.value} TEXT,
+                        {EventField.DTSTART.value} TEXT,
+                        {EventField.TIMEZONE.value} TEXT,
+                        {EventField.DURATION.value} INTEGER,
+                        {EventField.RRULE.value} TEXT,
+                        {EventField.ID.value} TEXT,
+                        {EventField.PASSWORD.value} TEXT,
+                        {EventField.URL.value} TEXT,
+                        {EventField.INSTRUCTION.value} TEXT,
+                        {EventField.USER_KEY.value} TEXT NOT NULL,
+                        {EventField.STATUS.value} INTEGER,
+                        {EventField.ASSIGNED.value} TEXT,
+                        {EventField.ASSIGNED_TIMESTAMP.value} TEXT,
+                        {EventField.CREATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        {EventField.LAST_UPDATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY ({EventField.USER_KEY.value}) REFERENCES users({UserField.KEY.value})
+                        ON DELETE CASCADE -- Delete event if user is deleted
+                        ON UPDATE CASCADE  -- Update event if user changes
+                    )
+                ''')
+                conn.commit()
 
-        with open(self.csv_path, 'w', newline='') as file:
-            writer = csv.DictWriter(file, FIELDNAMES, delimiter=self.delimiter)
-            writer.writeheader()
-            for event in events:
-                event = self.set_missing_defaults(event)
-                if EventField.KEY.value not in event:  # no key defined yet
-                    event[EventField.KEY.value] = self.generate_unique_id()
-                writer.writerow(event)
+    def create(self, event):
+        event = Events.clean(event)
+        event = Events.set_missing_defaults(event)
+        event = Events.validate(event)
+        event[EventField.KEY.value] = shortuuid.uuid()  # Generate a unique key for the event
+        event[EventField.CREATED_TIMESTAMP.value] = datetime.now()  # Set created timestamp
+        event[EventField.LAST_UPDATED_TIMESTAMP.value] = event[EventField.CREATED_TIMESTAMP.value]  # Set last updated timestamp
 
-                # Check for changes and call the callback if necessary
-                old_event = old_events_dict.get(event[EventField.KEY.value])
-                if old_event and self.stateChanged and old_event != event:
-                    self.stateChanged(old_event, event)
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Create a list of field names in the order defined by the EventField enum
+            field_names = [field.value for field in EventField]
+            field_values = [event[field] for field in field_names]
+            
+            cursor.execute(f'''
+                INSERT INTO events (
+                    {", ".join(field_names)}
+                ) VALUES ({", ".join("?" for _ in field_names)})
+            ''', field_values)  # Use list comprehension to get values in the correct order
+            conn.commit()
+        
+        return event
+    
+    def get(self, event_key=None, filters=None):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # Start building the SQL query
+            sql_query = 'SELECT * FROM events'
+            conditions = []
+            parameters = []
+
+            # Check for event_key
+            if event_key:
+                conditions.append(f"{EventField.KEY.value} = ?")
+                parameters.append(event_key)
+
+            # Check for additional filter queries
+            if filters:
+                for filter in filters:
+                    if len(filter) == 3:  # Ensure the query has three elements
+                        attribute, operator, value = filter
+                        if attribute and value is not None:
+                            conditions.append(f"{attribute} {operator} ?")
+                            parameters.append(value)
+
+            # Combine conditions into the SQL query
+            if conditions:
+                sql_query += ' WHERE ' + ' AND '.join(conditions)
+
+            cursor.execute(sql_query, parameters)
+            rows = cursor.fetchall()
+            
+            if rows:
+                return [{field.value: row[i] for i, field in enumerate(EventField)} for row in rows]
+            return []  # Return an empty list if no events are found
+
+    def update(self, event):
+        event = Events.clean(event)
+        event = Events.validate(event)
+        event[EventField.LAST_UPDATED_TIMESTAMP.value] = datetime.now()  # Update last updated timestamp
+        old_event = self.get(event[EventField.KEY.value])
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()         
+            set_clause = ", ".join(f"{field} = ?" for field in event.keys())
+            cursor.execute(f'''
+                UPDATE events SET {set_clause} WHERE {EventField.KEY.value} = ?
+            ''', list(event.values()) + [event[EventField.KEY.value]])
+            conn.commit()
+
+        # Check for changes and call the callback if necessary
+        if self.stateChanged and old_event != event:
+            self.stateChanged(old_event, event)
+
+        return event
+    
+    def delete(self, event_key):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(f'DELETE FROM events WHERE {EventField.KEY.value} = ?', (event_key,))
+            conn.commit()
+
+        old_event = self.get(event_key)
+        event = {}
+
+        # Check for changes and call the callback if necessary
+        if self.stateChanged and old_event != event:
+            self.stateChanged(old_event, event)
+
+        return True

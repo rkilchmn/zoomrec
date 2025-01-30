@@ -110,8 +110,11 @@ RUN apt-get install --no-install-recommends -y \
 # Zoom Software Quarterly Lifecycle Policy: https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0061130
 # Version 5.16.6(382) valid until August 3, 2024
 # wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.16.6.382/zoom_amd64.deb \
-#RUN wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
-RUN wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/6.2.6.2503/zoom_amd64.deb && \
+# RUN wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
+# RUN wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/6.2.6.2503/zoom_amd64.deb && \
+# wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.17.11.3835/zoom_amd64.deb && \
+RUN apt-get update && \
+    wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.17.11.3835/zoom_amd64.deb && \
     dpkg -i zoom_amd64.deb && \
     apt-get -f install -y && \
     rm -rf zoom_amd64.deb
@@ -147,12 +150,15 @@ RUN apt-get install --no-install-recommends -y \
 # Clean up APT when done.
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Set the noninteractive environment variable to suppress prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
 # ENV LIBVA_TRACE=${HOME}/recordings/screenshots/libva_trace.log
 # Install support for VA-API GPU hardware accelerators used by ffmpeg encoders
 RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
         # add repoisitory for latest mesa drivers
-        apt update && apt-get install -y software-properties-common && \
-        add-apt-repository ppa:kisak/kisak-mesa && \
+        # apt update && apt-get install -y software-properties-common && \
+        # add-apt-repository ppa:kisak/kisak-mesa && \
         # add intel non-free repositories
         # apt-get install -y gnupg && \
         # curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | apt-key add - > /dev/null && \
@@ -168,12 +174,18 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
         #     libglapi-mesa libgles2-mesa-dev libglx-mesa0 libigdgmm12 libxatracker2 mesa-va-drivers \
         #     mesa-vdpau-drivers mesa-vulkan-drivers va-driver-all && \
         # install media drivers for GPU based on  LIBVA_DRIVER_NAME value
+        apt update && apt-get install -y software-properties-common && \
+        apt-add-repository -y "deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse" && \
+        apt-add-repository -y "deb http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse" && \
+        apt-add-repository -y "deb http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse" && \
+        apt-add-repository -y "deb http://archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse" && \
+        apt-get update && \
+        apt-get install -y mesa-va-drivers=23.2.1-1ubuntu3.1~22.04.3 && \
         apt-get install --no-install-recommends -y \
             # standard drivers includes 
             # "radeonsi" for RX4x0/RC5x0
             # " " for IrisXE under WSL2
-            vainfo \
-            mesa-va-drivers && \
+            vainfo && \
             # "i965" Ivy bridge like HD4000
             # i965-va-driver-shaders && \
             # untested: "iHD" for Broadwell and above Intel iGPUs   
@@ -206,7 +218,7 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
 
 # Install support for NVIDIA GPU hardware accelerators NVENC for ffmpeg encoding
 ENV NVIDIA_DRIVER_CAPABILITIES=video
-ENV NVIDIA_VISIBLE_DEVICES all
+ENV NVIDIA_VISIBLE_DEVICES=all
 RUN if [ "$GPU_BUILD" = "NVIDIA" ] ; then \
         # add repo
 	apt-get update && \

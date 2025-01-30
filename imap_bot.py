@@ -2,7 +2,6 @@ import imaplib
 import email
 import re
 import time
-import sys
 import yaml
 import html
 import logging
@@ -11,6 +10,7 @@ from bs4 import BeautifulSoup
 from events import Events, EventField, DATETIME_FORMAT
 from events_api import create_event_api
 from ics import Calendar
+import os
 import math  # Define math module
 try:
     from zoneinfo import ZoneInfo # >= 3.9
@@ -21,15 +21,28 @@ CONTENT_TYPE_PLAIN = "text/plain"
 CONTENT_TYPE_HTML = "text/html"
 CONTENT_TYPE_CALENDAR = "text/calendar"
 
-def start_bot(CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD):   
+# Get vars
+BASE_PATH = os.getenv('ZOOMREC_HOME')
+
+EMAIL_TYPE_PATH = os.path.join(BASE_PATH, "email_types.yaml")
+IMAP_SERVER = os.getenv('IMAP_SERVER')
+IMAP_PORT = os.getenv('IMAP_PORT')
+EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS')
+EMAIL_PASSWORD  = os.getenv('EMAIL_PASSWORD')
+
+SERVER_URL  = os.getenv('SERVER_URL')
+SERVER_USERNAME  = os.getenv('SERVER_USERNAME')
+SERVER_PASSWORD  = os.getenv('SERVER_PASSWORD')
+
+def start_bot():   
     # Load the YAML config file
-    with open( CNFG_PATH, 'r') as file:
+    with open( EMAIL_TYPE_PATH, 'r') as file:
         config = yaml.safe_load(file)
 
     # Configure the logging
     logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
 
-    logging.info( f"Config file {CNFG_PATH} found") 
+    logging.info( f"Config file {EMAIL_TYPE_PATH} found") 
 
     # Loop and evaluate every new message based on the configuration
     while True:
@@ -174,7 +187,7 @@ def start_bot(CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD, 
                                 eventStr = f"Event {event[EventField.TITLE.value]} {event[EventField.DTSTART.value]} {event[EventField.TIMEZONE.value]}"
                                 try:
                                     event = Events.validate( event)
-                                    create_event_api(event, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+                                    create_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
                                     
                                     logging.info( f"{eventStr} added")
                                 except ValueError as error:
@@ -198,4 +211,7 @@ def start_bot(CNFG_PATH, IMAP_SERVER, IMAP_PORT, EMAIL_ADDRESS, EMAIL_PASSWORD, 
                     logging.error( error.args[0])
             
 if __name__ == "__main__":
-    start_bot( CNFG_PATH = sys.argv[1], IMAP_SERVER = sys.argv[2], IMAP_PORT = sys.argv[3], EMAIL_ADDRESS = sys.argv[4], EMAIL_PASSWORD = sys.argv[5], SERVER_URL = sys.argv[6], SERVER_USERNAME = sys.argv[7], SERVER_PASSWORD = sys.argv[8])
+    if not (EMAIL_PASSWORD and IMAP_SERVER and IMAP_PORT and EMAIL_ADDRESS):
+        print("IMAP details missing. No IMAP email bot will be started!")
+    else:
+        start_bot()
