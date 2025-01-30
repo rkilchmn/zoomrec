@@ -62,8 +62,9 @@ def get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event_key=None, 
     headers = {'Content-Type': 'application/json'}
     response = requests.get(url, params=params, headers=headers, auth=(SERVER_USERNAME, SERVER_PASSWORD))
 
-    if response.status_code in range(200, 299):
+    if response.status_code == 200: # success, content returned
         return response.json()
+    elif response.status_code == 204: # success, NO content returned
+        return []
     else:
-
         raise Exception(f"Failed to retrieve event(s). Response code: {response.status_code}, Response: {response.text}")

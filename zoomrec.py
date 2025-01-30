@@ -1001,6 +1001,22 @@ def exit_process_by_name(name):
                 logging.error("Could not terminate " + name +
                               "[" + str(process_id) + "]: " + str(ex))
 
+def get_zoom_version():
+    try:
+        # Execute the command to get the installed version of the Zoom package, suppressing warnings
+        result = subprocess.run(['apt', 'list', 'zoom', '--installed'], capture_output=True, text=True, check=True)
+        output = result.stdout.strip()
+        
+        # Look for the line that starts with "zoom/"
+        for line in output.split('\n'):
+            if line.startswith("zoom/"):
+                version = line.split()[1]  # Get the version part
+                return version
+        
+        return None
+    except subprocess.CalledProcessError:
+        return None
+
 def main():
 
     def monitor_events():
@@ -1042,7 +1058,7 @@ def main():
                 
                 # Process events
                 next_event = None
-                next_event_dtstart = Events.replaceTimezone( event, datetime.max)
+                next_event_dtstart = Events.replaceTimezone( datetime.max)
 
                 for event in monitor_events.values():
                     # Skip assigned events
@@ -1079,8 +1095,8 @@ def main():
                         logging.error(f"Event processing error: {str(e)}")
                 
                 for _ in range(60):
-                    now_in_tz = Events.now( next_event)
                     if next_event:
+                        now_in_tz = Events.now( next_event)
                         print(f"Next event with title: '{next_event[EventField.TITLE.value]}' starts in {next_event_dtstart - now_in_tz}", end="\r", flush=True)
                     else:
                         print(f"No upcoming events (monitoring {len(monitor_events)} events)", end="\r", flush=True)
@@ -1094,4 +1110,6 @@ def main():
     monitor_events()
 
 if __name__ == '__main__':
+    version = get_zoom_version()
+    print(f"Zoom version: {version}")
     main()

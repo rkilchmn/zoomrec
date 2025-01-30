@@ -248,15 +248,14 @@ class Events(ABC):
         return event
     
     @staticmethod
-    def replaceTimezone(event, dt):
-        if EventField.TIMEZONE.value in event and event[EventField.TIMEZONE.value]:
-            return dt.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
+    def replaceTimezone(dt, timezone="UTC"):
+        return dt.replace(tzinfo=ZoneInfo(timezone))
 
     @staticmethod
     # event datetimes are always in the events (local) timezone
     def get_dtstart_datetime_list(event, dtfrom=None) -> list:
         dtstart = datetime.strptime(event[EventField.DTSTART.value], DATETIME_FORMAT)
-        dtstart = Events.replaceTimezone(event, dtstart)
+        dtstart = Events.replaceTimezone(dtstart, event[EventField.TIMEZONE.value])
         if EventField.RRULE.value in event and event[EventField.RRULE.value]:
             rrule_string = event[EventField.RRULE.value]
             dtfrom = dtfrom if dtfrom else dtstart

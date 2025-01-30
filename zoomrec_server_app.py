@@ -97,15 +97,14 @@ def get_user(user_key=None):
 
     try:
         if user_key:
-            user = users.get(user_key=user_key)
+            returned_users = users.get(user_key=user_key)
         else:
-            all_users = users.get(filters=filters)  # Pass the filters to the get method
-            return jsonify(all_users), 200
+            returned_users = users.get(filters=filters)  # Pass the filters to the get method
 
-        if user:
-            return jsonify(user), 200
+        if returned_users:
+            return jsonify(returned_users), 200 # sucesss, returning content
         else:
-            return jsonify({"error": "User not found"}), 404
+            return jsonify({}), 204 # sucsess, but "204 No Content"
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -217,15 +216,14 @@ def get_event(event_key=None):
 
     try:
         if event_key:
-            event = events.get(event_key=event_key)
+            returned_events = events.get(event_key=event_key)
         else:
-            all_event = events.get(filters=filters)  # Pass the filters to the get method
-            return jsonify(all_event), 200
+            returned_events = events.get(filters=filters)  # Pass the filters to the get method
+            if returned_events:
+                return jsonify(returned_events), 200 # sucesss, returning content
+            else:
+                return  jsonify({}), 204 # sucsess, but "204 No Content"
 
-        if event:
-            return jsonify(event), 200
-        else:
-            return jsonify({"error": "No Events found"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
