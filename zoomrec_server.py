@@ -6,7 +6,7 @@ import atexit
 from datetime import datetime
 
 # Get vars
-BASE_PATH = os.getenv('ZOOMREC_HOME')
+BASE_PATH = os.getenv('HOME')
 
 # Get the current date and time
 now = datetime.now()
@@ -59,13 +59,16 @@ def start_api_server():
 
 def main():
 
-    # start bots
-    # start_telegram_bot()
-    start_imap_bot()
+    # this is the url in the server to access API
+    os.environ['SERVER_URL'] = f"http://localhost:{os.getenv('DOCKER_API_PORT')}"
+    logging.info(f"Setting environment variable SERVER_URL to '{os.getenv('SERVER_URL')}'")
 
-    # start flask API app / blocking
+    # start bots
+    start_imap_bot()
+    start_telegram_bot()
+
+    # start flask API app / blocking - needs to be last
     start_api_server()
-    
 
 if __name__ == '__main__':
     main()

@@ -16,8 +16,8 @@ from datetime import datetime
 import os
 import events_api  # Import the events_api module
 import users_api  # Import the users_api module
-from events import Events, EventField, EventInstruction
-from users import Users, UserField, UserRole
+from events import Events, EventField
+from users import MessengerAttribute, Users, UserField, UserRole
 from constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT
 
 # get env vars
@@ -69,8 +69,8 @@ USAGE_DELETE_EVENT =    f"/{CMD_DELETE_EVENT} <index or search term>. Note: sear
 # sample requests for events
 EXAMPLE_ADD_USER     = f"/{CMD_ADD_USER} JohnDoe johndoe securepassword john.doe@example.com 1"
 EXAMPLE_LIST_USER    = f"/{CMD_LIST_USER} johndoe"
-EXAMPLE_MODIFY_USER  = f"/{CMD_MODIFY_USER} 1 login johndoe2"
-EXAMPLE_DELETE_USER  = f"/{CMD_DELETE_USER} johndoe2"
+EXAMPLE_MODIFY_USER  = f"/{CMD_MODIFY_USER} 1 name John-Doe"
+EXAMPLE_DELETE_USER  = f"/{CMD_DELETE_USER} johndoe"
 
 # Usage help for user commands
 USAGE_ADD_USER =    f"/{CMD_ADD_USER} <name> <login> <password> [optional: <email> <role>]\n" + \
@@ -217,14 +217,14 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             if index < 1 or index > len(events_list):
                 await update.message.reply_text(f"Index {index} is out of range. Please provide a valid index.")
                 return
-            target_event = events_list[index - 1]  # Adjust for 0-based index
+            target_index = index - 1  # Adjust for 0-based index
         else:
             # Find target event to process using search term
             try:
                 target_indices = Events.find(context.args[0], events_list)
                 if len(target_indices) != 1:
                     raise ValueError(f"Expected exactly 1 match, but found {len(target_indices)}. Please refine your search.")
-                target_event = events_list[target_indices[0]]
+                target_index = target_indices[0]
             except ValueError as error:
                 await update.message.reply_text(f"Error: {str(error)}")
                 return
@@ -236,7 +236,7 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         # Initialize variables for date and time updates
         new_date = None
         new_time = None
-
+        target_event = events_list[target_index]
         for i in range(1, len(context.args), 2):
             attribute_name = context.args[i]
             new_attribute_value = context.args[i + 1]
@@ -276,7 +276,7 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         try:
             events_api.update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, target_event)
-            await update.message.reply_text(f"Attributes successfully modified for event '{target_event[EventField.TITLE.value]}' with index {target_indices[0] + 1}")
+            await update.message.reply_text(f"Attributes successfully modified for event '{target_event[EventField.TITLE.value]}' with index {target_index + 1}")
         except Exception as error:
             await update.message.reply_text(f"Error updating event: {error}")
 
@@ -298,19 +298,28 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await update.message.reply_text(f"Error retrieving events: {error}")
             return
 
-        # find target event to process      
-        try:
-            target_indices = Events.find(context.args[0], events_list)
-            if len(target_indices) != 1:
-                raise ValueError(f"Expected exactly 1 match, but found {len(target_indices)}. Please refine your search.")
-            target_event = events_list[target_indices[0]]
-        except ValueError as error:
-            await update.message.reply_text(error.args[0])
-            return
+        # Determine if the first argument is an index or a search term
+        if context.args[0].isdigit() and int(context.args[0]) <= 99:
+            index = int(context.args[0])
+            if index < 1 or index > len(events_list):
+                await update.message.reply_text(f"Index {index} is out of range. Please provide a valid index.")
+                return
+            target_index = index - 1  # Adjust for 0-based index
+        else:
+            # Find target event to process using search term
+            try:
+                target_indices = Events.find(context.args[0], events_list)
+                if len(target_indices) != 1:
+                    raise ValueError(f"Expected exactly 1 match, but found {len(target_indices)}. Please refine your search.")
+                target_index = target_indices[0]
+            except ValueError as error:
+                await update.message.reply_text(f"Error: {str(error)}")
+                return
 
         try:
+            target_event = events_list[target_index]
             events_api.delete_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, target_event[EventField.KEY.value])
-            await update.message.reply_text(f"Event '{target_event[EventField.TITLE.value]}' with index {target_indices[0] + 1} successfully deleted")
+            await update.message.reply_text(f"Event '{target_event[EventField.TITLE.value]}' with index {target_index + 1} successfully deleted")
         except Exception as error:
             await update.message.reply_text(f"Error deleting event: {error}")
 
@@ -332,6 +341,9 @@ async def add_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         UserField.ROLE.value: int(args[4]) if len(args) > 4 else UserRole.NORMAL
     }
 
+    # add telegram client id 
+    Users.set_messenger_attribute( messenger_attribute=MessengerAttribute.TELEGRAM_CHAT_ID, user=user, value=update.message.from_user.id)
+
     try:
         created_user = users_api.create_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, user)
         await update.message.reply_text(f"Created user with name '{created_user[UserField.NAME.value]}' and key '{created_user[UserField.NAME.value]}'.")
@@ -345,24 +357,33 @@ async def modify_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             return
 
         try:
-            users = users_api.get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
-            if not users:
+            user_list = users_api.get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+            if not user_list:
                 await update.message.reply_text(f"No users found.")
                 return        
         except Exception as error:
             await update.message.reply_text(f"Error retrieving users: {error}")
             return
 
-        # Find target user to process
-        try:
-            target_indices = Users.find(context.args[0], users)
-            if len(target_indices) != 1:
-                raise ValueError(f"Expected exactly 1 match, but found {len(target_indices)}. Please refine your search.")
-            target_user = users[target_indices[0]]
-        except ValueError as error:
-            await update.message.reply_text(f"Error: {str(error)}")
-            return
-        
+        # Determine if the first argument is an index or a search term
+        if context.args[0].isdigit() and int(context.args[0]) <= 99:
+            index = int(context.args[0])
+            if index < 1 or index > len(user_list):
+                await update.message.reply_text(f"Index {index} is out of range. Please provide a valid index.")
+                return
+            target_index = index - 1  # Adjust for 0-based index
+        else:
+            # Find target event to process using search term
+            try:
+                target_indices = Users.find(context.args[0], user_list)
+                if len(target_indices) != 1:
+                    raise ValueError(f"Expected exactly 1 match, but found {len(target_indices)}. Please refine your search.")
+                target_index = target_indices[0]
+            except ValueError as error:
+                await update.message.reply_text(f"Error: {str(error)}")
+                return
+
+        target_user = user_list[target_index]
         for i in range(1, len(context.args), 2):
             attribute_name = context.args[i]
             new_attribute_value = context.args[i + 1]
@@ -373,7 +394,7 @@ async def modify_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
         try:
             users_api.update_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, target_user)
-            await update.message.reply_text(f"User '{target_user[UserField.NAME.value]}' updated successfully!")
+            await update.message.reply_text(f"Attributes successfully modified for user '{target_user[UserField.NAME.value]}' with index {target_index + 1}")
         except Exception as error:
             await update.message.reply_text(f"Error updating user: {error}")
 
@@ -387,27 +408,36 @@ async def delete_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             return
 
         try:
-            users = users_api.get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
-            if not users:
+            user_list = users_api.get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+            if not user_list:
                 await update.message.reply_text(f"No users found.")
-                return
+                return        
         except Exception as error:
             await update.message.reply_text(f"Error retrieving users: {error}")
             return
 
-        # Find target user to process
-        try:
-            target_indices = Users.find(context.args[0], users)
-            if len(target_indices) != 1:
-                raise ValueError(f"Expected exactly 1 match, but found {len(target_indices)}. Please refine your search.")
-            target_user = users[target_indices[0]]
-        except ValueError as error:
-            await update.message.reply_text(f"Error: {str(error)}")
-            return
+        # Determine if the first argument is an index or a search term
+        if context.args[0].isdigit() and int(context.args[0]) <= 99:
+            index = int(context.args[0])
+            if index < 1 or index > len(user_list):
+                await update.message.reply_text(f"Index {index} is out of range. Please provide a valid index.")
+                return
+            target_index = index - 1  # Adjust for 0-based index
+        else:
+            # Find target event to process using search term
+            try:
+                target_indices = Users.find(context.args[0], user_list)
+                if len(target_indices) != 1:
+                    raise ValueError(f"Expected exactly 1 match, but found {len(target_indices)}. Please refine your search.")
+                target_index = target_indices[0]
+            except ValueError as error:
+                await update.message.reply_text(f"Error: {str(error)}")
+                return
 
+        target_user = user_list[target_index]
         try:
             users_api.delete_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, target_user[UserField.KEY.value])
-            await update.message.reply_text(f"User '{target_user[UserField.NAME.value]}' deleted successfully!")
+            await update.message.reply_text(f"Deleted user '{target_user[UserField.NAME.value]}' with index {target_index + 1}.")
         except Exception as error:
             await update.message.reply_text(f"Error deleting user: {error}")
 

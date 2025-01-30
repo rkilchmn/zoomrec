@@ -23,16 +23,17 @@ fi
 # Load configuration from file
 source $1
 
-docker stop zoomrec
-docker rm $(docker ps -aqf "name=zoomrec")
+docker stop zoomrec_client
+docker rm $(docker ps -aqf "name=zoomrec_client")
 
 if [[ "$2" == "$VAAPI" ]]; then
   RENDER_GROUPID=$(getent group render | cut -d':' -f3)
   VIDEO_GROUPID=$(getent group video | cut -d':' -f3)
 
-  docker run -d --restart unless-stopped --name zoomrec \
+  docker run -d --restart unless-stopped --name zoomrec_client \
     -e CLIENT_ID="$CLIENT_ID" \
     -e DEBUG="$DEBUG" \
+    -e LOG_LEVEL="$LOG_LEVEL" \
     -e TZ="$TZ" \
     -e DISPLAY_NAME="$DISPLAY_NAME" \
     -e SAMBA_USER="$SAMBA_USER" \
@@ -60,14 +61,15 @@ if [[ "$2" == "$VAAPI" ]]; then
     -e LD_LIBRARY_PATH=/usr/lib/wsl/lib \
     -p 5678:5678 \
     --add-host=host.docker.internal:host-gateway \
-    rkilchmn/zoomrec:latest
+    rkilchmn/zoomrec_client:latest
 
 # if [[ "$2" == "AMD" ]]; then
 #   RENDER_GROUPID=$(getent group render | cut -d':' -f3)
 #   VIDEO_GROUPID=$(getent group video | cut -d':' -f3)
 
-#   docker run -d --restart unless-stopped --name zoomrec \
+#   docker run -d --restart unless-stopped --name zoomrec_client \
 #     -e DEBUG="$DEBUG" \
+#     -e LOG_LEVEL="$LOG_LEVEL" \
 #     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
 #     -e TZ="$TZ" \
 #     -e DISPLAY_NAME="$DISPLAY_NAME" \
@@ -95,14 +97,15 @@ if [[ "$2" == "$VAAPI" ]]; then
 #     --group-add="$VIDEO_GROUPID" \
 #     --group-add="$RENDER_GROUPID" \
 #     --device /dev/dri:/dev/dri \
-#     rkilchmn/zoomrec:latest
+#     rkilchmn/zoomrec_client:latest
 
 # elif [[ "$2" == "INTEL" ]]; then
 #   RENDER_GROUPID=$(getent group render | cut -d':' -f3)
 #   VIDEO_GROUPID=$(getent group video | cut -d':' -f3)
 
-#   docker run -d --restart unless-stopped --name zoomrec \
+#   docker run -d --restart unless-stopped --name zoomrec_client \
 #     -e DEBUG="$DEBUG" \
+#     -e LOG_LEVEL="$LOG_LEVEL" \
 #     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
 #     -e TZ="$TZ" \
 #     -e DISPLAY_NAME="$DISPLAY_NAME" \
@@ -130,12 +133,13 @@ if [[ "$2" == "$VAAPI" ]]; then
 #     --group-add="$RENDER_GROUPID" \
 #     --device /dev/dri/renderD128:/dev/dri/renderD128 \
 #     --device /dev/dri/card0:/dev/dri/card0 \
-#     rkilchmn/zoomrec:latest
+#     rkilchmn/zoomrec_client:latest
 
 elif [[ "$2" == "$NVIDIA" ]]; then
-  docker run -d --restart unless-stopped --name zoomrec \
+  docker run -d --restart unless-stopped --name zoomrec_client \
     -e CLIENT_ID="$CLIENT_ID" \
     -e DEBUG="$DEBUG" \
+    -e LOG_LEVEL="$LOG_LEVEL" \
     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
     -e TZ="$TZ" \
     -e DISPLAY_NAME="$DISPLAY_NAME" \
@@ -161,11 +165,12 @@ elif [[ "$2" == "$NVIDIA" ]]; then
     -p 445:445 \
     --security-opt seccomp:unconfined \
     --gpus all \
-    rkilchmn/zoomrec:latest
+    rkilchmn/zoomrec_client:latest
 else
-  docker run -d --restart unless-stopped --name zoomrec \
+  docker run -d --restart unless-stopped --name zoomrec_client \
     -e CLIENT_ID="$CLIENT_ID" \
     -e DEBUG="$DEBUG" \
+    -e LOG_LEVEL="$LOG_LEVEL" \
     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
     -e TZ="$TZ" \
     -e DISPLAY_NAME="$DISPLAY_NAME" \
@@ -188,5 +193,5 @@ else
     -p 137-139:137-139 \
     -p 445:445 \
     --security-opt seccomp:unconfined \
-    rkilchmn/zoomrec:latest
+    rkilchmn/zoomrec_client:latest
 fi

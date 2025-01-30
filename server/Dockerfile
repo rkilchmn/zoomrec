@@ -1,13 +1,15 @@
 # Use the official Python 3.8.10-slim base image
 FROM python:3.8.10-slim
 
+# this is the port within docker for the app server - can be mapped to different server on docker host 
+ENV DOCKER_API_PORT=8000
+
 # Set an environment variable 
 ENV HOME=/home/zoomrec \
     TZ=Europe/Berlin \
-    DOCKER_API_PORT=8080 \
+    LOG_SUBDIR=log \
     SERVER_USERNAME="myuser" \
-	SERVER_PASSWORD="mypassword" \
-	FILENAME_MEETINGS_CSV="meetings_server.csv"
+	SERVER_PASSWORD="mypassword" 
 
 # Set the working directory in the container
 WORKDIR ${HOME}
@@ -26,7 +28,11 @@ COPY telegram_bot.py ${HOME}/
 COPY imap_bot.py ${HOME}/
 COPY events.py ${HOME}/
 COPY events_api.py ${HOME}/
-COPY zoomrec_server.yaml ${HOME}/
+COPY users.py ${HOME}/
+COPY users_api.py ${HOME}/
+COPY msg_telegram.py ${HOME}/
+COPY constants.py ${HOME}/
+COPY zoomrec_server_app.yaml ${HOME}/
 
 
 # Expose the specified port

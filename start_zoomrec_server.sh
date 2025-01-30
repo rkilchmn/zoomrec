@@ -9,9 +9,10 @@ fi
 # Load configuration from file
 source $1
 
-# environment variables used inside docker
+# environment variables used inside docker for internal API port
 DOCKER_API_PORT=8080
 
+# defaults
 LOG_SUBDIR=logs
 FIRMWARE_SUBDIR=firmware
 
@@ -19,20 +20,21 @@ docker stop zoomrec_server
 docker rm $(docker ps -aqf "name=zoomrec_server")
 
 docker run -d --restart unless-stopped --name zoomrec_server \
+    -e LOG_LEVEL="$LOG_LEVEL" \
+    -e TZ="$TZ" \
     -e DOCKER_API_PORT=$DOCKER_API_PORT \
-    -e FILENAME_MEETINGS_CSV="$FILENAME_MEETINGS_CSV" \
     -e SERVER_USERNAME="$SERVER_USERNAME" \
     -e SERVER_PASSWORD="$SERVER_PASSWORD" \
     -e LOG_SUBDIR="$LOG_SUBDIR" \
     -e FIRMWARE_SUBDIR="$FIRMWARE_SUBDIR" \
-    -e TZ="$TZ" \
     -e IMAP_SERVER="$IMAP_SERVER" \
     -e IMAP_PORT="$IMAP_PORT" \
     -e EMAIL_ADDRESS="$EMAIL_ADDRESS" \
     -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
-    -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
+    -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
+    -v $ZOOMREC_HOME/zoomrec_server_db:/home/zoomrec/zoomrec_server_db \
     -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
     -v $ZOOMREC_HOME/$LOG_SUBDIR:/home/zoomrec/$LOG_SUBDIR \
     -v $ZOOMREC_HOME/$FIRMWARE_SUBDIR:/home/zoomrec/$FIRMWARE_SUBDIR \
-    -p $API_PORT:$DOCKER_API_PORT \
+    -p $SERVER_PORT:$DOCKER_API_PORT \
     rkilchmn/zoomrec_server:latest

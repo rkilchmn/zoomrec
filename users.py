@@ -67,6 +67,25 @@ class Users(ABC):
         return False
     
     @staticmethod
+    def set_messenger_attribute(messenger_attribute: MessengerAttribute, value, user):
+        if UserField.MESSENGER.value not in user:
+            user[UserField.MESSENGER.value] = ''
+        entries = user[UserField.MESSENGER.value].split(INTERNAL_DELIMITER)
+        search_key = f"{messenger_attribute.value}="
+        new_entries = []
+        found = False
+        for entry in entries:
+            if search_key in entry:
+                new_entries.append(f"{search_key}{value}")
+                found = True
+            else:
+                new_entries.append(entry)
+        if not found:
+            new_entries.append(f"{search_key}{value}")
+        user[UserField.MESSENGER.value] = INTERNAL_DELIMITER.join(filter(None, new_entries))
+
+    
+    @staticmethod
     def clean(user):
         clean_user = {}
         for field in UserField:

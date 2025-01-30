@@ -4,7 +4,6 @@ import psutil
 import pyautogui  # later zoom versions do not start anymore when pyautogui is imported, Zoom  5.13.0 (599) still works
 from pyautogui import ImageNotFoundException
 import random
-import schedule
 import signal
 import subprocess
 import threading
@@ -14,7 +13,7 @@ import atexit
 from datetime import datetime, timedelta
 from events import Events, EventType, EventField, EventStatus, EventInstructionAttribute
 import debugpy
-from events_api import update_event_api, get_event_api, get_events_api  # Ensure you import the function
+from events_api import delete_event_api, update_event_api, get_event_api  # Ensure you import the function
 
 UC_CONNECTED_NOPOPUPS = 1
 
@@ -97,10 +96,7 @@ timestamp = now.strftime('%Y-%m-%d_%H-%M-%S')
 
 # Create the log file name with the timestamp
 log_file = DEBUG_PATH + "/{}.log".format(timestamp)
-
-logLevel = logging.INFO
-if (DEBUG):
-    logLevel = logging.DEBUG
+logLevel = getattr(logging, os.getenv( "LOG_LEVEL", "INFO"), logging.INFO)
 
 # Configure the logging
 logging.basicConfig(filename=log_file, format='%(asctime)s %(levelname)s %(message)s', level=logLevel)
@@ -486,22 +482,13 @@ def mute(description):
         return False
 
 
-def join(event_key):
+def join(event):
     global VIDEO_PANEL_HIDED
     ffmpeg_debug = None
-
-    try:
-        event = get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event_key)
-    except Exception as e:
-        logging.error(f"Error fetching event: {e}")
-        return
-    if not event:
-        logging.error(f"Event with key {event_key} not found.")
-        return
     
     if int(event[EventField.STATUS.value]) == int(EventStatus.SCHEDULED.value) and not event[EventField.ASSIGNED.value]:
         event[EventField.ASSIGNED.value] = CLIENT_ID
-        event[EventField.ASSIGNED_TIMESTAMP.value] = Events.convert_to_local_datetime(datetime.now(), event).isoformat()   
+        event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
         try:
             update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
         except Exception as e:
@@ -512,7 +499,6 @@ def join(event_key):
     meet_pw = event[EventField.PASSWORD.value]
     meet_url = event[EventField.URL.value]
     duration = int(event[EventField.DURATION.value]) * 60
-    user = event[EventField.USER.value]
     description = event[EventField.TITLE.value]
 
     logging.info("Join meeting: " + description)
@@ -735,7 +721,7 @@ def join(event_key):
                 os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
                 atexit.unregister(os.killpg)
             time.sleep(2)
-            join(event_key)
+            join(event)
 
     # 'Say' something if path available (mounted)
     if os.path.exists(AUDIO_PATH):
@@ -1015,89 +1001,97 @@ def exit_process_by_name(name):
                 logging.error("Could not terminate " + name +
                               "[" + str(process_id) + "]: " + str(ex))
 
-
-def join_ongoing_meeting(events):
-    dtnow_system = Events.convert_to_system_datetime( datetime.now())
-
-    for event in events:
-        if int(event[EventField.TYPE.value]) == int(EventType.ZOOM.value):
-            # Check and join ongoing meeting
-            for dtstart in Events.get_dtstart_datetime_list(event):
-                try:
-                    dtstart_system = Events.convert_to_system_datetime(dtstart)
-                    dtstart_system = dtstart_system - timedelta(seconds=LEAD_TIME_SEC)
-
-                    dtend_system = dtstart_system + \
-                        timedelta(seconds=int(event[EventField.DURATION.value]) * 60 + TRAIL_TIME_SEC)
-
-                    if dtstart_system <= dtnow_system <= dtend_system:
-                        logging.info("Join meeting that is currently running..")      
-                        
-                        join(event_key=event[EventField.KEY.value])
-                except ValueError as e:
-                    logging.error(str(e))
-
-def setup_schedule(events):
-    schedule.clear()
-    line_count = 0
-    dtnow_system = Events.convert_to_system_datetime( datetime.now())
-    for event in events:
-        if int(event[EventField.TYPE.value]) == int(EventType.ZOOM.value):
-            # expand date/weekday ranges and lists
-            for dtstart in Events.get_dtstart_datetime_list(event):
-                try:
-                    dtstart_system = Events.convert_to_system_datetime(dtstart)
-                    dtstart_system = dtstart_system - timedelta(seconds=LEAD_TIME_SEC)
-                    if dtstart_system < dtnow_system:
-                        # start dt in past
-                        break
-                    
-                    weekday = dtstart_system.strftime("%A").lower() 
-                    cmd_string = "schedule.every()." + weekday \
-                                + ".at(\"" \
-                                + dtstart_system.strftime('%H:%M:%S') \
-                                + "\").do(join, event_key=\"" + event[EventField.KEY.value] + "\")"
-                    cmd = compile(cmd_string, "<string>", "eval", )
-                    eval(cmd)
-                    line_count += 1
-                    logging.debug(f"Schedule command {line_count}: {cmd_string}")
-                except ValueError as e:
-                    logging.error(str(e))
-    logging.info("Added %s meetings to schedule." % line_count)
-
 def main():
-    try:
-        if DEBUG and not os.path.exists(DEBUG_PATH):
-            os.makedirs(DEBUG_PATH)
-    except Exception:
-        logging.error("Failed to create screenshot folder!")
-        raise
 
-    interval_seconds = 60  # Adjust this value to your desired interval in seconds
-    last_timestamp = ''
-    while True:
-        current_timestamp = now
-        if current_timestamp.timestamp() != last_timestamp:
-            logging.info(f"Checking for new events timestamp: {datetime.fromtimestamp(current_timestamp.timestamp()).strftime('%Y-%m-%d %H:%M:%S')}")
+    def monitor_events():
+        """Monitor and join events based on time windows with local event storage"""
+        monitor_events = {}
+        max_last_updated_timestamp = None
+        # Filter to get only planned events
+        filter_type = [EventField.TYPE.value, "=", EventType.ZOOM.value]
+        filters = [filter_type, [EventField.STATUS.value, "=", EventStatus.SCHEDULED.value]]
+
+        while True:
             try:
-                events = get_events_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
-                if events:
-                    setup_schedule(events)
-                    join_ongoing_meeting(events)
-            except Exception as e:
-                logging.error(f"Error getting events: {e}")
+                # Get updates from API
+                updated_events = get_event_api(
+                    SERVER_URL,
+                    SERVER_USERNAME,
+                    SERVER_PASSWORD,
+                    filters=filters
+                )
                 
-            last_timestamp = current_timestamp
-    
-        schedule.run_pending()
-        time_of_next_run = schedule.next_run()
-        time_now = datetime.now()
-        if (time_of_next_run):
-            remaining = time_of_next_run - time_now
-            print(f"Next meeting in {remaining}", end="\r", flush=True)
-        else:
-            print(f"No meeting scheduled.", end="\r", flush=True)
-        time.sleep(interval_seconds)
+                # Update max timestamp from current batch
+                if updated_events:
+                    max_last_updated_timestamp = max(event[EventField.LAST_UPDATED_TIMESTAMP.value] for event in updated_events)
+                    logging.info(f"events updated: {len(updated_events)} , latest update: {max_last_updated_timestamp}")
+                    # Set filter to only get events updated after the latest timestamp (also deleted so we can remove them)
+                    filters = [ filter_type, [EventField.LAST_UPDATED_TIMESTAMP.value, ">", max_last_updated_timestamp]]
+                
+                # Merge updates using dictionary
+                for event in updated_events:
+                    if event[EventField.STATUS.value] == EventStatus.DELETED.value:
+                        # Remove deleted events
+                        del monitor_events[event[EventField.KEY.value]]  # Remove entry if exists
+                    elif event[EventField.ASSIGNED.value] and event[EventField.ASSIGNED.value] != CLIENT_ID:
+                         # events assigned to other clients
+                        del monitor_events[event[EventField.KEY.value]]  # Remove entry if exists
+                    else:
+                        # Add or update event
+                        monitor_events[event[EventField.KEY.value]] = event  # Add or update entry
+                
+                # Process events
+                next_event = None
+                next_event_dtstart = Events.replaceTimezone( event, datetime.max)
+
+                for event in monitor_events.values():
+                    # Skip assigned events
+                    if event[EventField.ASSIGNED.value] != '' and event[EventField.ASSIGNED.value] != CLIENT_ID:
+                        continue
+                    try:
+                        now_in_tz = Events.now( event)
+
+                        max_end_window = Events.replaceTimezone( event, datetime.min)
+                        
+                        # Check all event occurrences
+                        for dtstart in Events.get_dtstart_datetime_list(event, now_in_tz):
+                            start_window = dtstart - timedelta(seconds=LEAD_TIME_SEC)
+                            end_window = dtstart + timedelta(
+                                minutes=int(event[EventField.DURATION.value])) + timedelta(seconds=TRAIL_TIME_SEC)
+                            
+                            if end_window > max_end_window:
+                                max_end_window = end_window
+                            
+                            if start_window <= now_in_tz <= end_window:
+                                logging.info(f"Joining event {event[EventField.KEY.value]} title: '{event[EventField.TITLE.value]}'")
+                                join(event)
+                                break  # once we return monitoring will continue. One client can only join 1 event
+                            elif start_window > now_in_tz and start_window < next_event_dtstart:
+                                next_event_dtstart = start_window
+                                next_event = event
+
+                        # delte expired events
+                        if max_end_window < now_in_tz:  # all events are expired
+                            # the event will come through nexrt update as delted and will be removed from monitoring events
+                            delete_event_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event_key=event[EventField.KEY.value])
+                            
+                    except Exception as e:
+                        logging.error(f"Event processing error: {str(e)}")
+                
+                for _ in range(60):
+                    now_in_tz = Events.now( next_event)
+                    if next_event:
+                        print(f"Next event with title: '{next_event[EventField.TITLE.value]}' starts in {next_event_dtstart - now_in_tz}", end="\r", flush=True)
+                    else:
+                        print(f"No upcoming events (monitoring {len(monitor_events)} events)", end="\r", flush=True)
+                    
+                    time.sleep(1)
+                
+            except Exception as e:
+                logging.error(f"Monitoring error: {str(e)}")
+                print(f"Monitoring error: {str(e)}")
+
+    monitor_events()
 
 if __name__ == '__main__':
     main()

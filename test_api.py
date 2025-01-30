@@ -11,8 +11,8 @@ SERVER_PASSWORD = "mypassword"
 def main():
     # Create a new user
     new_user = {
-        UserField.NAME.value : "John Doe",
-        UserField.LOGIN.value: "johndoe",
+        UserField.NAME.value : "Roger Test",
+        UserField.LOGIN.value: "roger_test",
         UserField.PASSWORD.value: "securepassword",
         UserField.EMAIL.value: "john@doe.net",
     }

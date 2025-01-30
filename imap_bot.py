@@ -9,6 +9,8 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from events import Events, EventField, DATETIME_FORMAT
 from events_api import create_event_api
+from users import UserField
+from users_api import get_user_api
 from ics import Calendar
 import os
 import math  # Define math module
@@ -22,7 +24,7 @@ CONTENT_TYPE_HTML = "text/html"
 CONTENT_TYPE_CALENDAR = "text/calendar"
 
 # Get vars
-BASE_PATH = os.getenv('ZOOMREC_HOME')
+BASE_PATH = os.getenv('HOME')
 
 EMAIL_TYPE_PATH = os.path.join(BASE_PATH, "email_types.yaml")
 IMAP_SERVER = os.getenv('IMAP_SERVER')
@@ -40,7 +42,8 @@ def start_bot():
         config = yaml.safe_load(file)
 
     # Configure the logging
-    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
+    logLevel = getattr(logging, os.getenv( "LOG_LEVEL", "INFO"), logging.INFO)
+    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logLevel)
 
     logging.info( f"Config file {EMAIL_TYPE_PATH} found") 
 
@@ -186,6 +189,10 @@ def start_bot():
 
                                 eventStr = f"Event {event[EventField.TITLE.value]} {event[EventField.DTSTART.value]} {event[EventField.TIMEZONE.value]}"
                                 try:
+                                    # lookup user by login
+                                    user = get_user_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=[[UserField.LOGIN.value, '=', section['user_login']]])[0]
+                                    event[EventField.USER_KEY.value] = user[UserField.KEY.value]
+                                    # validate event
                                     event = Events.validate( event)
                                     create_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
                                     

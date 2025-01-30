@@ -30,14 +30,15 @@ class EventStatus(Enum):
     SCHEDULED = 1
     PROCESS = 2
     POSTPROCESS = 3
+    DELETED = 99
 
     @classmethod
     def get_description(cls, status):
         return {
             cls.SCHEDULED: "Scheduled",
-            cls.JOINED: "Joined",
             cls.PROCESS: "Processing",
-            cls.POSTPROCESS: "Postprocessing"
+            cls.POSTPROCESS: "Postprocessing",
+            cls.DELETED: "Deleted"
         }.get(status, "Unknown Status")
 
 # IMPORTANT: ordering needs to align with table create
@@ -69,6 +70,9 @@ class EventInstruction(Enum):
     UPLOAD = "upload"
 
 EVENT_DEFAULT_VALUES = {
+    EventField.ID.value: '',
+    EventField.PASSWORD.value: '',
+    EventField.URL.value: '',
     EventField.ASSIGNED.value: '',
     EventField.ASSIGNED_TIMESTAMP.value: '',
     EventField.RRULE.value: '',
@@ -126,31 +130,32 @@ class Events(ABC):
             if not Events.check_past(event, graceSecs):
                 filtered_events.append(event)
         return filtered_events
+    
+    @staticmethod
+    def now(event):
+        return datetime.now(ZoneInfo(event[EventField.TIMEZONE.value]))
 
     @staticmethod
-    def find_next(events, astimezone, leadInSecs=0, leadOutSecs=0):
-        now = datetime.now(ZoneInfo(astimezone))
+    def find_next(events, leadInSecs=0, leadOutSecs=0):
+
         next_event = None
         for event in events:
-            for dtstart_local in Events.get_dtstart_datetime_list(event):
+            now = Events.now(event)
+            for dtstart in Events.get_dtstart_datetime_list(event):
                 try:
-                    dtend_local = dtstart_local + timedelta(minutes=int(event[EventField.DURATION.value]))
-                    # converted to astimezone provided 
-                    dtstart_timezone = Events.convert_to_timezone(dtstart_local, ZoneInfo(astimezone))
-                    dtend_timezone =  Events.convert_to_timezone(dtend_local, ZoneInfo(astimezone))
-
+                    dtend = dtstart + timedelta(minutes=int(event[EventField.DURATION.value]))
                     # incorporate lead in/out
-                    dtstart_timezone -= timedelta(seconds=leadInSecs)
-                    dtend_timezone += timedelta(seconds=leadOutSecs)
+                    dtstart -= timedelta(seconds=leadInSecs)
+                    dtend += timedelta(seconds=leadOutSecs)
 
                     # priority is given to the meeting ending first - TBD
-                    if now < dtend_timezone and (next_event is None or dtend_timezone < next_event['end']):
+                    if now < dtend and (next_event is None or dtend < next_event['end']):
                         next_event = event
-                        next_event['start'] = dtstart_local
-                        next_event['end'] = dtend_local
-                        next_event['astimezone'] = astimezone
-                        next_event['start_astimezone'] = dtstart_timezone
-                        next_event['end_astimezone'] = dtend_timezone
+                        next_event['start'] = dtstart
+                        next_event['end'] = dtend
+                        next_event['astimezone'] = event[EventField.TIMEZONE.value]
+                        next_event['start_astimezone'] = dtstart
+                        next_event['end_astimezone'] = dtend
 
                 except ValueError as e:
                     continue
@@ -187,7 +192,7 @@ class Events(ABC):
         
         if EventField.RRULE.value in event and event[EventField.RRULE.value]:
             try:
-                dtstart_datetime_local_list = Events.get_dtstart_datetime_list(event)
+                dtstart_datetime_list = Events.get_dtstart_datetime_list(event)
             except ValueError:
                 raise ValueError(f"Invalid attribute {EventField.RRULE.value} '{event[EventField.RRULE.value]}'. Not a valid RRULE string.")
 
@@ -241,49 +246,43 @@ class Events(ABC):
             if fieldname not in event and default_value is not None:
                 event[fieldname] = default_value
         return event
+    
+    @staticmethod
+    def replaceTimezone(event, dt):
+        if EventField.TIMEZONE.value in event and event[EventField.TIMEZONE.value]:
+            return dt.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
 
     @staticmethod
     # event datetimes are always in the events (local) timezone
-    def get_dtstart_datetime_list(event):
+    def get_dtstart_datetime_list(event, dtfrom=None) -> list:
         dtstart = datetime.strptime(event[EventField.DTSTART.value], DATETIME_FORMAT)
-        dtstart_local = dtstart.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
+        dtstart = Events.replaceTimezone(event, dtstart)
         if EventField.RRULE.value in event and event[EventField.RRULE.value]:
             rrule_string = event[EventField.RRULE.value]
-            rule = rrulestr(rrule_string, dtstart=dtstart_local)
+            dtfrom = dtfrom if dtfrom else dtstart
+            rule = rrulestr(rrule_string, dtstart=dtfrom)
             dtstart_list = [dt for dt in rule]
         else:
-            dtstart_list = [dtstart_local]
+            dtstart_list = [dtstart]
         return dtstart_list
 
     @staticmethod
     def check_past(event, graceSecs=0):
-        dtstart_datetime_local_list = Events.get_dtstart_datetime_list(event)    
-        now_local = datetime.now(ZoneInfo(event[EventField.TIMEZONE.value]))
+        dtstart_datetime_list = Events.get_dtstart_datetime_list(event)    
+        now = datetime.now(ZoneInfo(event[EventField.TIMEZONE.value]))
       
         past_event = True
-        for dtstart_datetime_local in dtstart_datetime_local_list:
+        for dtstart_datetime in dtstart_datetime_list:
             try:
-                end_datetime_local = dtstart_datetime_local + timedelta(minutes=int(event[EventField.DURATION.value]))
-                end_datetime_local += timedelta(seconds=graceSecs)
-                if end_datetime_local < now_local:
+                end_datetime = dtstart_datetime + timedelta(minutes=int(event[EventField.DURATION.value]))
+                end_datetime += timedelta(seconds=graceSecs)
+                if end_datetime < now:
                     continue
                 else:
                     past_event = False
             except ValueError as e:
                 continue
         return past_event
-
-    @staticmethod
-    def convert_to_system_datetime(datetime_local):
-        return datetime_local.astimezone(datetime.now().astimezone().tzinfo)
-    
-    @staticmethod
-    def convert_to_timezone(datetime_local, timezone):
-        return datetime_local.astimezone(datetime.now().timezone().tzinfo)
-
-    @staticmethod
-    def convert_to_local_datetime(datetime_system, event):
-        return datetime_system.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
 
     @staticmethod
     def is_valid_timezone(timezone):
@@ -357,8 +356,6 @@ class SQLLiteEvents(Events):
                         {EventField.CREATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         {EventField.LAST_UPDATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY ({EventField.USER_KEY.value}) REFERENCES users({UserField.KEY.value})
-                        ON DELETE CASCADE -- Delete event if user is deleted
-                        ON UPDATE CASCADE  -- Update event if user changes
                     )
                 ''')
                 conn.commit()
@@ -443,7 +440,8 @@ class SQLLiteEvents(Events):
     def delete(self, event_key):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute(f'DELETE FROM events WHERE {EventField.KEY.value} = ?', (event_key,))
+            cursor.execute(f'UPDATE events SET status = ?, {EventField.LAST_UPDATED_TIMESTAMP.value} = ? WHERE {EventField.KEY.value} = ?', 
+                (EventStatus.DELETED.value, datetime.now(), event_key,))
             conn.commit()
 
         old_event = self.get(event_key)
