@@ -24,7 +24,7 @@ UC_CONNECTED_NOPOPUPS = 1
 #   - wait for debugger attach
 DEBUG = True if os.getenv('DEBUG') == 'True' else False
 
-if DEBUG:
+if logging.logLevel == logging.DEBUG:
     debugpy.listen(("0.0.0.0", 5678))
     print("Waiting for debugger attach")
     debugpy.wait_for_client()
@@ -210,12 +210,12 @@ class HideViewOptionsThread:
                         logging.info("Closed poll results window..")
                     except TypeError:
                         logging.error("Could not exit poll results window!")
-                        if DEBUG:
+                        if logging.logLevel == logging.DEBUG:
                             pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                                 TIME_FORMAT) + "-" + self.description) + "_close_poll_results_error.png")
                 except TypeError:
                     logging.error("Could not find poll results window anymore!")
-                    if DEBUG:
+                    if logging.logLevel == logging.DEBUG:
                         pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                             TIME_FORMAT) + "-" + self.description) + "_find_poll_results_error.png")
 
@@ -434,7 +434,7 @@ def join_audio(description):
         return True
     except TypeError:
         logging.error("Could not join with computer audio!")
-        if DEBUG:
+        if logging.logLevel == logging.DEBUG:
             pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                 TIME_FORMAT) + "-" + description) + "_join_with_computer_audio_error.png")
     time.sleep(1)
@@ -447,7 +447,7 @@ def join_audio(description):
             join_audio(description)
         except TypeError:
             logging.error("Could not join audio!")
-            if DEBUG:
+            if logging.logLevel == logging.DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
 
                     TIME_FORMAT) + "-" + description) + "_join_audio_error.png")
@@ -463,7 +463,7 @@ def unmute(description):
         return True
     except TypeError:
         logging.error("Could not unmute!")
-        if DEBUG:
+        if logging.logLevel == logging.DEBUG:
             pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(TIME_FORMAT) + "-" + description) + "_unmute_error.png")
         return False
 
@@ -477,7 +477,7 @@ def mute(description):
         return True
     except TypeError:
         logging.error("Could not mute!")
-        if DEBUG:
+        if logging.logLevel == logging.DEBUG:
             pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(TIME_FORMAT) + "-" + description) + "_mute_error.png")
         return False
 
@@ -503,7 +503,8 @@ def join(event):
 
     logging.info("Join meeting: " + description)
 
-    if DEBUG:
+    if logging.logLevel == logging.DEBUG:
+
         # Start recording
         width, height = pyautogui.size()
         resolution = str(width) + 'x' + str(height)
@@ -578,7 +579,7 @@ def join(event):
     if not joined:
         logging.error("Failed to join meeting!")
         os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
-        if DEBUG and ffmpeg_debug is not None:
+        if logging.logLevel == logging.DEBUG and ffmpeg_debug is not None:
             # closing ffmpeg
             os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
             atexit.unregister(os.killpg)
@@ -615,7 +616,7 @@ def join(event):
             logging.info("Meeting ended after time!")
             logging.info("Exit Zoom!")
             os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
-            if DEBUG:
+            if logging.logLevel == logging.DEBUG:
                 os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
                 atexit.unregister(os.killpg)
             return
@@ -652,7 +653,7 @@ def join(event):
             logging.info("Meeting ended after time!")
             logging.info("Exit Zoom!")
             os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
-            if DEBUG:
+            if logging.logLevel == logging.DEBUG:
                 os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
                 atexit.unregister(os.killpg)
             return
@@ -699,12 +700,12 @@ def join(event):
                 logging.info("Closed poll results window..")
             except TypeError:
                 logging.error("Could not exit poll results window!")
-                if DEBUG:
+                if logging.logLevel == logging.DEBUG:
                     pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                         TIME_FORMAT) + "-" + description) + "_close_poll_results_error.png")
         except TypeError:
             logging.error("Could not find poll results window anymore!")
-            if DEBUG:
+            if logging.logLevel == logging.DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                     TIME_FORMAT) + "-" + description) + "_find_poll_results_error.png")
 
@@ -717,7 +718,7 @@ def join(event):
         if not useCase == UC_CONNECTED_NOPOPUPS: 
             logging.info("Exit!")
             os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
-            if DEBUG:
+            if logging.logLevel == logging.DEBUG:
                 os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
                 atexit.unregister(os.killpg)
             time.sleep(2)
@@ -736,7 +737,7 @@ def join(event):
         pyautogui.click(x, y)
     except TypeError:
         logging.error("Could not find view!")
-        if DEBUG:
+        if logging.logLevel == logging.DEBUG:
             pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                 TIME_FORMAT) + "-" + description) + "_view_error.png")
 
@@ -750,7 +751,7 @@ def join(event):
         fullscreen = True
     except TypeError:
         logging.error("Could not find fullscreen!")
-        if DEBUG:
+        if logging.logLevel == logging.DEBUG:
             pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                 TIME_FORMAT) + "-" + description) + "_fullscreen_error.png")
 
@@ -764,7 +765,7 @@ def join(event):
             pyautogui.click(x, y)
         except TypeError:
             logging.error("Could not find view options!")
-            if DEBUG:
+            if logging.logLevel == logging.DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                     TIME_FORMAT) + "-" + description) + "_view_options_error.png")
 
@@ -779,7 +780,7 @@ def join(event):
             pyautogui.click(x, y)
         except TypeError:
             logging.error("Could not enter fullscreen by image!")
-            if DEBUG:
+            if logging.logLevel == logging.DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                     TIME_FORMAT) + "-" + description) + "_enter_fullscreen_error.png")
             return
@@ -795,7 +796,7 @@ def join(event):
         screensharing_active = True
     except TypeError:
         logging.error("Could not find view options!")
-        if DEBUG:
+        if logging.logLevel == logging.DEBUG:
             pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                 TIME_FORMAT) + "-" + description) + "_view_options_error.png")
 
@@ -811,7 +812,7 @@ def join(event):
             logging.info("Video panel hidden successfully..")
         except TypeError:
             logging.error("Could not hide video panel!")
-            if DEBUG:
+            if logging.logLevel == logging.DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                     TIME_FORMAT) + "-" + description) + "_hide_video_panel_error.png")
     else:
@@ -825,7 +826,7 @@ def join(event):
             pyautogui.click(x, y)
         except TypeError:
             logging.error("Could not find view!")
-            if DEBUG:
+            if logging.logLevel == logging.DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                     TIME_FORMAT) + "-" + description) + "_view_error.png")
 
@@ -838,7 +839,7 @@ def join(event):
             pyautogui.click(x, y)
         except TypeError:
             logging.error("Could not switch speaker view!")
-            if DEBUG:
+            if logging.logLevel == logging.DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                     TIME_FORMAT) + "-" + description) + "_speaker_view_error.png")
 
@@ -849,7 +850,7 @@ def join(event):
             pyautogui.click(x, y)
         except TypeError:
             logging.error("Could not minimize panel!")
-            if DEBUG:
+            if logging.logLevel == logging.DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                     TIME_FORMAT) + "-" + description) + "_minimize_error.png")
 
@@ -857,7 +858,7 @@ def join(event):
     pyautogui.moveTo(0, 100)
     pyautogui.click(0, 100)
 
-    if DEBUG and ffmpeg_debug is not None:
+    if logging.logLevel == logging.DEBUG and ffmpeg_debug is not None:
         os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
         atexit.unregister(os.killpg)
 
@@ -910,7 +911,7 @@ def join(event):
     logging.info("Meeting ends at %s" % datetime.now())
 
     # Close everything
-    if DEBUG and ffmpeg_debug is not None:
+    if logging.logLevel == logging.DEBUG and ffmpeg_debug is not None:
         os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
         atexit.unregister(os.killpg)
 
@@ -925,7 +926,7 @@ def join(event):
                 os.path.join(IMG_PATH, 'ok.png'), confidence=0.9)
             pyautogui.click(x, y)
         except TypeError:
-            if DEBUG:
+            if logging.logLevel == logging.DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                     TIME_FORMAT) + "-" + description) + "_ok_error.png")
                 
