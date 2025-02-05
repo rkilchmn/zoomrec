@@ -118,7 +118,8 @@ RUN wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/6.0.2.4680/zoom_amd64.deb
     rm -rf zoom_amd64.deb
 
 # Install other utilities
-RUN apt-get install --no-install-recommends -y \
+RUN apt-get update && \
+        apt-get install --no-install-recommends -y \
         curl \
         less \
         ffmpeg \
