@@ -15,6 +15,7 @@ from events import Events, EventType, EventField, EventStatus, EventInstructionA
 import debugpy
 from events_api import delete_event_api, update_event_api, get_event_api  # Ensure you import the function
 
+UC_CONNECTED_POPUPS = 0
 UC_CONNECTED_NOPOPUPS = 1
 
 # Turn DEBUG on:
@@ -484,7 +485,6 @@ def mute(description):
 
 def join(event):
     global VIDEO_PANEL_HIDED
-    ffmpeg_debug = None
     
     if int(event[EventField.STATUS.value]) == int(EventStatus.SCHEDULED.value) and not event[EventField.ASSIGNED.value]:
         event[EventField.ASSIGNED.value] = CLIENT_ID
@@ -503,6 +503,7 @@ def join(event):
 
     logging.info("Join meeting: " + description)
 
+    ffmpeg_debug = None
     if logging.getLogger().level == logging.DEBUG:
 
         # Start recording
@@ -552,7 +553,7 @@ def join(event):
 
     # Wait for zoom is started
     loop = True
-    useCase = 0 # standard use case
+    useCase = UC_CONNECTED_POPUPS # standard use case
     while (loop):
         if wrap( pyautogui.locateCenterOnScreen, os.path.join(IMG_PATH, img_name), confidence=0.9):
             loop = False
@@ -686,28 +687,26 @@ def join(event):
             logging.error("Could not accept recording!")
 
     # Check if host is sharing poll results at the beginning
-    if (wrap( pyautogui.locateCenterOnScreen, os.path.join(IMG_PATH, 'host_is_sharing_poll_results.png'), confidence=0.9,
-                                       minSearchTime=2) is not None):
+    try:
+        x, y = wrap( pyautogui.locateCenterOnScreen, os.path.join(
+            IMG_PATH, 'host_is_sharing_poll_results.png'), confidence=0.9)
         logging.info("Host is sharing poll results..")
+        pyautogui.click(x, y)
         try:
             x, y = wrap( pyautogui.locateCenterOnScreen, os.path.join(
-                IMG_PATH, 'host_is_sharing_poll_results.png'), confidence=0.9)
+                IMG_PATH, 'exit.png'), confidence=0.9)
             pyautogui.click(x, y)
-            try:
-                x, y = wrap( pyautogui.locateCenterOnScreen, os.path.join(
-                    IMG_PATH, 'exit.png'), confidence=0.9)
-                pyautogui.click(x, y)
-                logging.info("Closed poll results window..")
-            except TypeError:
-                logging.error("Could not exit poll results window!")
-                if logging.getLogger().level == logging.DEBUG:
-                    pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                        TIME_FORMAT) + "-" + description) + "_close_poll_results_error.png")
+            logging.info("Closed poll results window..")
         except TypeError:
-            logging.error("Could not find poll results window anymore!")
+            logging.error("Could not exit poll results window!")
             if logging.getLogger().level == logging.DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                    TIME_FORMAT) + "-" + description) + "_find_poll_results_error.png")
+                    TIME_FORMAT) + "-" + description) + "_close_poll_results_error.png")
+    except TypeError:
+        logging.error("Could not find poll results window anymore!")
+        if logging.getLogger().level == logging.DEBUG:
+            pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
+                TIME_FORMAT) + "-" + description) + "_find_poll_results_error.png")
 
     # Start BackgroundThread
     BackgroundThread()
