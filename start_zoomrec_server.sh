@@ -6,7 +6,7 @@ if [ $# -lt 1 ]; then
   exit 1
 fi
 
-# Load configuration from file
+# Load configuration from file  
 source $1
 
 # environment variables used inside docker for internal API port
