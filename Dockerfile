@@ -114,7 +114,7 @@ RUN apt-get install --no-install-recommends -y \
 # RUN wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/6.2.6.2503/zoom_amd64.deb && \
 # wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.17.11.3835/zoom_amd64.deb && \
 RUN apt-get update && \
-    wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.17.11.3835/zoom_amd64.deb && \
+    wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/6.0.2.4680/zoom_amd64.deb && \
     dpkg -i zoom_amd64.deb && \
     apt-get -f install -y && \
     rm -rf zoom_amd64.deb
