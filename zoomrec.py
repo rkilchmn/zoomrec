@@ -729,6 +729,9 @@ def join(event):
         play_audio(description)
 
     time.sleep(2)
+    logging.info("DoubleClick for Fullscreen..")
+    pyautogui.doubleClick(x=10, y=200, interval=0.1)
+    time.sleep(2)
     logging.info("Enter fullscreen..")
     show_toolbars()
     try:
@@ -770,6 +773,9 @@ def join(event):
                     TIME_FORMAT) + "-" + description) + "_view_options_error.png")
 
         # Switch to fullscreen
+        # time.sleep(2)
+        # logging.info("DoubleClick for Fullscreen..")
+        # pyautogui.doubleClick(x=10, y=200, interval=0.1)
         time.sleep(2)
         show_toolbars()
 
@@ -1059,7 +1065,7 @@ def main():
                 
                 # Process events
                 next_event = None
-                next_event_dtstart = Events.replaceTimezone( datetime.max)
+                next_event_dtstart = Events.replaceTimezone( datetime.max) # initialize with max date
 
                 for event in monitor_events.values():
                     # Skip assigned events
@@ -1068,7 +1074,7 @@ def main():
                     try:
                         now_in_tz = Events.now( event)
 
-                        max_end_window = Events.replaceTimezone( event, datetime.min)
+                        max_end_window = Events.replaceTimezone( datetime.min) # initialize with min date
                         
                         # Check all event occurrences
                         for dtstart in Events.get_dtstart_datetime_list(event, now_in_tz):

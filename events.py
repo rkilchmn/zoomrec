@@ -248,7 +248,7 @@ class Events(ABC):
         return event
     
     @staticmethod
-    def replaceTimezone(dt, timezone="UTC"):
+    def replaceTimezone( dt, timezone="UTC"):
         return dt.replace(tzinfo=ZoneInfo(timezone))
 
     @staticmethod
