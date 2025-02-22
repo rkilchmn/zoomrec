@@ -725,6 +725,9 @@ def join(meet_id, meet_pw, duration, user, description):
         play_audio(description)
 
     time.sleep(2)
+    logging.info("DoubleClick for Fullscreen..")
+    pyautogui.doubleClick(x=10, y=200, interval=0.1)
+    time.sleep(2)
     logging.info("Enter fullscreen..")
     show_toolbars()
     try:
