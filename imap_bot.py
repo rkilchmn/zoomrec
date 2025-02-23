@@ -7,8 +7,8 @@ import html
 import logging
 from datetime import datetime
 from bs4 import BeautifulSoup
-from events import Events, EventField, DATETIME_FORMAT
-from events_api import create_event_api
+from events import Events, EventField, DATETIME_FORMAT, EventType
+from events_api import create_event_api, get_event_api, update_event_api
 from users import UserField
 from users_api import get_user_api
 from ics import Calendar
@@ -190,11 +190,37 @@ def start_bot():
                                 eventStr = f"Event {event[EventField.TITLE.value]} {event[EventField.DTSTART.value]} {event[EventField.TIMEZONE.value]}"
                                 try:
                                     # lookup user by login
-                                    user = get_user_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=[[UserField.LOGIN.value, '=', section['user_login']]])[0]
+                                    user = None
+                                    try:
+                                        user = get_user_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=[[UserField.LOGIN.value, '=', section['user_login']]])[0]
+                                    except Exception as error:
+                                        logging.error( f"User {section['user_login']} not found.")
+                                        continue
+                                
                                     event[EventField.USER_KEY.value] = user[UserField.KEY.value]
                                     # validate event
                                     event = Events.validate( event)
-                                    create_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
+                                
+                                    # lookup existing event 
+                                    filter_existing = None
+                                    existing_event = None
+                                    if event[EventField.ID.value]:
+                                        # Filter to get event by ID
+                                        filter_existing = [EventField.ID.value, "=", event[EventField.ID.value]]
+                                    elif event[EventField.URL.value]:
+                                         # Filter to get event by ID
+                                        filter_existing = [EventField.URL.value, "=", event[EventField.URL.value]]
+                                    
+                                    if filter_existing:
+                                        try:    
+                                            existing_event = get_event_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=filter_existing)[0]
+                                        except Exception as error:
+                                            logging.info( f"Existing Event with filter {filter_existing} not found.")
+
+                                    if existing_event:
+                                        update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
+                                    else:
+                                        create_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
                                     
                                     logging.info( f"{eventStr} added")
                                 except ValueError as error:
@@ -215,7 +241,7 @@ def start_bot():
                     # Exit the program if the exception is a KeyboardInterrupt
                     raise error
                 else:
-                    logging.error( error.args[0])
+                    logging.exception("An error occurred")  # Enhanced to include full stack trace
             
 if __name__ == "__main__":
     if not (EMAIL_PASSWORD and IMAP_SERVER and IMAP_PORT and EMAIL_ADDRESS):

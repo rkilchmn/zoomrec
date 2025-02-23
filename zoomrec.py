@@ -482,7 +482,29 @@ def mute(description):
             pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(TIME_FORMAT) + "-" + description) + "_mute_error.png")
         return False
 
+def start_recording(filename):
 
+    # Start recording
+    width, height = pyautogui.size()
+    resolution = str(width) + 'x' + str(height)
+    disp = os.getenv('DISPLAY')
+
+    logging.debug("Start recording joining process..")
+
+    command = "ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + \
+        resolution + " " + FFMPEG_INPUT_PARAMS + " -i " + disp + " " + FFMPEG_OUTPUT_PARAMS + \
+        " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
+
+    logging.debug(f"Recording command: {command}")
+
+    subprocess = subprocess.Popen(
+        command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+    
+    atexit.register(os.killpg, os.getpgid(
+        subprocess.pid), signal.SIGQUIT)
+    
+    return subprocess
+    
 def join(event):
     global VIDEO_PANEL_HIDED
     
@@ -505,28 +527,8 @@ def join(event):
 
     ffmpeg_debug = None
     if logging.getLogger().level == logging.DEBUG:
-
-        # Start recording
-        width, height = pyautogui.size()
-        resolution = str(width) + 'x' + str(height)
-        disp = os.getenv('DISPLAY')
-
-        logging.debug("Start recording joining process..")
-
-        filename = os.path.join( 
-            REC_PATH, time.strftime(TIME_FORMAT)) + "-" + description + "-JOIN.mkv"
-
-        command = "ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + \
-            resolution + " " + FFMPEG_INPUT_PARAMS + " -i " + disp + " " + FFMPEG_OUTPUT_PARAMS + \
-            " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
-
-        logging.debug(f"Recording command: {command}")
-
-        ffmpeg_debug = subprocess.Popen(
-            command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-        
-        atexit.register(os.killpg, os.getpgid(
-            ffmpeg_debug.pid), signal.SIGQUIT)
+        ffmpeg_debug = start_recording(filename = os.path.join( 
+            REC_PATH, time.strftime(TIME_FORMAT)) + "-" + description + "-JOIN.mkv")
 
     # Exit Zoom if running
     exit_process_by_name("zoom")
@@ -868,27 +870,9 @@ def join(event):
         atexit.unregister(os.killpg)
 
     process = Events.get_instruction_attribute( EventInstructionAttribute.PROCESS, event)
+    filename = os.path.join(REC_PATH, time.strftime( TIME_FORMAT) + "-" + description) + ".mkv"
     if process == 'record':
-        logging.info("Start recording..")
-
-        filename = os.path.join(REC_PATH, time.strftime(
-            TIME_FORMAT) + "-" + description) + ".mkv"
-
-        width, height = pyautogui.size()
-        resolution = str(width) + 'x' + str(height)
-        disp = os.getenv('DISPLAY')
-
-        command = "ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + \
-            resolution + " " + FFMPEG_INPUT_PARAMS + " -i " + disp + " " + FFMPEG_OUTPUT_PARAMS + \
-            " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
-
-        logging.debug(f"Recording command: {command}")
-
-        ffmpeg = subprocess.Popen(
-            command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-
-        atexit.register(os.killpg, os.getpgid(
-            ffmpeg.pid), signal.SIGQUIT)
+        ffmpeg = start_recording(filename)
 
     # update event
     try:

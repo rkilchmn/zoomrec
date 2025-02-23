@@ -1,0 +1,60 @@
+
+Join:
+  - wait_for_host:
+      locate_image: 'wait_for_host.png'
+      iterations: 600 # number of iteration, optional default 1 (do inc i while i <= iterations )
+      sleep: 1 # sleep seconds in between iteration, optional default 0
+      successful: # optional
+      failed: # optional
+
+Background:
+  - meeting_is_being_recorded:
+      locate_image: 'meeting_is_being_recorded.png'
+      iteration: 1  # optional, default 1
+      success:
+        locate_image: 'got_it.png'
+        success:
+          eval: 'pyautogui.click(x, y)'
+
+  - meeting_ended_by_host_1:
+      locate_image: 'meeting_ended_by_host_1.png'
+      success:
+        eval: 'ONGOING_MEETING = False'
+  
+  - meeting_ended_by_host_2:
+      locate_image: 'meeting_ended_by_host_2.png'
+      success:
+        eval: 'ONGOING_MEETING = False'
+  
+  - zoom_crash_report_not_send: 
+      locate_image: 'zoom_crash_report_not_send.png'
+      minSearchTime: 2
+
+  - unknown_error_occurred:
+      locate_image: 'unknown_error_occurred.png'
+      minSearchTime: 2
+      confidence: 0.9
+      success:
+        locate_image: 'unknown_error_close.png'
+        click: 
+  
+  # host_is_sharing_poll_results:
+  #   locate: 'host_is_sharing_poll_results.png'
+  #   click: 'exit.png'  # Assuming you want to exit the poll results
+  
+  # view_options:
+  #   locate: 'view_options.png'
+  #   click: 'hide_video_panel.png'  # Assuming you want to hide the video panel
+  
+HideViewOptions: 
+  - meeting_chat:
+      locate: 'meeting_chat.png'
+      success:
+        click: 'exit.png'  # Assuming you want to close the chat
+  
+  - participant_enabled_closed_caption:
+      locate: 'participant_enabled_closed_caption.png'
+      succes:
+        click: 'participant_enabled_closed_caption_close.png'
+
+
