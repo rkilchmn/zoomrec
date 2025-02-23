@@ -6,6 +6,7 @@ ENV DOCKER_API_PORT=8000
 
 # Set an environment variable 
 ENV HOME=/home/zoomrec \
+    ZOOMREC_HOME=/home/zoomrec \
     TZ=Europe/Berlin \
     LOG_SUBDIR=log \
     SERVER_USERNAME="myuser" \

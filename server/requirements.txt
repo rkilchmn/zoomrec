@@ -10,3 +10,4 @@ flask-basicauth
 python-dateutil
 shortuuid
 ics
+debugpy

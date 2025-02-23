@@ -4,9 +4,18 @@ import signal
 import subprocess
 import atexit
 from datetime import datetime
+import debugpy
+
+DEBUG = True if os.getenv('DEBUG') == 'True' else False
+
+if DEBUG:
+    debugpy.listen(("0.0.0.0", 5679))
+    print("Waiting for debugger attach")
+    debugpy.wait_for_client()
+    print("Debugger attached")
 
 # Get vars
-BASE_PATH = os.getenv('HOME')
+BASE_PATH = os.getenv('ZOOMREC_HOME')
 
 # Get the current date and time
 now = datetime.now()

@@ -405,6 +405,8 @@ class SQLLiteEvents(Events):
                         if attribute and value is not None:
                             conditions.append(f"{attribute} {operator} ?")
                             parameters.append(value)
+                    else:
+                        raise ValueError(f"Invalid filter format: {filter}")
 
             # Combine conditions into the SQL query
             if conditions:

@@ -20,6 +20,7 @@ docker stop zoomrec_server
 docker rm $(docker ps -aqf "name=zoomrec_server")
 
 docker run -d --restart unless-stopped --name zoomrec_server \
+    -e DEBUG="$DEBUG" \
     -e LOG_LEVEL="$LOG_LEVEL" \
     -e TZ="$TZ" \
     -e DOCKER_API_PORT=$DOCKER_API_PORT \
@@ -37,4 +38,5 @@ docker run -d --restart unless-stopped --name zoomrec_server \
     -v $ZOOMREC_HOME/$LOG_SUBDIR:/home/zoomrec/$LOG_SUBDIR \
     -v $ZOOMREC_HOME/$FIRMWARE_SUBDIR:/home/zoomrec/$FIRMWARE_SUBDIR \
     -p $SERVER_PORT:$DOCKER_API_PORT \
+    -p 5679:5679 \
     rkilchmn/zoomrec_server:latest
