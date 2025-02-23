@@ -16,7 +16,7 @@ from datetime import datetime
 import os
 import events_api  # Import the events_api module
 import users_api  # Import the users_api module
-from events import Events, EventField
+from events import Events, EventField, EventStatus
 from users import MessengerAttribute, Users, UserField, UserRole
 from constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT
 
@@ -96,7 +96,8 @@ async def list_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
 
     try:
-        events_list = events_api.get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+        filter_not_deleted = [[EventField.STATUS.value,"!=",EventStatus.DELETED.value]]
+        events_list = events_api.get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=filter_not_deleted)
         if not events_list:
             await update.message.reply_text(f"No events found.")
             return
@@ -203,7 +204,8 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             return
 
         try:
-            events_list = events_api.get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+            filter_not_deleted = [[EventField.STATUS.value,"!=",EventStatus.DELETED.value]]
+            events_list = events_api.get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=filter_not_deleted)
             if not events_list:
                 await update.message.reply_text(f"No events found.")
                 return
@@ -290,7 +292,8 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             return
 
         try:
-            events_list = events_api.get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+            filter_not_deleted = [[EventField.STATUS.value,"!=",EventStatus.DELETED.value]]
+            events_list = events_api.get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=filter_not_deleted)
             if not events_list:
                 await update.message.reply_text(f"No events found.")
                 return

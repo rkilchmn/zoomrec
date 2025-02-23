@@ -9,7 +9,7 @@ from users import SQLLiteUser, Users, UserField
 
 app = Flask(__name__)
 
-BASE_PATH = os.getenv('HOME')
+BASE_PATH = os.getenv('ZOOMREC_HOME')
 ZOOMREC_DB = 'zoomrec_server_db'
 ZOOMREC_DB_PATH = os.path.join(BASE_PATH, ZOOMREC_DB)
 

@@ -7,7 +7,7 @@ import html
 import logging
 from datetime import datetime
 from bs4 import BeautifulSoup
-from events import Events, EventField, DATETIME_FORMAT, EventType
+from events import Events, EventField, DATETIME_FORMAT, EventType, EventStatus
 from events_api import create_event_api, get_event_api, update_event_api
 from users import UserField
 from users_api import get_user_api
@@ -24,7 +24,7 @@ CONTENT_TYPE_HTML = "text/html"
 CONTENT_TYPE_CALENDAR = "text/calendar"
 
 # Get vars
-BASE_PATH = os.getenv('HOME')
+BASE_PATH = os.getenv('ZOOMREC_HOME')
 
 EMAIL_TYPE_PATH = os.path.join(BASE_PATH, "email_types.yaml")
 IMAP_SERVER = os.getenv('IMAP_SERVER')
@@ -213,16 +213,26 @@ def start_bot():
                                     
                                     if filter_existing:
                                         try:    
-                                            existing_event = get_event_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=filter_existing)[0]
+                                            filter_not_deleted = [EventField.STATUS.value,"!=",EventStatus.DELETED.value]
+                                            existing_events = get_event_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, 
+                                                                            filters=[filter_existing, filter_not_deleted])
+                                            if len(existing_events) == 1:
+                                                existing_event = existing_events[0]
+                                            elif len(existing_events) == 0:
+                                                logging.info( f"Existing Event with filter {filter_existing} not found.")
+                                            else:
+                                                logging.warning( f"Multiple existing Events with filter {filter_existing} found: {len(existing_events)}. Not updating existing events.")
                                         except Exception as error:
-                                            logging.info( f"Existing Event with filter {filter_existing} not found.")
+                                            logging.error( f"Existing Event with filter {filter_existing} not found. {error}")
 
                                     if existing_event:
+                                        event[EventField.KEY.value] = existing_event[EventField.KEY.value]
                                         update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
+                                        logging.info( f"{eventStr} updated")
                                     else:
                                         create_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
-                                    
-                                    logging.info( f"{eventStr} added")
+                                        logging.info( f"{eventStr} added")
+                                
                                 except ValueError as error:
                                     logging.error( f"Validation error {eventStr}. {error.args[0]}")
             
