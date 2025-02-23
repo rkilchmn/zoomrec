@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from events import Events, EventType, EventField, EventStatus, EventInstructionAttribute
 import debugpy
 from events_api import delete_event_api, update_event_api, get_event_api  # Ensure you import the function
+from utilities import convert_to_safe_filename
 
 UC_CONNECTED_POPUPS = 0
 UC_CONNECTED_NOPOPUPS = 1
@@ -497,13 +498,13 @@ def start_recording(filename):
 
     logging.debug(f"Recording command: {command}")
 
-    subprocess = subprocess.Popen(
+    subprocess_info = subprocess.Popen(
         command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
     
     atexit.register(os.killpg, os.getpgid(
-        subprocess.pid), signal.SIGQUIT)
+        subprocess_info.pid), signal.SIGQUIT)
     
-    return subprocess
+    return subprocess_info
     
 def join(event):
     global VIDEO_PANEL_HIDED
@@ -527,8 +528,8 @@ def join(event):
 
     ffmpeg_debug = None
     if logging.getLogger().level == logging.DEBUG:
-        ffmpeg_debug = start_recording(filename = os.path.join( 
-            REC_PATH, time.strftime(TIME_FORMAT)) + "-" + description + "-JOIN.mkv")
+        ffmpeg_debug = start_recording( filename = os.path.join( 
+            REC_PATH, convert_to_safe_filename( time.strftime(TIME_FORMAT)) + "-" + description + "-JOIN.mkv"))
 
     # Exit Zoom if running
     exit_process_by_name("zoom")
@@ -790,7 +791,6 @@ def join(event):
             if logging.getLogger().level == logging.DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                     TIME_FORMAT) + "-" + description) + "_enter_fullscreen_error.png")
-            return
 
         time.sleep(2)
 
@@ -870,14 +870,14 @@ def join(event):
         atexit.unregister(os.killpg)
 
     process = Events.get_instruction_attribute( EventInstructionAttribute.PROCESS, event)
-    filename = os.path.join(REC_PATH, time.strftime( TIME_FORMAT) + "-" + description) + ".mkv"
+    filename_recording = os.path.join(REC_PATH, convert_to_safe_filename(time.strftime( TIME_FORMAT) + "-" + description) + ".mkv")
     if process == 'record':
-        ffmpeg = start_recording(filename)
+        ffmpeg = start_recording(filename_recording)
 
     # update event
     try:
         event[EventField.STATUS.value] = EventStatus.PROCESS.value
-        event[EventField.ASSIGNED_TIMESTAMP.value] = Events.convert_to_local_datetime(datetime.now(), event).isoformat() 
+        event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
         update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
     except Exception as e:
         logging.error(f"Error updating event: {e}")
@@ -922,7 +922,7 @@ def join(event):
     postprocess = Events.get_instruction_attribute( EventInstructionAttribute.POSTPROCESS, event)  
 
     if postprocess:
-        command = f"./postprocess.sh {postprocess} {filename}"
+        command = f"./postprocess.sh {postprocess} '{filename_recording}'"
         logging.debug(f"Postprocess command: {command}")
 
         postprocess_process = subprocess.Popen(
@@ -935,7 +935,7 @@ def join(event):
             logging.info("Starting postprocessing task...")
             event[EventField.STATUS.value] = EventStatus.POSTPROCESS.value
             event[EventField.ASSIGNED.value] = CLIENT_ID
-            event[EventField.ASSIGNED_TIMESTAMP.value] = Events.convert_to_local_datetime(datetime.now(), event).isoformat()   
+            event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
             try:
                 update_event_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
             except Exception as e:

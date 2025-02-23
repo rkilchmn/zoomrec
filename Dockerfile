@@ -259,6 +259,7 @@ ADD events_api.py ${HOME}/
 ADD users.py ${HOME}/
 ADD msg_telegram.py ${HOME}/
 ADD constants.py ${HOME}/
+ADD utilities.py ${HOME}/
 ADD res/img ${HOME}/img
 
 # posprocessing scripts
