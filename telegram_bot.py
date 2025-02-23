@@ -19,6 +19,15 @@ import users_api  # Import the users_api module
 from events import Events, EventField, EventStatus
 from users import MessengerAttribute, Users, UserField, UserRole
 from constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT
+import debugpy
+
+DEBUG = True if os.getenv('DEBUG', '') == 'telegram_bot' else False
+
+if DEBUG:
+    debugpy.listen(("0.0.0.0", 5679))
+    print("Waiting for debugger attach")
+    debugpy.wait_for_client()
+    print("Debugger attached")
 
 # get env vars
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')

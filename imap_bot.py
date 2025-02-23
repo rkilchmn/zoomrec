@@ -14,10 +14,19 @@ from users_api import get_user_api
 from ics import Calendar
 import os
 import math  # Define math module
+import debugpy
 try:
     from zoneinfo import ZoneInfo # >= 3.9
 except ImportError:
     from backports.zoneinfo import ZoneInfo # < 3.9
+
+DEBUG = True if os.getenv('DEBUG','') == 'imap_bot' else False
+
+if DEBUG:
+    debugpy.listen(("0.0.0.0", 5679))
+    print("Waiting for debugger attach")
+    debugpy.wait_for_client()
+    print("Debugger attached")
 
 CONTENT_TYPE_PLAIN = "text/plain"
 CONTENT_TYPE_HTML = "text/html"

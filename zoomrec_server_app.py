@@ -1,3 +1,4 @@
+import debugpy
 from flask import Flask, request, Response, jsonify, send_file # pip install flask
 from flask_basicauth import BasicAuth # pip install flask-basicauth
 from datetime import datetime
@@ -6,6 +7,15 @@ import yaml
 from events import FIELDNAMES, Events, EventStatus, EventField, SQLLiteEvents
 from urllib.parse import unquote
 from users import SQLLiteUser, Users, UserField
+import debugpy
+
+DEBUG = True if os.getenv('DEBUG','') == 'zoomrec_server_app' else False
+
+if DEBUG:
+    debugpy.listen(("0.0.0.0", 5679))
+    print("Waiting for debugger attach")
+    debugpy.wait_for_client()
+    print("Debugger attached")
 
 app = Flask(__name__)
 

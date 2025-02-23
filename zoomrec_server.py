@@ -6,7 +6,7 @@ import atexit
 from datetime import datetime
 import debugpy
 
-DEBUG = True if os.getenv('DEBUG') == 'True' else False
+DEBUG = True if os.getenv('DEBUG','') == 'zoomrec_server' else False
 
 if DEBUG:
     debugpy.listen(("0.0.0.0", 5679))
