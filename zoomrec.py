@@ -36,7 +36,7 @@ if DEBUG:
 pyautogui.FAILSAFE = False
 
 # Get vars
-BASE_PATH = os.getenv('HOME')
+BASE_PATH = os.getenv('ZOOMREC_HOME')
 IMG_PATH = os.path.join(BASE_PATH, "img")
 REC_PATH = os.path.join(BASE_PATH, "recordings")
 AUDIO_PATH = os.path.join(BASE_PATH, "audio")

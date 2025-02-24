@@ -249,7 +249,16 @@ class Events(ABC):
             rrule_string = event[EventField.RRULE.value]
             dtfrom = dtfrom if dtfrom else dtstart
             rule = rrulestr(rrule_string, dtstart=dtfrom)
-            dtstart_list = [dt for dt in rule]
+            # for some reason the first date is not included in the rule (despite the inc=True)
+            if dtstart >= dtfrom:
+                dtstart_list = [dtstart]
+            else:
+                dtstart_list = []
+            # Generate occurrences within a reasonable time frame
+            for dt in rule.between(dtstart, dtstart.replace(month=dtstart.month + 1), inc=True):
+                dt = dt.replace(hour=dtstart.hour, minute=dtstart.minute, second=dtstart.second, microsecond=dtstart.microsecond, tzinfo=dtstart.tzinfo)
+                if dt >= dtfrom: # only include occurrences from the future
+                    dtstart_list.append(dt)
         else:
             dtstart_list = [dtstart]
         return dtstart_list

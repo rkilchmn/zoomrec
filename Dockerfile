@@ -1,6 +1,7 @@
 FROM ubuntu:24.04
 
 ENV HOME=/home/zoomrec \
+    ZOOMREC_HOME=/home/zoomrec \
     TZ=Europe/Berlin \
     TERM=xfce4-terminal \
     START_DIR=/start \
@@ -106,15 +107,13 @@ RUN apt-get install --no-install-recommends -y \
         libqt5x11extras5
 
 # Install Zoom
-# Release notes: https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0068973
+# Linux Release notes: https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0061222
 # Zoom Software Quarterly Lifecycle Policy: https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0061130
-# Version 5.16.6(382) valid until August 3, 2024
-# wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.16.6.382/zoom_amd64.deb \
-# RUN wget -q -O zoom_amd64.deb https://zoom.us/client/latest/zoom_amd64.deb && \
-# RUN wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/6.2.6.2503/zoom_amd64.deb && \
-# wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/5.17.11.3835/zoom_amd64.deb && \
+# oldest non-depreciated (see lifecycle policy): https://cdn.zoom.us/prod/6.0.2.4680/zoom_amd64.deb
+# always latest: https://zoom.us/client/latest/zoom_amd64.deb
+# latest release (at time of writing): https://cdn.zoom.us/prod/6.3.10.7150/zoom_amd64.deb
 RUN apt-get update && \
-    wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/6.0.2.4680/zoom_amd64.deb && \
+    wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/6.3.10.7150/zoom_amd64.deb && \
     dpkg -i zoom_amd64.deb && \
     apt-get -f install -y && \
     rm -rf zoom_amd64.deb

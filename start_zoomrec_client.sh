@@ -48,6 +48,7 @@ if [[ "$2" == "$VAAPI" ]]; then
     -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
+    -p 5678:5678 \
     -p 5901:5901 \
     -p 137-138:137-138 \
     -p 445:445 \
@@ -59,7 +60,6 @@ if [[ "$2" == "$VAAPI" ]]; then
     -v /usr/lib/wsl:/usr/lib/wsl \
     --device=/dev/dxg \
     -e LD_LIBRARY_PATH=/usr/lib/wsl/lib \
-    -p 5678:5678 \
     --add-host=host.docker.internal:host-gateway \
     rkilchmn/zoomrec_client:latest
 
@@ -158,8 +158,7 @@ elif [[ "$2" == "$NVIDIA" ]]; then
     -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
-    -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
-    -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
+    -p 5678:5678 \
     -p 5901:5901 \
     -p 137-139:137-139 \
     -p 445:445 \
@@ -187,8 +186,7 @@ else
     -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
-    -v $ZOOMREC_HOME/meetings.csv:/home/zoomrec/meetings.csv \
-    -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
+    -p 5678:5678 \
     -p 5901:5901 \
     -p 137-139:137-139 \
     -p 445:445 \
