@@ -201,7 +201,7 @@ def start_bot():
                                     # lookup user by login
                                     user = None
                                     try:
-                                        user = get_user_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=[[UserField.LOGIN.value, '=', section['user_login']]])[0]
+                                        user = get_user_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=[[UserField.LOGIN.value, '=', type['user_login']]])[0]
                                     except Exception as error:
                                         logging.error( f"User {section['user_login']} not found.")
                                         continue
@@ -263,7 +263,7 @@ def start_bot():
                     logging.exception("An error occurred")  # Enhanced to include full stack trace
             
 if __name__ == "__main__":
-    if not (EMAIL_PASSWORD and IMAP_SERVER and IMAP_PORT and EMAIL_ADDRESS):
-        print("IMAP details missing. No IMAP email bot will be started!")
+    if not (EMAIL_PASSWORD and IMAP_SERVER and IMAP_PORT and EMAIL_ADDRESS and  SERVER_URL and SERVER_USERNAME and SERVER_PASSWORD):
+        print("IMAP details missing or API server details missing. Starting IMAP email bot failed!")
     else:
         start_bot()

@@ -566,7 +566,7 @@ def start_bot() -> None:
                 raise e
 
 if __name__ == "__main__":
-    if not TELEGRAM_BOT_TOKEN or not SERVER_URL or not SERVER_USERNAME or not SERVER_PASSWORD:
+    if not (TELEGRAM_BOT_TOKEN and SERVER_URL and SERVER_USERNAME and SERVER_PASSWORD):
         print("Telegram token, server URL, username, or password is missing. No Telegram bot will be started!")
     else:
         start_bot()

@@ -24,7 +24,7 @@ UC_CONNECTED_NOPOPUPS = 1
 #   - record joining
 #   - do not exit container on error
 #   - wait for debugger attach
-DEBUG = True if os.getenv('DEBUG') == 'True' else False
+DEBUG = True if os.getenv('DEBUG') == 'zoomrec' else False
 
 if DEBUG:
     debugpy.listen(("0.0.0.0", 5678))
