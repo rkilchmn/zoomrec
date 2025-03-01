@@ -1,0 +1,25 @@
+# logging/debugging
+LOG_LEVEL=DEBUG # Default is INFO, other option DEBUG, ERROR, WARNING
+# DEBUG= # which module to debug via debugpy attach on exposed docker port 5679: imap_bot,telegram_bot,zoomrec_server_app
+
+# directories
+ZOOMREC_HOME=/home/roger/zoomrec_home
+LOG_SUBDIR=logs # server log files under $ZOOMREC_HOME
+FIRMWARE_SUBDIR=firmware # ESP8266_zoomrec firmware updates via server
+
+# API server
+DOCKER_API_PORT=8081 # not required for docker but local testing
+SERVER_PORT=8081 # docker port exposed for API server
+SERVER_URL=http://localhost:$SERVER_PORT # not required for docker but local testing
+SERVER_USERNAME=myuser # API server username
+SERVER_PASSWORD=mypassword # API server password
+
+# IMAP bot to receive events via email
+IMAP_SERVER=<myimapserver>
+IMAP_PORT=143
+EMAIL_ADDRESS=<myemailaddress>
+EMAIL_PASSWORD=<mypassword>
+
+# telegram bot to display, create modify, delete events and users
+TELEGRAM_BOT_TOKEN=<mytelegrambot_token>
+

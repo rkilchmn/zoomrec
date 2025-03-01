@@ -557,13 +557,13 @@ def join(event):
     # Wait for zoom is started
     loop = True
     useCase = UC_CONNECTED_POPUPS # standard use case
-    while (loop):
+    while (True):
         if wrap( pyautogui.locateCenterOnScreen, os.path.join(IMG_PATH, img_name), confidence=0.9):
-            loop = False
+           break
         else:
            if wrap( pyautogui.locateCenterOnScreen, os.path.join(IMG_PATH, 'leave_red.png'), confidence=0.9):
-               loop = False
                useCase = UC_CONNECTED_NOPOPUPS
+               break
 
         logging.info("Zoom not ready yet!")
         time.sleep(1)
@@ -574,7 +574,7 @@ def join(event):
     if not join_by_url:
         joined = join_meeting_id(meet_id)
     else:
-        time.sleep(2)
+        # time.sleep(2)
         if useCase == UC_CONNECTED_NOPOPUPS:
             joined = True # there is popup to input display name or anything
         else:
@@ -724,7 +724,7 @@ def join(event):
                 os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
                 atexit.unregister(os.killpg)
             time.sleep(2)
-            join(event)
+            # join(event)
 
     # 'Say' something if path available (mounted)
     if os.path.exists(AUDIO_PATH):
