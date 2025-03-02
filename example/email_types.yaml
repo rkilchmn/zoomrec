@@ -1,0 +1,34 @@
+# remember escaping rules for regex: \ needs to be escaped as \\
+emails:
+  - type: "plain email"
+    user_login: "johndoe"
+    content_type: "text/html"
+    sections:
+      - section: "subject"
+        match_regex: "(Zoom\\s+link)"
+      - section: "body"
+        dtstart_regex: "(\\d{1,2}:\\d{2}[ap]m)"
+        dtstart_format: "%I:%M%p"
+        timezone_value: "Australia/Adelaide"
+        url_regex: "href=\"(https://.*zoom.us/\\S*)\""
+        title_regex: "You've booked in for (.*) for today at"
+        duration_value: "75"
+        instruction_value: "process=record,postprocess=test"
+        
+  - type: "zoom_ics"
+    user_login: "johndoe"
+    content_type: "text/calendar"
+    sections:
+      - section: "calendar"
+        dtstart_attribute: "begin"
+        timezone_attribute: "timezone"
+        timezone_mapping: |
+          {
+            "AUS Eastern Standard Time": "Australia/Sydney",
+            "America/New_York": "America/New_York"
+          }
+        url_attribute: "location"
+        instruction_value: "process=record,postprocess=test"
+        title_attribute: "name"
+        duration_attribute: "duration"
+        rrule_attribute: "rrule"
