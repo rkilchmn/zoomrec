@@ -41,7 +41,7 @@ Planned version 2 features: (note: features completed have only undergone basic 
    ./start_zoomrec.sh ~/zoomrec_home/config_server.txt ~/zoomrec_home/config_client.txt VAAPI
    ```
 
-   For VAAPI make sure the correct driver is specified in the config file:
+   For VAAPI make sure the correct driver is specified in the client config file:
 
    ```
     # VAAPI hardware acceleration 
