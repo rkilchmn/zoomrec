@@ -1,23 +1,20 @@
 graph TD
-    C[Client\nzoomrec.py] 
-    C -->|Call| EAc[Events API\nevents_api.py]
+    C[Client<br>zoomrec.py] 
+    C -->|Call| EAc[Events API<br>events_api.py]
     EAc -->|HTTP| A
-    S[Server\nzoomrec_server.py] 
-    S -->|Start| A[Gunicorn API Server\nzoomrec_server_app.py]
-    A -->|Call| E[Events\nevents.py]
-    A -->|Call| U[Users\nusers.py]
-    E -->|Use| DB[SQL Database\nSQLite]
-    U -->|Use| DB[SQL Database\nSQLite]
-    S -->|Start| I[Create events from email\nimap_bot.py]
-    S -->|Start| T[Manage events and users\ntelegram_bot.py]
-    I -->|Call| EAi[Events API\nevents_api.py]
-    I -->|Call| UAi[Users API\nusers_api.py]
+    S[Server<br>zoomrec_server.py] 
+    S -->|Start| A[Gunicorn API Server<br>zoomrec_server_app.py]
+    A -->|Call| E[Events<br>events.py]
+    A -->|Call| U[Users<br>users.py]
+    E -->|Use| DB[SQL Database<br>SQLite]
+    U -->|Use| DB[SQL Database<br>SQLite]
+    S -->|Start| I[Create events from email<br>imap_bot.py]
+    S -->|Start| T[Manage events and users<br>telegram_bot.py]
+    I -->|Call| EAi[Events API<br>events_api.py]
+    I -->|Call| UAi[Users API<br>users_api.py]
     EAi -->|HTTP| A
     UAi -->|HTTP| A
-    T -->|Call| EAt[Events API\nevents_api.py]
-    T -->|Call| UAt[Users API\nusers_api.py]
+    T -->|Call| EAt[Events API<br>events_api.py]
+    T -->|Call| UAt[Users API<br>users_api.py]
     EAt -->|HTTP| A
     UAt -->|HTTP| A
-
-   
-
