@@ -1,9 +1,7 @@
 graph TD
     C[Client\nzoomrec.py] 
     C -->|Call| EAc[Events API\nevents_api.py]
-    C -->|Call| UAc[Users API\nusers_api.py]
     EAc -->|HTTP| A
-    UAc -->|HTTP| A
     S[Server\nzoomrec_server.py] 
     S -->|Start| A[Gunicorn API Server\nzoomrec_server_app.py]
     A -->|Call| E[Events\nevents.py]
@@ -11,7 +9,7 @@ graph TD
     E -->|Use| DB[SQL Database\nSQLite]
     U -->|Use| DB[SQL Database\nSQLite]
     S -->|Start| I[Create events from email\nimap_bot.py]
-    S -->|Start| T[Display events and users\ntelegram_bot.py]
+    S -->|Start| T[Manage events and users\ntelegram_bot.py]
     I -->|Call| EAi[Events API\nevents_api.py]
     I -->|Call| UAi[Users API\nusers_api.py]
     EAi -->|HTTP| A
