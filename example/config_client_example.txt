@@ -1,11 +1,11 @@
 CLIENT_ID=550e8400-e29b-41d4-a716-446655440000
-ZOOMREC_HOME=/home/<myuser>/zoomrec_home
+ZOOMREC_HOME=~/zoomrec_home
 DISPLAY_NAME=TestMachine
 LEAD_TIME_SEC=60
 TRAIL_TIME_SEC=300
 
 # logging/debugging
-LOG_LEVEL=
+LOG_LEVEL=WARNING
 #DEBUG=zoomrec # which module to debug via debugpy attach on exposed docker port 5678: zoomrec
 
 # API server

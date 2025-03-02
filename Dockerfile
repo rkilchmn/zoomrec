@@ -113,7 +113,7 @@ RUN apt-get install --no-install-recommends -y \
 # always latest: https://zoom.us/client/latest/zoom_amd64.deb
 # latest release (at time of writing): https://cdn.zoom.us/prod/6.3.10.7150/zoom_amd64.deb
 RUN apt-get update && \
-    wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/6.3.10.7150/zoom_amd64.deb && \
+    wget -q -O zoom_amd64.deb https://cdn.zoom.us/prod/6.0.2.4680/zoom_amd64.deb && \
     dpkg -i zoom_amd64.deb && \
     apt-get -f install -y && \
     rm -rf zoom_amd64.deb

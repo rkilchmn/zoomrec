@@ -1,9 +1,9 @@
 # logging/debugging
-LOG_LEVEL=DEBUG # Default is INFO, other option DEBUG, ERROR, WARNING
-# DEBUG= # which module to debug via debugpy attach on exposed docker port 5679: imap_bot,telegram_bot,zoomrec_server_app
+LOG_LEVEL=WARNING # Default is INFO, other option DEBUG, ERROR, WARNING
+# DEBUG=zoomrec_server_app # which module to debug via debugpy attach on exposed docker port 5679: imap_bot,telegram_bot,zoomrec_server_app
 
 # directories
-ZOOMREC_HOME=/home/roger/zoomrec_home
+ZOOMREC_HOME=~/zoomrec_home
 LOG_SUBDIR=logs # server log files under $ZOOMREC_HOME
 FIRMWARE_SUBDIR=firmware # ESP8266_zoomrec firmware updates via server
 
