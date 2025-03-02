@@ -49,7 +49,16 @@ Planned version 2 features: (note: features completed have only undergone basic 
     # LIBVA_DRIVER_NAME=i965 # older ivy bridge intel iGPU supports x264 
    ```
 
-## Architecture Diagram
+## Architecture
+
+## Principles and Guidelines
+
+* All modules retrieve the required paramters via environment variables which are either passed to the docker container or set via VS launch file when debugging/testing,
+* user and event instances are dictonaries with defined keys (class EventField and UserField)
+* Interacting with events and users only through the API server. This ensures that there is a central state change control and this is also used to generate state change messages to the owners of the respective object. No direct use of events.py and users.py - always call API server. There are API wrapper modules events_api.py and users_api.py for convenience, where all complexity with http request/response is hidden away.
+* All date/time is expressed in the events local timezone.
+
+## Diagram
 
 ```mermaid
 graph TD
