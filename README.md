@@ -3,7 +3,7 @@
 Zoomrec V2 is a partial re-write/enhancement over [kastldratza/zoomrec](https://github.com/kastldratza/zoomrec) which uses a client/server architecture and hence a client and a server docker container:
 
 * Server: manages events (currently Zoom Meetings) and users (an event is always linked to a user). There are 2 new functionalities supported by the server:
-  1. A IMAP bot that monitors an email address and can create events e.g. from the emails sent by zoom using a configuration file[**example/email_types_example.yaml**](**example/email_types_example**)(). Recurring meetings are supported (RRule)
+  1. A IMAP bot that monitors an email address and can create events e.g. from the emails sent by zoom using a configuration file [**example/email_types_example.yaml**](**example/email_types_example**). Recurring meetings are supported (RRule)
   2. A text based Telegram bot to manage (CRUD - create,retrieve,update and delete) events and users. Make sure to get a TELEGRAM BOT token and add it to the server config
 * Client: retrieving events and recording them. Multiple clients can connect to a server. Once a meeting has started, the meeting gets assigned to client that was joining.
 
