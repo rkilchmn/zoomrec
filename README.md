@@ -1,4 +1,4 @@
-# Zoomrec V2
+# Zoomrec V2 (still alpha)
 
 Zoomrec V2 is a partial re-write/enhancement over [kastldratza/zoomrec](https://github.com/kastldratza/zoomrec) which uses a client/server architecture and hence a client and a server docker container:
 
