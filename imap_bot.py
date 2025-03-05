@@ -81,16 +81,19 @@ def start_bot():
                     body = {}
                     for part in msg.walk():
                         content_type = part.get_content_type()
-                        if part.get_content_type() == CONTENT_TYPE_PLAIN:
-                            body[CONTENT_TYPE_PLAIN] = part.get_payload(decode=True).decode('utf-8')
-                        elif part.get_content_type() == CONTENT_TYPE_HTML:
-                            # nescape special HTML codes such as &amp; etc
-                            body[CONTENT_TYPE_HTML]  = html.unescape(part.get_payload(decode=True).decode('utf-8'))
-                        elif part.get_content_type() == CONTENT_TYPE_CALENDAR:
-                            vcalendar = part.get_payload(decode=True).decode('utf-8')
+                        try:
+                            if part.get_content_type() == CONTENT_TYPE_PLAIN:
+                                body[CONTENT_TYPE_PLAIN] = part.get_payload(decode=True).decode('utf-8')
+                            elif part.get_content_type() == CONTENT_TYPE_HTML:
+                                # unescape special HTML codes such as &amp; etc
+                                body[CONTENT_TYPE_HTML]  = html.unescape(part.get_payload(decode=True).decode('utf-8'))
+                            elif part.get_content_type() == CONTENT_TYPE_CALENDAR:
+                                vcalendar = part.get_payload(decode=True).decode('utf-8')
                             # Parse the vCalendar data
                             calendar = Calendar(vcalendar)
                             body[CONTENT_TYPE_CALENDAR] = calendar
+                        except:
+                            logging.error(f"Error decoding email {msg_id} - {subject} - {content_type}")
 
                     # html can be converted to plain if required
                     if type['content_type'] == CONTENT_TYPE_PLAIN and CONTENT_TYPE_HTML in body:
