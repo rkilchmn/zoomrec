@@ -58,11 +58,11 @@ CMD_INFO = "info"
 CMD_HELP = "help"
 
 # sample requests for events
-EXAMPLE_ADD_EVENT1   = f"/{CMD_ADD_EVENT} important_meeting johndoe 31/12/2025 14:00 America/New_York 60 123456789 mymeetingpassword"
-EXAMPLE_ADD_EVENT2   = f"/{CMD_ADD_EVENT} new_year_time_square johndoe 31/12/2025 23:45 America/New_York 60 https://zoom.us/123 record,transcribe"
-EXAMPLE_LIST_EVENT     = f"/{CMD_LIST_EVENT} new_year_time_square"
-EXAMPLE_MODIFY_EVENT   = f"/{CMD_MODIFY_EVENT} 2 title harbour_bridge timezone Australia/Sydney time 23:55"
-EXAMPLE_DELETE_EVENT   = f"/{CMD_DELETE_EVENT} harbour_bridge"
+EXAMPLE_ADD_EVENT1   = f'/{CMD_ADD_EVENT} "important meeting" johndoe 31/12/2025 14:00 America/New_York 60 123456789 mymeetingpassword'
+EXAMPLE_ADD_EVENT2   = f'/{CMD_ADD_EVENT} "new year time square" johndoe 31/12/2025 23:45 America/New_York 60 "https://zoom.us/123" "record,transcribe"'
+EXAMPLE_LIST_EVENT     = f'/{CMD_LIST_EVENT} "new year time square"'
+EXAMPLE_MODIFY_EVENT   = f'/{CMD_MODIFY_EVENT} 2 title "harbour bridge" timezone Australia/Sydney time 23:55'
+EXAMPLE_DELETE_EVENT   = f'/{CMD_DELETE_EVENT} "harbour bridge"'
 
 # Usage help for event commands
 USAGE_ADD_EVENT =       f"/{CMD_ADD_EVENT} <title> <user login> <date> <time> <timezone> <duration> <id/url> [required with id: <password>] [optional instruction, default is 'record': <record,transcribe,upload>]\n" + \
@@ -76,10 +76,10 @@ USAGE_DELETE_EVENT =    f"/{CMD_DELETE_EVENT} <index or search term>. Note: sear
                         f"example:{EXAMPLE_DELETE_EVENT}"
 
 # sample requests for events
-EXAMPLE_ADD_USER     = f"/{CMD_ADD_USER} JohnDoe johndoe securepassword john.doe@example.com 1"
-EXAMPLE_LIST_USER    = f"/{CMD_LIST_USER} johndoe"
-EXAMPLE_MODIFY_USER  = f"/{CMD_MODIFY_USER} 1 name John-Doe"
-EXAMPLE_DELETE_USER  = f"/{CMD_DELETE_USER} johndoe"
+EXAMPLE_ADD_USER     = f'/{CMD_ADD_USER} "John Doe" johndoe securepassword "john.doe@example.com" 1'
+EXAMPLE_LIST_USER    = f'/{CMD_LIST_USER} johndoe'
+EXAMPLE_MODIFY_USER  = f'/{CMD_MODIFY_USER} 1 name "Johnathon Doe"'
+EXAMPLE_DELETE_USER  = f'/{CMD_DELETE_USER} johndoe'
 
 # Usage help for user commands
 USAGE_ADD_USER =    f"/{CMD_ADD_USER} <name> <login> <password> [optional: <email> <role>]\n" + \
@@ -94,12 +94,45 @@ USAGE_DELETE_USER = f"/{CMD_DELETE_USER} <index>\n" + \
 # Usage help for other commands
 USAGE_INFO = f"/{CMD_INFO} - return some session info such as the chat id"
 
+def parse_quoted_args(args):
+    """Parse command arguments that may contain quoted strings.
+    Returns a list of arguments where quoted strings are treated as single arguments."""
+    result = []
+    current_arg = []
+    in_quotes = False
+    quote_char = None
+    
+    for arg in args:
+        # Check if arg starts with a quote
+        if not in_quotes and (arg.startswith('"') or arg.startswith("'")):
+            in_quotes = True
+            quote_char = arg[0]
+            current_arg = [arg[1:]]  # Remove starting quote
+        # Check if arg ends with the same quote type
+        elif in_quotes and arg.endswith(quote_char):
+            current_arg.append(arg[:-1])  # Remove ending quote
+            result.append(' '.join(current_arg))
+            in_quotes = False
+            current_arg = []
+        # If we're in a quoted string, add to current argument
+        elif in_quotes:
+            current_arg.append(arg)
+        # Regular argument
+        else:
+            result.append(arg)
+    
+    # Handle unclosed quotes by joining remaining args
+    if in_quotes:
+        result.append(' '.join(current_arg))
+    
+    return result
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Sends explanation on how to use the bot."""
     await update.message.reply_text(f"Hi! Use /{CMD_ADD_EVENT} to add a new event, /{CMD_LIST_EVENT} to list events. For further commands and information use /help.")
 
 async def list_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    args = context.args
+    args = parse_quoted_args(context.args)
     if len(args) > 1:
         await update.message.reply_text("Usage: " + USAGE_LIST_EVENT)
         return
@@ -152,7 +185,7 @@ async def list_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     await update.message.reply_text(output)
 
 async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    args = context.args
+    args = parse_quoted_args(context.args)
     if len(args) < 7:
         await update.message.reply_text("Usage: " + USAGE_ADD_EVENT)
         return
@@ -240,7 +273,8 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 await update.message.reply_text(f"Error: {str(error)}")
                 return
 
-        if len(context.args) < 3 or len(context.args) % 2 != 1:
+        args = parse_quoted_args(context.args)
+        if len(args) < 3 or len(args) % 2 != 1:
             await update.message.reply_text("Usage: " + USAGE_MODIFY_EVENT)
             return
 
@@ -248,9 +282,9 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         new_date = None
         new_time = None
         target_event = events_list[target_index]
-        for i in range(1, len(context.args), 2):
-            attribute_name = context.args[i]
-            new_attribute_value = context.args[i + 1]
+        for i in range(1, len(args), 2):
+            attribute_name = args[i]
+            new_attribute_value = args[i + 1]
 
             if attribute_name.lower() == "date":
                 new_date = new_attribute_value
@@ -340,7 +374,7 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 # User management commands
 async def add_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    args = context.args
+    args = parse_quoted_args(context.args)
     if len(args) < 3:
         await update.message.reply_text("Usage: " + USAGE_ADD_USER)
         return
@@ -395,10 +429,11 @@ async def modify_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 await update.message.reply_text(f"Error: {str(error)}")
                 return
 
+        args = parse_quoted_args(context.args)
         target_user = user_list[target_index]
-        for i in range(1, len(context.args), 2):
-            attribute_name = context.args[i]
-            new_attribute_value = context.args[i + 1]
+        for i in range(1, len(args), 2):
+            attribute_name = args[i]
+            new_attribute_value = args[i + 1]
             if attribute_name.lower() not in target_user:
                 await update.message.reply_text(f"Attribute '{attribute_name}' not found in user")
                 return
@@ -457,7 +492,7 @@ async def delete_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text(f"Error: {str(e)}")
 
 async def list_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    args = context.args
+    args = parse_quoted_args(context.args)
     if len(args) > 1:
         await update.message.reply_text("Usage: " + USAGE_LIST_USER)
         return
@@ -476,7 +511,7 @@ async def list_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if len(args) == 1:  # page or search term
         try:
-            current_page = int(context.args[0])
+            current_page = int(args[0])
         except ValueError:
             # not an integer -> search term
             # Call the find method to get the indices of the users
