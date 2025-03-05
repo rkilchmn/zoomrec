@@ -57,6 +57,9 @@ class Users(ABC):
         pass
 
     @staticmethod
+    def nameStr(user):
+        return f"User '{user[UserField.NAME.value]}' with key: '{user[UserField.KEY.value]}'"
+    
     def get_messenger_attribute(messenger_attribute: MessengerAttribute, user):
         if UserField.MESSENGER.value in user:
             entries = user[UserField.MESSENGER.value].split(INTERNAL_DELIMITER)

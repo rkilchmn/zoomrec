@@ -202,7 +202,7 @@ async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         created_event = events_api.create_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
-        await update.message.reply_text(f"Created event with title '{created_event[EventField.TITLE.value]}' and key '{created_event[EventField.KEY.value]}'")
+        await update.message.reply_text(f"Created {Events.nameStr(created_event)}")
     except Exception as error:
         await update.message.reply_text(f"Error adding event: {error}")
 
@@ -287,7 +287,7 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         try:
             events_api.update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, target_event)
-            await update.message.reply_text(f"Attributes successfully modified for event '{target_event[EventField.TITLE.value]}' with index {target_index + 1}")
+            await update.message.reply_text(f"Attributes successfully modified for {Events.nameStr(target_event)} with index {target_index + 1}")
         except Exception as error:
             await update.message.reply_text(f"Error updating event: {error}")
 
@@ -331,7 +331,7 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         try:
             target_event = events_list[target_index]
             events_api.delete_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, target_event[EventField.KEY.value])
-            await update.message.reply_text(f"Event '{target_event[EventField.TITLE.value]}' with index {target_index + 1} successfully deleted")
+            await update.message.reply_text(f"Deleted {Events.nameStr(target_event)} successfully")
         except Exception as error:
             await update.message.reply_text(f"Error deleting event: {error}")
 
@@ -358,7 +358,7 @@ async def add_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         created_user = users_api.create_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, user)
-        await update.message.reply_text(f"Created user with name '{created_user[UserField.NAME.value]}' and key '{created_user[UserField.NAME.value]}'.")
+        await update.message.reply_text(f"Created {Users.nameStr(created_user)}")
     except Exception as error:
         await update.message.reply_text(f"Error adding user: {error}")
 
@@ -406,7 +406,7 @@ async def modify_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
         try:
             users_api.update_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, target_user)
-            await update.message.reply_text(f"Attributes successfully modified for user '{target_user[UserField.NAME.value]}' with index {target_index + 1}")
+            await update.message.reply_text(f"Attributes successfully modified for {Users.nameStr(target_user)} with index {target_index + 1}")
         except Exception as error:
             await update.message.reply_text(f"Error updating user: {error}")
 
@@ -449,7 +449,7 @@ async def delete_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         target_user = user_list[target_index]
         try:
             users_api.delete_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, target_user[UserField.KEY.value])
-            await update.message.reply_text(f"Deleted user '{target_user[UserField.NAME.value]}' with index {target_index + 1}.")
+            await update.message.reply_text(f"Deleted {Users.nameStr(target_user)} with index {target_index + 1}.")
         except Exception as error:
             await update.message.reply_text(f"Error deleting user: {error}")
 
