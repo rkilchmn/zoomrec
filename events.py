@@ -125,6 +125,10 @@ class Events(ABC):
         return datetime.now(ZoneInfo(event[EventField.TIMEZONE.value]))
 
     @staticmethod
+    def nameStr(event):
+        return f"Event '{event[EventField.TITLE.value]}' with key: '{event[EventField.KEY.value]}'"
+
+    @staticmethod
     def find_next(events, leadInSecs=0, leadOutSecs=0):
 
         next_event = None

@@ -509,8 +509,15 @@ def start_recording(filename):
 def join(event):
     global VIDEO_PANEL_HIDED
     
-    if int(event[EventField.STATUS.value]) == int(EventStatus.SCHEDULED.value) and not event[EventField.ASSIGNED.value]:
-        event[EventField.ASSIGNED.value] = CLIENT_ID
+    if int(event[EventField.STATUS.value]) == int(EventStatus.SCHEDULED.value):
+        if not event[EventField.ASSIGNED.value]:
+            event[EventField.ASSIGNED.value] = CLIENT_ID
+        elif event[EventField.ASSIGNED.value] != CLIENT_ID:
+            logging.warning(f"{Events.nameStr(event)} already assigned to another client: '{event[EventField.ASSIGNED.value]}'")
+            return
+        else:
+            logging.info(f"{Events.nameStr(event)} already assigned to client: '{event[EventField.ASSIGNED.value]}'")
+
         event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
         try:
             update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
@@ -733,66 +740,66 @@ def join(event):
     time.sleep(2)
     logging.info("DoubleClick for Fullscreen..")
     pyautogui.doubleClick(x=10, y=200, interval=0.1)
-    time.sleep(2)
-    logging.info("Enter fullscreen..")
-    show_toolbars()
-    try:
-        x, y = wrap( pyautogui.locateCenterOnScreen, 
-            os.path.join(IMG_PATH, 'view.png'), confidence=0.9)
-        pyautogui.click(x, y)
-    except TypeError:
-        logging.error("Could not find view!")
-        if logging.getLogger().level == logging.DEBUG:
-            pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                TIME_FORMAT) + "-" + description) + "_view_error.png")
+    # time.sleep(2)
+    # logging.info("Enter fullscreen..")
+    # # show_toolbars()
+    # try:
+    #     x, y = wrap( pyautogui.locateCenterOnScreen, 
+    #         os.path.join(IMG_PATH, 'view.png'), confidence=0.9)
+    #     pyautogui.click(x, y)
+    # except TypeError:
+    #     logging.error("Could not find view!")
+    #     if logging.getLogger().level == logging.DEBUG:
+    #         pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
+    #             TIME_FORMAT) + "-" + description) + "_view_error.png")
 
-    time.sleep(2)
+    # time.sleep(2)
 
-    fullscreen = False
-    try:
-        x, y = wrap( pyautogui.locateCenterOnScreen, 
-            os.path.join(IMG_PATH, 'fullscreen.png'), confidence=0.9)
-        pyautogui.click(x, y)
-        fullscreen = True
-    except TypeError:
-        logging.error("Could not find fullscreen!")
-        if logging.getLogger().level == logging.DEBUG:
-            pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                TIME_FORMAT) + "-" + description) + "_fullscreen_error.png")
+    # fullscreen = False
+    # try:
+    #     x, y = wrap( pyautogui.locateCenterOnScreen, 
+    #         os.path.join(IMG_PATH, 'fullscreen.png'), confidence=0.9)
+    #     pyautogui.click(x, y)
+    #     fullscreen = True
+    # except TypeError:
+    #     logging.error("Could not find fullscreen!")
+    #     if logging.getLogger().level == logging.DEBUG:
+    #         pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
+    #             TIME_FORMAT) + "-" + description) + "_fullscreen_error.png")
 
-    # TODO: Check for 'Exit Full Screen': already fullscreen -> fullscreen = True
+    # # TODO: Check for 'Exit Full Screen': already fullscreen -> fullscreen = True
 
-    # Screensharing already active
-    if not fullscreen:
-        try:
-            x, y = wrap( pyautogui.locateCenterOnScreen, os.path.join(
-                IMG_PATH, 'view_options.png'), confidence=0.9)
-            pyautogui.click(x, y)
-        except TypeError:
-            logging.error("Could not find view options!")
-            if logging.getLogger().level == logging.DEBUG:
-                pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                    TIME_FORMAT) + "-" + description) + "_view_options_error.png")
+    # # Screensharing already active
+    # if not fullscreen:
+    #     try:
+    #         x, y = wrap( pyautogui.locateCenterOnScreen, os.path.join(
+    #             IMG_PATH, 'view_options.png'), confidence=0.9)
+    #         pyautogui.click(x, y)
+    #     except TypeError:
+    #         logging.error("Could not find view options!")
+    #         if logging.getLogger().level == logging.DEBUG:
+    #             pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
+    #                 TIME_FORMAT) + "-" + description) + "_view_options_error.png")
 
-        # Switch to fullscreen
-        # time.sleep(2)
-        # logging.info("DoubleClick for Fullscreen..")
-        # pyautogui.doubleClick(x=10, y=200, interval=0.1)
-        time.sleep(2)
-        show_toolbars()
+    #     # Switch to fullscreen
+    #     # time.sleep(2)
+    #     # logging.info("DoubleClick for Fullscreen..")
+    #     # pyautogui.doubleClick(x=10, y=200, interval=0.1)
+    #     time.sleep(2)
+    #     show_toolbars()
 
-        logging.info("Enter fullscreen..")
-        try:
-            x, y = wrap( pyautogui.locateCenterOnScreen, os.path.join(
-                IMG_PATH, 'enter_fullscreen.png'), confidence=0.9)
-            pyautogui.click(x, y)
-        except TypeError:
-            logging.error("Could not enter fullscreen by image!")
-            if logging.getLogger().level == logging.DEBUG:
-                pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                    TIME_FORMAT) + "-" + description) + "_enter_fullscreen_error.png")
+    #     logging.info("Enter fullscreen..")
+    #     try:
+    #         x, y = wrap( pyautogui.locateCenterOnScreen, os.path.join(
+    #             IMG_PATH, 'enter_fullscreen.png'), confidence=0.9)
+    #         pyautogui.click(x, y)
+    #     except TypeError:
+    #         logging.error("Could not enter fullscreen by image!")
+    #         if logging.getLogger().level == logging.DEBUG:
+    #             pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
+    #                 TIME_FORMAT) + "-" + description) + "_enter_fullscreen_error.png")
 
-        time.sleep(2)
+    #     time.sleep(2)
 
     # Screensharing not active
     screensharing_active = False
@@ -932,7 +939,10 @@ def join(event):
             postprocess_process.pid), signal.SIGQUIT)
         
         if postprocess_process:
-            logging.info("Starting postprocessing task...")
+            posprocessing_start = datetime.now()
+            txt = f"Started postprocessing task '{postprocess}'..."
+            logging.info(txt)
+            print(txt, end="\r", flush=True)
             event[EventField.STATUS.value] = EventStatus.POSTPROCESS.value
             event[EventField.ASSIGNED.value] = CLIENT_ID
             event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
@@ -942,7 +952,9 @@ def join(event):
                 logging.error(f"Error updating event: {e}")
 
             postprocess_process.wait()
-            logging.info("Postprocessing task completed.")
+            posprocessing_end = datetime.now()
+            postprocessing_duration = posprocessing_end - posprocessing_start
+            logging.info(f"Postprocessing task completed in {postprocessing_duration}")
 
         else:
             logging.error("Postprocessing script not found or not specified.")
