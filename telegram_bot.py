@@ -177,7 +177,7 @@ async def list_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     output = f"List of {total_events} event(s) (Page {current_page}/{(total_events-1)//PAGE_EVENTS + 1}):\n"
     for i, event in enumerate(events_to_display, start=start_index):
         index = target_indices[i]
-        output += f"Event {index+1}:\n"
+        output += f"\nEvent {index+1}:\n"
 
         for field in EventField:  # Iterate over EventField to maintain order
             output += f"  {field.value}: {event[field.value]}\n"

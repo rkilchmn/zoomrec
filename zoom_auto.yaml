@@ -1,0 +1,99 @@
+# enter display name in join popup 
+join_popup_with_name: &join_popup_with_name
+  locate_image: 
+    image: 'please_enter_your_name.png'
+    click: "True"  # default is "False"
+    iterate: 60 # zoom is starting, give it some time for this first popoup, default is 1
+    sleep: 1       # default is 0
+    on_success:
+      keyboard_input: 
+        sequence:
+          - hotkey: "['ctrl', 'a']"
+          # Input display name
+          - write: "{{DISPLAY_NAME}}"  
+          # Configure Settings
+          - press: 'tab'
+          - press: 'space'
+          - press: 'tab'
+          - press: 'space'
+          - press: 'tab'
+          - press: 'space'
+
+# leave audio and video settings without changes
+join_popup_audio_video_settings: &join_popup_audio_video_settings
+  locate_image: 
+    image: 'custom_audio_combination.png'
+    iterate: 30 # default is 1
+    sleep: 1      # default is 0
+    on_success:
+      keyboard_input: 
+        sequence:
+          - press: 'tab'
+          - press: 'tab'
+          - press: 'tab'
+          - press: 'tab'
+          - press: 'tab'
+          - press: 'tab'
+          - press: 'enter'
+
+# check if joining completed showing the "zoom workplace"
+check_workplace: &check_workplace
+  locate_image: 
+    image: 'zoom_workplace_joined.png'
+    iterate: 20
+    sleep: 1
+
+# check if waiting for host
+waiting_for_host: &waiting_for_host
+  locate_image: 
+    image: 'waiting_for_host_to_start_meeting.png'
+    on_failure: "True" # if image is not found, it means the meeting has started
+    on_success: # image found, waiting for host to start
+      locate_image:
+        image: 'waiting_for_host_to_start_meeting.png'
+        iterate: 600         # wait for 10 minutes
+        until_found: 'False' # until image not found anymore/meeting started (success) or until max interation reached/timeout (failure),  default is 'True'
+        sleep: 1
+
+# click on view options fullscreen
+view_option_fullscreen: &view_option_fullscreen
+  locate_image: 
+    image: 'view_options.png'
+    click: "True"    # default is "False"
+    on_error: "True" # continue even if not found, default is "False"
+    on_success: 
+      locate_image: 
+        image: 'view_options_fullscreen.png'
+        iterate: 2    # options menu is sliding in, so first iteration may not be there or final position
+        sleep: 1         # delays next iteration by 1 sec 
+        click: "True"      # default is "False"
+        on_success: "True" # default is "True", but explicit here for clarity
+        on_error: "True"   # continue even if not found, default is "False"
+    
+# click on view options speaker view
+view_option_speaker: &view_option_speaker
+  locate_image: 
+    image: 'view_options.png'
+    click: "True"    # default is "False"
+    on_error: "True" # continue even if not found, default is "False"
+    on_success: 
+      locate_image: 
+        image: 'view_options_speaker.png'
+        iterate: 2    # options menu is sliding in, so first iteration may not be there or final position
+        sleep: 1         # delays next iteration by 1 sec
+        click: "True"      # default is "False"
+        on_success: "True" # default is "True", but explicit here for clarity
+        on_error: "True"   # continue even if not found, default is "False"
+    
+
+join:
+  - *join_popup_with_name
+  - *join_popup_audio_video_settings
+  - *check_workplace
+  - *waiting_for_host
+  - *view_option_speaker
+  - *view_option_fullscreen
+
+ongoing:
+  - *check_workplace
+
