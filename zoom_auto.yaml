@@ -87,6 +87,7 @@ view_option_speaker: &view_option_speaker
     
 
 join:
+  # list is processed from the top until a step returns false -> join failed, otherwie join successfull
   - *join_popup_with_name
   - *join_popup_audio_video_settings
   - *check_workplace
@@ -95,5 +96,6 @@ join:
   - *view_option_fullscreen
 
 ongoing:
+  # list is processed from the top until a step returns false -> meeting ended, otherwise meeting continues
   - *check_workplace
 
