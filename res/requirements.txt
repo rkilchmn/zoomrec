@@ -15,3 +15,5 @@ debugpy # only for debug inside docker
 python-dateutil
 # for postprocessing
 whisper-ctranslate2-remote-api
+# for password hashing
+bcrypt

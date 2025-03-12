@@ -36,6 +36,9 @@ def main():
     # Update the user
     print("Updating user...")
     user[UserField.NAME.value] = "Johnathan Doe"
+    user[UserField.PASSWORD.value] = "securepassword2"
+    user['password_old'] = new_user[UserField.PASSWORD.value]
+
     updated_user = update_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, user)
     if updated_user[UserField.NAME.value] != user[UserField.NAME.value]:
         raise Exception("User name not updated")

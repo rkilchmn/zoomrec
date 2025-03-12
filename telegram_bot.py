@@ -536,7 +536,7 @@ async def list_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     output = f"List of {total_users} user(s) (Page {current_page}/{(total_users-1)//PAGE_USERS + 1}):\n"
     for i, user in enumerate(users_to_display, start=start_index):
         index = target_indices[i]
-        output += f"User {index+1}:\n"
+        output += f"\nUser {index+1}:\n"
         for field in UserField:  # Iterate over EventField to maintain order
             output += f"  {field.value}: {user[field.value]}\n"
 

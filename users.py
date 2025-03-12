@@ -3,8 +3,8 @@ import shortuuid
 from enum import Enum
 from abc import ABC, abstractmethod
 from msg_telegram import send_telegram_message
-import constants
 from datetime import datetime
+import password
 
 # IMPORTANT: ordering needs to align with table create
 class UserField(Enum):
@@ -20,6 +20,9 @@ class UserField(Enum):
     ROLE = 'role'
     CREATED_TIMESTAMP = 'created_timestamp'
     LAST_UPDATED_TIMESTAMP = 'last_updated_timestamp'
+
+# required to update password
+PASSWORD_OLD = 'password_old'
 
 class UserRole:
     NORMAL = 1
@@ -94,6 +97,10 @@ class Users(ABC):
         for field in UserField:
             if field.value in user:
                 clean_user[field.value] = user[field.value]
+
+        # add PASSWORD_OLD
+        if PASSWORD_OLD in user:
+            clean_user[PASSWORD_OLD] = user[PASSWORD_OLD]
         return clean_user
     
     @staticmethod
@@ -175,6 +182,7 @@ class SQLLiteUser(Users):
 
     def create(self, user):
         user = Users.clean(user)
+        user[UserField.PASSWORD.value] = password.hash_password(user[UserField.PASSWORD.value])
         user = Users.set_missing_defaults(user)
         user[UserField.KEY.value] = shortuuid.uuid()
         user[UserField.CREATED_TIMESTAMP.value] = datetime.now()
@@ -235,6 +243,20 @@ class SQLLiteUser(Users):
 
     def update(self, user):
         user = Users.clean(user)
+        # password change requested
+        if UserField.PASSWORD.value in user:
+            # old password required and needs to authorize
+            existing_user = self.get(user[UserField.KEY.value])[0]
+            if PASSWORD_OLD in user and user[PASSWORD_OLD]:
+                if password.verify_password(user[PASSWORD_OLD], existing_user[UserField.PASSWORD.value]):
+                    user[UserField.PASSWORD.value] = password.hash_password(user[UserField.PASSWORD.value])
+                    # remove as it is not a database field
+                    del user[PASSWORD_OLD]
+                else:
+                    raise ValueError(f"Invalid '{PASSWORD_OLD}' for password update")
+            else:
+                raise ValueError(f"'{PASSWORD_OLD}' is required")
+
         user[UserField.LAST_UPDATED_TIMESTAMP.value] = datetime.now()
         user = Users.validate(user)
         old_user = self.get(user[UserField.KEY.value])
