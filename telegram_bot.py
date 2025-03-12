@@ -36,10 +36,10 @@ SERVER_USERNAME = os.getenv('SERVER_USERNAME')
 SERVER_PASSWORD = os.getenv('SERVER_PASSWORD')
 
 # Define the number of events per page
-PAGE_EVENTS = 10
+PAGE_EVENTS = 5
 
 # Define the number of users per page
-PAGE_USERS = 10
+PAGE_USERS = 5
 
 # Constants for event commands
 CMD_ADD_EVENT = "add_event"
