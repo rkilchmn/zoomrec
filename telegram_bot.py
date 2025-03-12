@@ -250,7 +250,8 @@ async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
-        if not context.args:
+        args = parse_quoted_args(context.args)
+        if not args:
             await update.message.reply_text("Usage: " + USAGE_MODIFY_EVENT)
             return
 
@@ -265,8 +266,8 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             return
 
         # Determine if the first argument is an index or a search term
-        if context.args[0].isdigit() and int(context.args[0]) <= 99:
-            index = int(context.args[0])
+        if args[0].isdigit() and int(args[0]) <= 99:
+            index = int(args[0])
             if index < 1 or index > len(events_list):
                 await update.message.reply_text(f"Index {index} is out of range. Please provide a valid index.")
                 return
@@ -274,7 +275,7 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         else:
             # Find target event to process using search term
             try:
-                target_indices = Events.find(context.args[0], events_list)
+                target_indices = Events.find(args[0], events_list)
                 if len(target_indices) != 1:
                     raise ValueError(f"Expected exactly 1 match, but found {len(target_indices)}. Please refine your search.")
                 target_index = target_indices[0]
@@ -282,7 +283,6 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 await update.message.reply_text(f"Error: {str(error)}")
                 return
 
-        args = parse_quoted_args(context.args)
         if len(args) < 3 or len(args) % 2 != 1:
             await update.message.reply_text("Usage: " + USAGE_MODIFY_EVENT)
             return
@@ -339,7 +339,8 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
-        if not context.args:
+        args = parse_quoted_args(context.args)
+        if not args:
             await update.message.reply_text("Usage: " + USAGE_DELETE_EVENT)
             return
 
@@ -354,8 +355,8 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             return
 
         # Determine if the first argument is an index or a search term
-        if context.args[0].isdigit() and int(context.args[0]) <= 99:
-            index = int(context.args[0])
+        if args[0].isdigit() and int(args[0]) <= 99:
+            index = int(args[0])
             if index < 1 or index > len(events_list):
                 await update.message.reply_text(f"Index {index} is out of range. Please provide a valid index.")
                 return
@@ -363,7 +364,7 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         else:
             # Find target event to process using search term
             try:
-                target_indices = Events.find(context.args[0], events_list)
+                target_indices = Events.find(args[0], events_list)
                 if len(target_indices) != 1:
                     raise ValueError(f"Expected exactly 1 match, but found {len(target_indices)}. Please refine your search.")
                 target_index = target_indices[0]
@@ -407,7 +408,8 @@ async def add_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def modify_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
-        if len(context.args) < 3 or len(context.args) % 2 != 1:
+        args = parse_quoted_args(context.args)
+        if len(args) < 3 or len(args) % 2 != 1:
             await update.message.reply_text("Usage: " + USAGE_MODIFY_USER)
             return
 
@@ -421,8 +423,8 @@ async def modify_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             return
 
         # Determine if the first argument is an index or a search term
-        if context.args[0].isdigit() and int(context.args[0]) <= 99:
-            index = int(context.args[0])
+        if args[0].isdigit() and int(args[0]) <= 99:
+            index = int(args[0])
             if index < 1 or index > len(user_list):
                 await update.message.reply_text(f"Index {index} is out of range. Please provide a valid index.")
                 return
@@ -430,7 +432,7 @@ async def modify_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         else:
             # Find target event to process using search term
             try:
-                target_indices = Users.find(context.args[0], user_list)
+                target_indices = Users.find(args[0], user_list)
                 if len(target_indices) != 1:
                     raise ValueError(f"Expected exactly 1 match, but found {len(target_indices)}. Please refine your search.")
                 target_index = target_indices[0]
@@ -438,7 +440,6 @@ async def modify_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 await update.message.reply_text(f"Error: {str(error)}")
                 return
 
-        args = parse_quoted_args(context.args)
         target_user = user_list[target_index]
         for i in range(1, len(args), 2):
             attribute_name = args[i]
@@ -459,7 +460,8 @@ async def modify_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 async def delete_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
-        if len(context.args) != 1:
+        args = parse_quoted_args(context.args)
+        if len(args) != 1:
             await update.message.reply_text("Usage: " + USAGE_DELETE_USER)
             return
 
@@ -473,8 +475,8 @@ async def delete_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             return
 
         # Determine if the first argument is an index or a search term
-        if context.args[0].isdigit() and int(context.args[0]) <= 99:
-            index = int(context.args[0])
+        if args[0].isdigit() and int(args[0]) <= 99:
+            index = int(args[0])
             if index < 1 or index > len(user_list):
                 await update.message.reply_text(f"Index {index} is out of range. Please provide a valid index.")
                 return
@@ -482,7 +484,7 @@ async def delete_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         else:
             # Find target event to process using search term
             try:
-                target_indices = Users.find(context.args[0], user_list)
+                target_indices = Users.find(args[0], user_list)
                 if len(target_indices) != 1:
                     raise ValueError(f"Expected exactly 1 match, but found {len(target_indices)}. Please refine your search.")
                 target_index = target_indices[0]
