@@ -97,29 +97,38 @@ USAGE_INFO = f"/{CMD_INFO} - return some session info such as the chat id"
 def parse_quoted_args(args):
     """Parse command arguments that may contain quoted strings.
     Returns a list of arguments where quoted strings are treated as single arguments."""
+
     result = []
-    current_arg = []
     in_quotes = False
-    quote_char = None
-    
+    quote_char = ""
+    current_arg = []
+
     for arg in args:
-        # Check if arg starts with a quote
         if not in_quotes and (arg.startswith('"') or arg.startswith("'")):
             in_quotes = True
             quote_char = arg[0]
-            current_arg = [arg[1:]]  # Remove starting quote
-        # Check if arg ends with the same quote type
-        elif in_quotes and arg.endswith(quote_char):
-            current_arg.append(arg[:-1])  # Remove ending quote
-            result.append(' '.join(current_arg))
-            in_quotes = False
-            current_arg = []
-        # If we're in a quoted string, add to current argument
+            if arg.endswith(quote_char) and len(arg) > 1:
+                # Handles cases where the argument is a single quoted string
+                result.append(arg[1:-1])
+                in_quotes = False
+            else:
+                current_arg.append(arg[1:])  # Remove starting quote
         elif in_quotes:
-            current_arg.append(arg)
-        # Regular argument
+            if arg.endswith(quote_char):
+                current_arg.append(arg[:-1])  # Remove ending quote
+                result.append(" ".join(current_arg))
+                in_quotes = False
+                current_arg = []
+            else:
+                current_arg.append(arg)
         else:
             result.append(arg)
+
+    # Handle unclosed quotes
+    if in_quotes:
+        result.append(" ".join(current_arg))
+
+    return result
     
     # Handle unclosed quotes by joining remaining args
     if in_quotes:
