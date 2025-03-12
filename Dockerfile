@@ -260,6 +260,7 @@ ADD msg_telegram.py ${HOME}/
 ADD constants.py ${HOME}/
 ADD utilities.py ${HOME}/
 ADD automation.py ${HOME}/
+ADD password.py ${HOME}/
 ADD res/img ${HOME}/img/
 ADD zoom_auto.yaml ${HOME}/
 

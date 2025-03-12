@@ -10,4 +10,5 @@ flask-basicauth
 python-dateutil
 shortuuid
 ics
+bcrypt
 debugpy

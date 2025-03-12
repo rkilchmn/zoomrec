@@ -33,6 +33,7 @@ COPY users.py ${HOME}/
 COPY users_api.py ${HOME}/
 COPY msg_telegram.py ${HOME}/
 COPY constants.py ${HOME}/
+COPY password.py ${HOME}/
 COPY zoomrec_server_app.yaml ${HOME}/
 
 
