@@ -229,10 +229,11 @@ def get_event(event_key=None):
             returned_events = events.get(event_key=event_key)
         else:
             returned_events = events.get(filters=filters)  # Pass the filters to the get method
-            if returned_events:
-                return jsonify(returned_events), 200 # sucesss, returning content
-            else:
-                return  jsonify({}), 204 # sucsess, but "204 No Content"
+            
+        if returned_events:
+            return jsonify(returned_events), 200 # sucesss, returning content
+        else:
+            return  jsonify({}), 204 # sucsess, but "204 No Content"
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
