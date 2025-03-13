@@ -4,7 +4,8 @@ join_popup_with_name: &join_popup_with_name
     image: 'please_enter_your_name.png'
     click: "True"  # default is "False"
     iterate: 60 # zoom is starting, give it some time for this first popoup, default is 1
-    sleep: 1       # default is 0
+    sleep: 1 # default is 0
+    on_failure: "True" # webinars don't show this popop, so continue
     on_success:
       keyboard_input: 
         sequence:
@@ -25,6 +26,7 @@ join_popup_audio_video_settings: &join_popup_audio_video_settings
     image: 'custom_audio_combination.png'
     iterate: 30 # default is 1
     sleep: 1      # default is 0
+    on_failure: "True" # webinars don't show this popop, so continue
     on_success:
       keyboard_input: 
         sequence:

@@ -111,7 +111,7 @@ class Automation:
             result = func(*args, **kwargs)
             return result
         except Exception as e:
-            logging.error(f"Error executing function: {e}")
+            logging.error(f"Error executing function: {func}{e}, args: {args}, kwargs: {kwargs}")
             return None
     
     def execute_locate_image(self, locate_image, variables=None):

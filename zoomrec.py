@@ -159,7 +159,7 @@ def start_recording(filename):
     
     return subprocess_info
     
-def join(event):
+def join(event, start_window, end_window):
     global VIDEO_PANEL_HIDED
     
     if int(event[EventField.STATUS.value]) == int(EventStatus.SCHEDULED.value):
@@ -175,7 +175,7 @@ def join(event):
         try:
             update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
         except Exception as e:
-            logging.error(f"Error updating event: {e}")
+            logging.error(f"Error updating event: {e}", exc_info=True)
             return
 
     meet_id = event[EventField.ID.value]
@@ -184,7 +184,9 @@ def join(event):
     duration = int(event[EventField.DURATION.value]) * 60
     description = event[EventField.TITLE.value]
 
-    logging.info("Join meeting: " + description)
+    str = f"Joining meeting event with title: '{description}'"
+    logging.info(str)
+    print(str, end="\r", flush=True)
 
     ffmpeg_debug = None
     if logging.getLogger().level == logging.DEBUG:
@@ -251,21 +253,20 @@ def join(event):
         event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
         update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
     except Exception as e:
-        logging.error(f"Error updating event: {e}")
+        logging.error(f"Error updating event: {e}", exc_info=True)
 
-    start_date = datetime.now()
-    end_date = start_date + timedelta(seconds=duration + TRAIL_TIME_SEC) 
-        
+    now_in_tz = None
     meeting_running = True
     while meeting_running:
-        time_remaining = end_date - datetime.now()
-        if time_remaining.total_seconds() < 0 or not ONGOING_MEETING:
-            meeting_running = False
-        else:
+        now_in_tz = Events.now(event)
+        if (start_window <= now_in_tz <= end_window) and ONGOING_MEETING:
+            time_remaining = end_window - now_in_tz
             print(f"Meeting ends in {time_remaining}", end="\r", flush=True)
+        else:
+            meeting_running = False
         time.sleep(5)
 
-    logging.info("Meeting ends at %s" % datetime.now())
+    logging.info("Meeting ends at %s" % now_in_tz)
 
     os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
     os.killpg(os.getpgid(ffmpeg.pid), signal.SIGQUIT)
@@ -294,7 +295,7 @@ def join(event):
             try:
                 update_event_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
             except Exception as e:
-                logging.error(f"Error updating event: {e}")
+                logging.error(f"Error updating event: {e}", exc_info=True)
 
             postprocess_process.wait()
             posprocessing_end = datetime.now()
@@ -310,7 +311,7 @@ def join(event):
         event[EventField.ASSIGNED_TIMESTAMP.value] = ''
         update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
     except Exception as e:
-        logging.error(f"Error updating event: {e}")
+        logging.error(f"Error updating event: {e}", exc_info=True)
 
 def play_audio(description):
     # Get all files in audio directory
@@ -425,8 +426,7 @@ def main():
                                 max_end_window = end_window
                             
                             if start_window <= now_in_tz <= end_window:
-                                logging.info(f"Joining event {event[EventField.KEY.value]} title: '{event[EventField.TITLE.value]}'")
-                                join(event)
+                                join(event, start_window, end_window)
                                 break  # once we return monitoring will continue. One client can only join 1 event
                             elif start_window > now_in_tz and start_window < next_event_dtstart:
                                 next_event_dtstart = start_window
@@ -450,7 +450,7 @@ def main():
                     time.sleep(1)
                 
             except Exception as e:
-                logging.error(f"Monitoring error: {str(e)}")
+                logging.error(f"Monitoring error: {str(e)}", exc_info=True)
                 print(f"Monitoring error: {str(e)}")
 
     monitor_events()
