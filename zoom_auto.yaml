@@ -1,25 +1,3 @@
-# enter display name in join popup 
-join_popup_with_name: &join_popup_with_name
-  locate_image: 
-    image: 'please_enter_your_name.png'
-    click: "True"  # default is "False"
-    iterate: 60 # zoom is starting, give it some time for this first popoup, default is 1
-    sleep: 1 # default is 0
-    on_failure: "True" # webinars don't show this popop, so continue
-    on_success:
-      keyboard_input: 
-        sequence:
-          - hotkey: "['ctrl', 'a']"
-          # Input display name
-          - write: "{{DISPLAY_NAME}}"  
-          # Configure Settings
-          - press: 'tab'
-          - press: 'space'
-          - press: 'tab'
-          - press: 'space'
-          - press: 'tab'
-          - press: 'space'
-
 # leave audio and video settings without changes
 join_popup_audio_video_settings: &join_popup_audio_video_settings
   locate_image: 
@@ -38,6 +16,72 @@ join_popup_audio_video_settings: &join_popup_audio_video_settings
           - press: 'tab'
           - press: 'enter'
 
+# enter display name in join popup 
+join_popup_with_name: &join_popup_with_name
+  locate_image: 
+    image: 'please_enter_your_name.png'
+    click: "True"  # default is "False"
+    iterate: 60 # zoom is starting, give it some time for this first popoup, default is 1
+    sleep: 1 # default is 0
+    on_failure: "True" # webinars don't show this popop, so continue
+    on_success:
+      keyboard_input: 
+        sequence:
+          # Input display name
+          - write: "{{DISPLAY_NAME}}"  
+          # Configure Settings
+          - press: 'tab'
+          - press: 'space'
+          - press: 'tab'
+          - press: 'space'
+          - press: 'tab'
+          - press: 'space'
+
+join_popup_with_id: &join_popup_with_id
+  locate_image: 
+    image: 'join_meeting_button.png'
+    click: "True"  # default is "False"
+    iterate: 60  # default is 1
+    sleep: 1    # default is 0
+    on_failure: "True" # webinars don't show this popop, so continue
+    on_success:
+      locate_image: 
+        image: 'join_meeting_popup.png'
+        iterate: 2  # default is 1
+        sleep: 1    # default is 0
+        on_success:
+          keyboard_input: 
+            sequence:
+              # Insert Meeting ID
+              - press: 'tab'
+              - press: 'tab'
+              - write: "{{MEET_ID}}"
+              # Insert Name
+              - press: 'tab'
+              - write: "{{DISPLAY_NAME}}"
+              # Configure Settings
+              - press: 'tab'
+              - press: 'space'
+              - press: 'tab'
+              - press: 'tab'
+              - press: 'space'
+              - press: 'tab'
+              - press: 'tab'
+              - press: 'space'
+            on_success:
+              locate_image: 
+                image: 'enter_meeting_passcode.png'
+                iterate: 60  # waiting to connect, default is 1
+                sleep: 1     # default is 0
+                on_success:
+                  keyboard_input: 
+                    sequence:
+                      # Insert Passcode
+                      - write: "{{PASSWORD}}"
+                      - press: 'tab'
+                      - press: 'space' # enter/click button
+                    on_success: *join_popup_audio_video_settings
+                    
 # check if joining completed showing the "zoom workplace"
 check_workplace: &check_workplace
   locate_image: 
@@ -85,11 +129,11 @@ view_option_speaker: &view_option_speaker
         sleep: 1         # delays next iteration by 1 sec
         click: "True"      # default is "False"
         on_success: "True" # default is "True", but explicit here for clarity
-        on_error: "True"   # continue even if not found, default is "False"
-    
+        on_error: "True"   # continue even if not found, default is "False" 
 
 join:
   # list is processed from the top until a step returns false -> join failed, otherwie join successfull
+  - *join_popup_with_id
   - *join_popup_with_name
   - *join_popup_audio_video_settings
   - *check_workplace

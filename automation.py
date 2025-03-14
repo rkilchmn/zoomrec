@@ -111,7 +111,7 @@ class Automation:
             result = func(*args, **kwargs)
             return result
         except Exception as e:
-            logging.error(f"Error executing function: {func}{e}, args: {args}, kwargs: {kwargs}")
+            # logging.error(f"Error executing function: {func} args: {args}, kwargs: {kwargs}: {e}")
             return None
     
     def execute_locate_image(self, locate_image, variables=None):
@@ -209,56 +209,74 @@ class Automation:
             
         sequence = keyboard_input.get('sequence', [])
         
-        for action in sequence:
-            if 'press' in action:
-                key = self.process_template_vars(action['press'], variables)
-                pyautogui.press(key)
-                logging.debug(f"Pressed key: {key}")
+        success = False
+        try:
+            for action in sequence:
+                if 'press' in action:
+                    key = self.process_template_vars(action['press'], variables)
+                    pyautogui.press(key)
+                    logging.debug(f"Pressed key: '{key}'")
             
-            elif 'write' in action:
-                text = self.process_template_vars(action['write'], variables)
-                interval = action.get('interval', 0.1)  # Default interval
-                pyautogui.write(text, interval=interval)
-                logging.debug(f"Wrote text: {text}")
-            
-            elif 'hotkey' in action:
-                # Handle hotkey which can be in various formats
-                hotkey_data = action['hotkey']
+                elif 'write' in action:
+                    text = self.process_template_vars(action['write'], variables)
+                    interval = action.get('interval', 0.1)  # Default interval
+                    pyautogui.write(text, interval=interval)
+                    logging.debug(f"Wrote text: '{text}'")
                 
-                # Convert the hotkey data to a list of keys
-                if isinstance(hotkey_data, list):
-                    keys = [self.process_template_vars(k, variables) for k in hotkey_data]
-                else:
-                    # It's a string that needs parsing
-                    hotkey_str = self.process_template_vars(hotkey_data, variables)
+                elif 'hotkey' in action:
+                    # Handle hotkey which can be in various formats
+                    hotkey_data = action['hotkey']
                     
-                    # Clean up the string to extract keys (handles format like "['ctrl', 'a']")
-                    hotkey_str = hotkey_str.strip('[]')
-                    keys = []
-                    for k in hotkey_str.split(','):
-                        # Clean up each key
-                        clean_key = k.strip().strip('\'"')
-                        if clean_key:  # Only add non-empty keys
-                            keys.append(clean_key)
+                    # Convert the hotkey data to a list of keys
+                    if isinstance(hotkey_data, list):
+                        keys = [self.process_template_vars(k, variables) for k in hotkey_data]
+                    else:
+                        # It's a string that needs parsing
+                        hotkey_str = self.process_template_vars(hotkey_data, variables)
+                        
+                        # Clean up the string to extract keys (handles format like "['ctrl', 'a']")
+                        hotkey_str = hotkey_str.strip('[]')
+                        keys = []
+                        for k in hotkey_str.split(','):
+                            # Clean up each key
+                            clean_key = k.strip().strip('\'"')
+                            if clean_key:  # Only add non-empty keys
+                                keys.append(clean_key)
+                    
+                    # Execute the hotkey action
+                    if keys:
+                        pyautogui.hotkey(*keys)
+                        logging.debug(f"Pressed hotkey: '{keys}'")
                 
-                # Execute the hotkey action
-                if keys:
-                    pyautogui.hotkey(*keys)
-                    logging.debug(f"Pressed hotkey: {keys}")
-            
-            elif 'sleep' in action:
-                sleep_time = float(action['sleep'])
-                time.sleep(sleep_time)
-                logging.debug(f"Slept for {sleep_time} seconds")
-        
-        # Handle on_success
-        on_success = keyboard_input.get('on_success')
-        if on_success is not None:
-            if isinstance(on_success, str):
-                return self.str_to_bool(on_success)
-            elif isinstance(on_success, dict):
-                return self.execute_operation(on_success, variables)     
-        return True
+                elif 'sleep' in action:
+                    sleep_time = float(action['sleep'])
+                    time.sleep(sleep_time)
+                    logging.debug(f"Slept for {sleep_time} seconds")
+
+            success = True
+        except Exception as e:
+            logging.error(f"Error executing keyboard input: {e}", exc_info=True)
+            success = False
+
+        if success:
+            # Handle on_success
+            on_success = keyboard_input.get('on_success')
+            if on_success is not None:
+                if isinstance(on_success, str):
+                    return self.str_to_bool(on_success)
+                elif isinstance(on_success, dict):
+                    # If it's a dictionary, recursively process it
+                    return self.execute_operation(on_success, variables)
+            return True
+        else:
+            # Handle on_error or on_failure
+            on_error = keyboard_input.get('on_failure')
+            if on_error is not None:
+                if isinstance(on_error, str):
+                    return self.str_to_bool(on_error)
+                elif isinstance(on_error, dict):
+                    return self.execute_operation(on_error, variables)
+            return False
     
     def execute_operation(self, operation, variables=None):
         """
@@ -308,8 +326,10 @@ class Automation:
             variables = {}
         
         if instruction_name not in self.config:
-            logging.error(f"Instruction '{instruction_name}' not found in configuration")
+            logging.error(f"Instruction: '{instruction_name}' not found in configuration")
             return False
+
+        logging.debug(f"Start executing instruction: '{instruction_name}'")
         
         instruction_list = self.config[instruction_name]
         
@@ -317,16 +337,17 @@ class Automation:
         if isinstance(instruction_list, list):
             for instruction_item in instruction_list:
                 for operation_name, operation in instruction_item.items():
-                    logging.debug(f"Executing operation: {operation_name}")
+                    logging.debug(f"Executing operation: '{operation_name}'")
                     result = self.execute_operation({operation_name: operation}, variables)
                     
                     # If an operation returns False, stop processing
                     if result is False:
-                        logging.warning(f"Operation {operation_name} returned False, stopping execution")
-                        return False
+                        logging.warning(f"Operation: '{operation_name} 'returned False, stopping execution")
+                        break
         
         # If it's a dictionary, just execute it
         elif isinstance(instruction_list, dict):
-            return self.execute_operation(instruction_list, variables)
+            result = self.execute_operation(instruction_list, variables)
         
-        return True
+        logging.debug(f"Finished executing instruction: '{instruction_name}' with result: {result}")
+        return result
