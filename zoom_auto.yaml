@@ -21,7 +21,7 @@ join_popup_with_name: &join_popup_with_name
   locate_image: 
     image: 'please_enter_your_name.png'
     click: "True"  # default is "False"
-    iterate: 60 # zoom is starting, give it some time for this first popoup, default is 1
+    iterate: 30 # zoom has started but it has to connect with URL so that might take a bit longer, default is 1
     sleep: 1 # default is 0
     on_failure: "True" # webinars don't show this popop, so continue
     on_success:
@@ -36,14 +36,15 @@ join_popup_with_name: &join_popup_with_name
           - press: 'space'
           - press: 'tab'
           - press: 'space'
+        on_success: *join_popup_audio_video_settings
 
 join_popup_with_id: &join_popup_with_id
   locate_image: 
     image: 'join_meeting_button.png'
     click: "True"  # default is "False"
-    iterate: 60  # default is 1
+    iterate: 15 # zoom is starting, give it some time for this first popoup, default is 1
     sleep: 1    # default is 0
-    on_failure: "True" # webinars don't show this popop, so continue
+    on_failure: *join_popup_with_name
     on_success:
       locate_image: 
         image: 'join_meeting_popup.png'
@@ -133,9 +134,7 @@ view_option_speaker: &view_option_speaker
 
 join:
   # list is processed from the top until a step returns false -> join failed, otherwie join successfull
-  - *join_popup_with_id
-  - *join_popup_with_name
-  - *join_popup_audio_video_settings
+  - *join_popup_with_id 
   - *check_workplace
   - *waiting_for_host
   - *view_option_speaker
