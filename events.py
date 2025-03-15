@@ -129,7 +129,7 @@ class Events(ABC):
         return f"Event '{event[EventField.TITLE.value]}' with key: '{event[EventField.KEY.value]}'"
 
     @staticmethod
-    def find_next(events, leadInSecs=0, leadOutSecs=0):
+    def find_next(clientid, leadInSecs=0, leadOutSecs=0):
 
         next_event = None
         for event in events:
