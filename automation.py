@@ -4,6 +4,7 @@ import logging
 import os
 import time
 import pyautogui  
+import constants
 
 # Disable failsafe
 pyautogui.FAILSAFE = False
@@ -13,20 +14,18 @@ class Automation:
     Class for handling YAML configuration operations automation.
     """
     
-    def __init__(self, img_path=None, debug_path=None, time_format=None, config_path=None):
+    def __init__(self, img_path=None, debug_path=None, config_path=None):
         """
         Initialize the Automation class
         
         Args:
             img_path: Path to the image directory
             debug_path: Path to the debug directory
-            time_format: Time format string
             config_path: Path to the YAML configuration file (optional)
         """
         self.config = None
         self.img_path = img_path
         self.debug_path = debug_path
-        self.time_format = time_format
         
         # Load configuration if config_path is provided
         if config_path:
@@ -180,9 +179,9 @@ class Automation:
             return True
         else:
             # Debug screenshot
-            if logging.getLogger().level == logging.DEBUG and self.debug_path is not None and self.time_format is not None:
+            if logging.getLogger().level == logging.DEBUG and self.debug_path is not None and constants.TIME_FORMAT is not None:
                 pyautogui.screenshot(os.path.join(self.debug_path, time.strftime(
-                    self.time_format) + "-" + image))
+                    constants.TIME_FORMAT) + "-" + image))
                     
             # Handle on_error or on_failure
             on_error = locate_image.get('on_failure')
