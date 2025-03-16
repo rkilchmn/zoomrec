@@ -1,6 +1,5 @@
 import requests
 from datetime import datetime
-from zoneinfo import ZoneInfo
 from events import EventField, Events  # Adjust the import as necessary
 
 def update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event):
@@ -86,11 +85,11 @@ def get_next_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, client_id, 
         response_data = response.json()
         # restore datetime  including timezone
         response_data['dtstart_instance'] = datetime.fromisoformat(response_data['dtstart_instance'])
-        response_data['dtstart_instance'] = response_data['dtstart_instance'].replace(tzinfo=ZoneInfo(response_data['timezone']))
+        response_data['dtstart_instance'] = Events.replaceTimezone(response_data['dtstart_instance'], response_data['timezone'])
         response_data['dtend_instance'] = datetime.fromisoformat(response_data['dtend_instance'])
-        response_data['dtend_instance'] = response_data['dtend_instance'].replace(tzinfo=ZoneInfo(response_data['timezone']))
+        response_data['dtend_instance'] = Events.replaceTimezone(response_data['dtend_instance'], response_data['timezone'])
         response_data['dtnow'] = datetime.fromisoformat(response_data['dtnow'])
-        response_data['dtnow'] = response_data['dtnow'].replace(tzinfo=ZoneInfo(response_data['timezone']))
+        response_data['dtnow'] = Events.replaceTimezone(response_data['dtnow'], response_data['timezone'])
         return response_data
     elif response.status_code == 204:  # success, NO content returned
         return None
