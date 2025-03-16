@@ -1,4 +1,6 @@
 import requests
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from events import EventField, Events  # Adjust the import as necessary
 
 def update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event):
@@ -68,3 +70,31 @@ def get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event_key=None, 
         return []
     else:
         raise Exception(f"Failed to retrieve event(s). Response code: {response.status_code}, Response: {response.text}")
+
+def get_next_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, client_id, event_type = None, lead_time_sec=0, trail_time_sec=0):
+
+    url = f"{SERVER_URL}/event/next"
+    params = {
+        'client_id': client_id,
+        'event_type': event_type,
+        'lead_time_sec': lead_time_sec,
+        'trail_time_sec': trail_time_sec
+    }
+    
+    headers = {'Content-Type': 'application/json'}
+    response = requests.get(url, params=params, headers=headers, auth=(SERVER_USERNAME, SERVER_PASSWORD))
+    
+    if response.status_code == 200:  # success, content returned
+        response_data = response.json()
+        # restore datetime  including timezone
+        response_data['dtstart_instance'] = datetime.fromisoformat(response_data['dtstart_instance'])
+        response_data['dtstart_instance'] = response_data['dtstart_instance'].replace(tzinfo=ZoneInfo(response_data['timezone']))
+        response_data['dtend_instance'] = datetime.fromisoformat(response_data['dtend_instance'])
+        response_data['dtend_instance'] = response_data['dtend_instance'].replace(tzinfo=ZoneInfo(response_data['timezone']))
+        response_data['dtnow'] = datetime.fromisoformat(response_data['dtnow'])
+        response_data['dtnow'] = response_data['dtnow'].replace(tzinfo=ZoneInfo(response_data['timezone']))
+        return response_data
+    elif response.status_code == 204:  # success, NO content returned
+        return None
+    else:
+        raise Exception(f"Failed to retrieve next event. Response code: {response.status_code}, Response: {response.text}")

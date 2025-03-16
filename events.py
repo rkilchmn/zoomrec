@@ -129,32 +129,6 @@ class Events(ABC):
         return f"Event '{event[EventField.TITLE.value]}' with key: '{event[EventField.KEY.value]}'"
 
     @staticmethod
-    def find_next(clientid, leadInSecs=0, leadOutSecs=0):
-
-        next_event = None
-        for event in events:
-            now = Events.now(event)
-            for dtstart in Events.get_dtstart_datetime_list(event):
-                try:
-                    dtend = dtstart + timedelta(minutes=int(event[EventField.DURATION.value]))
-                    # incorporate lead in/out
-                    dtstart -= timedelta(seconds=leadInSecs)
-                    dtend += timedelta(seconds=leadOutSecs)
-
-                    # priority is given to the meeting ending first - TBD
-                    if now < dtend and (next_event is None or dtend < next_event['end']):
-                        next_event = event
-                        next_event['start'] = dtstart
-                        next_event['end'] = dtend
-                        next_event['astimezone'] = event[EventField.TIMEZONE.value]
-                        next_event['start_astimezone'] = dtstart
-                        next_event['end_astimezone'] = dtend
-
-                except ValueError as e:
-                    continue
-        return next_event
-
-    @staticmethod
     def validate(event):
         if event[EventField.DTSTART.value]:
             try:
@@ -455,3 +429,50 @@ class SQLLiteEvents(Events):
             self.stateChanged(old_event, event)
 
         return True
+
+    def get_next(self, client_id, event_type = None, lead_time_sec=0, trail_time_sec=0):
+
+        filters = [[EventField.STATUS.value, "=", EventStatus.SCHEDULED.value]]
+        
+        # Add event type filter only if event_type is provided
+        if event_type is not None:
+            filters.append([EventField.TYPE.value, "=", event_type])
+
+        events = self.get(filters=filters)
+
+        # Process events
+        next_event = None
+        next_event_dtstart = Events.replaceTimezone( datetime.max) # initialize with max date
+
+        for event in events:
+            # Skip assigned events
+            if event[EventField.ASSIGNED.value] != '' and event[EventField.ASSIGNED.value] != client_id:
+                continue
+            dtnow = Events.now( event)
+
+            max_dtend_instance = Events.replaceTimezone( datetime.min) # initialize with min date
+            
+            # Check all event occurrences
+            for dtstart in Events.get_dtstart_datetime_list(event, dtnow):
+                dtstart_instance = dtstart - timedelta(seconds=lead_time_sec)
+                dtend_instance = dtstart + timedelta(
+                    minutes=int(event[EventField.DURATION.value])) + timedelta(seconds=trail_time_sec)
+                
+                if dtend_instance > max_dtend_instance:
+                    max_dtend_instance = dtend_instance
+                
+                # if dtstart_instance <= dtnow <= dtend_instance:
+                #     next_event = event
+                #     break  # we have a meeting that has started
+                # elif dtstart_instance > dtnow and dtstart_instance < next_event_dtstart:
+                if dtnow < dtend_instance and (next_event is None or dtend_instance < next_event['dtend_instance']):
+                    next_event = event
+                    next_event['dtstart_instance'] = dtstart_instance
+                    next_event['dtend_instance'] = dtend_instance
+                    next_event['dtnow'] = dtnow
+                   
+            # delte expired events
+            if max_dtend_instance < dtnow:  # all event dtstart expired
+                self.delete( event_key=event[EventField.KEY.value])
+
+        return next_event

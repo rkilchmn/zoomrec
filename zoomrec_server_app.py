@@ -238,33 +238,39 @@ def get_event(event_key=None):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# curl -u myuser:mypassword "http://localhost:8080/event/next?astimezone=Australia/Sydney&leadinsecs=60&leadoutsecs=60"
+# curl -u myuser:mypassword "http://localhost:8080/event/next?astimezone=Australia/Sydney&lead_time_sec=60&trail_time_sec=60"
 @app.route(f"{config['ROUTE_EVENT']}/{config['ROUTE_EVENT_NEXT']}", methods=['GET'])
 @basic_auth.required
 def get_event_next():
-    # Retrieve leadInSecs and leadOutSecs from request parameters
-    leadInSecs = 0
-    leadOutSecs = 0
+    client_id = request.args.get('client_id')
+    event_type = request.args.get('event_type')
+
+    if client_id is None or event_type is None:
+        return 'mandatory parameter client_id or event_type missing', 404
+    
+    # Retrieve lead_time_sec and trail_time_sec from request parameters
+    lead_time_sec = 0
+    trail_time_sec = 0
     try:
-        leadInSecs = int(request.args.get('leadinsecs'))
-        leadOutSecs = int(request.args.get('leadoutsecs'))
+        lead_time_sec = int(request.args.get('lead_time_sec'))
+        trail_time_sec = int(request.args.get('trail_time_sec'))
     except ValueError:
-        return 'invalid paramter leadinsecs and/or leadoutsecs', 404
+        return 'invalid paramter lead_time_sec and/or trail_time_sec', 404
     except TypeError:
         pass
 
-    astimezone = request.args.get('astimezone')
-    if events.is_valid_timezone(astimezone):
-        response_data = events.find_next(events.read(), astimezone, leadInSecs, leadOutSecs)
+    try:
+        response_data = events.get_next(client_id, event_type, lead_time_sec, trail_time_sec)
         # return timestamp in ISO 8601 format 
         if not response_data is None:
-            response_data['start'] = response_data['start'].isoformat()
-            response_data['end'] = response_data['end'].isoformat()
-            response_data['start_astimezone'] = response_data['start_astimezone'].isoformat()
-            response_data['end_astimezone'] = response_data['end_astimezone'].isoformat()
-        return jsonify(response_data)
-    else:
-        return 'invalid paramter timezone ', 404
+            response_data['dtstart_instance'] = response_data['dtstart_instance'].isoformat()
+            response_data['dtend_instance'] = response_data['dtend_instance'].isoformat()
+            response_data['dtnow'] = response_data['dtnow'].isoformat()
+            return jsonify(response_data), 200
+        else:
+            return jsonify({}), 204 # sucsess, but "204 No Content"
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 def get_file_mtime(file_path):
     mtime = os.path.getmtime(file_path)

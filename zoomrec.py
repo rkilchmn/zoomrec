@@ -11,7 +11,7 @@ import atexit
 from datetime import datetime, timedelta
 from events import Events, EventType, EventField, EventStatus, EventInstructionAttribute
 import debugpy
-from events_api import delete_event_api, update_event_api, get_event_api  # Ensure you import the function
+from events_api import get_next_event_api, update_event_api  # Ensure you import the function
 from utilities import convert_to_safe_filename
 from automation import Automation
 import pyautogui  
@@ -159,7 +159,7 @@ def start_recording(filename):
     
     return subprocess_info
     
-def join(event, start_window, end_window):
+def join(event, dtstart_instance, dtend_instance):
     global VIDEO_PANEL_HIDED
     
     if int(event[EventField.STATUS.value]) == int(EventStatus.SCHEDULED.value):
@@ -259,8 +259,8 @@ def join(event, start_window, end_window):
     meeting_running = True
     while meeting_running:
         now_in_tz = Events.now(event)
-        if (start_window <= now_in_tz <= end_window) and ONGOING_MEETING:
-            time_remaining = end_window - now_in_tz
+        if (dtstart_instance <= now_in_tz <= dtend_instance) and ONGOING_MEETING:
+            time_remaining = dtend_instance - now_in_tz
             print(f"Meeting ends in {time_remaining}", end="\r", flush=True)
         else:
             meeting_running = False
@@ -365,95 +365,26 @@ def get_zoom_version():
         return None
 
 def main():
-
-    def monitor_events():
-        """Monitor and join events based on time windows with local event storage"""
-        monitor_events = {}
-        max_last_updated_timestamp = None
-        # Filter to get only planned events
-        filter_type = [EventField.TYPE.value, "=", EventType.ZOOM.value]
-        filters = [filter_type, [EventField.STATUS.value, "=", EventStatus.SCHEDULED.value]]
-
-        while True:
-            try:
-                # Get updates from API
-                updated_events = get_event_api(
-                    SERVER_URL,
-                    SERVER_USERNAME,
-                    SERVER_PASSWORD,
-                    filters=filters
-                )
-                
-                # Update max timestamp from current batch
-                if updated_events:
-                    max_last_updated_timestamp = max(event[EventField.LAST_UPDATED_TIMESTAMP.value] for event in updated_events)
-                    logging.info(f"events updated: {len(updated_events)} , latest update: {max_last_updated_timestamp}")
-                    # Set filter to only get events updated after the latest timestamp (also deleted so we can remove them)
-                    filters = [ filter_type, [EventField.LAST_UPDATED_TIMESTAMP.value, ">", max_last_updated_timestamp]]
-                
-                # Merge updates using dictionary
-                for event in updated_events:
-                    if event[EventField.STATUS.value] == EventStatus.DELETED.value:
-                        # Remove deleted events
-                        del monitor_events[event[EventField.KEY.value]]  # Remove entry if exists
-                    elif event[EventField.ASSIGNED.value] and event[EventField.ASSIGNED.value] != CLIENT_ID:
-                         # events assigned to other clients
-                        del monitor_events[event[EventField.KEY.value]]  # Remove entry if exists
-                    else:
-                        # Add or update event
-                        monitor_events[event[EventField.KEY.value]] = event  # Add or update entry
-                
-                # Process events
-                next_event = None
-                next_event_dtstart = Events.replaceTimezone( datetime.max) # initialize with max date
-
-                for event in monitor_events.values():
-                    # Skip assigned events
-                    if event[EventField.ASSIGNED.value] != '' and event[EventField.ASSIGNED.value] != CLIENT_ID:
-                        continue
-                    try:
-                        now_in_tz = Events.now( event)
-
-                        max_end_window = Events.replaceTimezone( datetime.min) # initialize with min date
+    # loop to retrive next event and wait for it to join
+    while True:
+        try:
+            next_event = get_next_event_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, CLIENT_ID, EventType.ZOOM.value, LEAD_TIME_SEC, TRAIL_TIME_SEC)
                         
-                        # Check all event occurrences
-                        for dtstart in Events.get_dtstart_datetime_list(event, now_in_tz):
-                            start_window = dtstart - timedelta(seconds=LEAD_TIME_SEC)
-                            end_window = dtstart + timedelta(
-                                minutes=int(event[EventField.DURATION.value])) + timedelta(seconds=TRAIL_TIME_SEC)
-                            
-                            if end_window > max_end_window:
-                                max_end_window = end_window
-                            
-                            if start_window <= now_in_tz <= end_window:
-                                join(event, start_window, end_window)
-                                break  # once we return monitoring will continue. One client can only join 1 event
-                            elif start_window > now_in_tz and start_window < next_event_dtstart:
-                                next_event_dtstart = start_window
-                                next_event = event
-
-                        # delte expired events
-                        if max_end_window < now_in_tz:  # all events are expired
-                            # the event will come through nexrt update as delted and will be removed from monitoring events
-                            delete_event_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event_key=event[EventField.KEY.value])
-                            
-                    except Exception as e:
-                        logging.error(f"Event processing error: {e}", exc_info=True)
+            if next_event and next_event['dtstart_instance'] <= next_event['dtnow'] <= next_event['dtend_instance']:
+                join(next_event, next_event['dtstart_instance'], next_event['dtend_instance'])                    
+            
+            for _ in range(60):
+                if next_event:
+                    next_event['dtnow'] = Events.now( next_event)
+                    print(f"Next event with title: '{next_event[EventField.TITLE.value]}' starts in {next_event['dtstart_instance'] - next_event['dtnow']}", end="\r", flush=True)
+                else:
+                    print(f"No upcoming events", end="\r", flush=True)
                 
-                for _ in range(60):
-                    if next_event:
-                        now_in_tz = Events.now( next_event)
-                        print(f"Next event with title: '{next_event[EventField.TITLE.value]}' starts in {next_event_dtstart - now_in_tz}", end="\r", flush=True)
-                    else:
-                        print(f"No upcoming events (monitoring {len(monitor_events)} events)", end="\r", flush=True)
-                    
-                    time.sleep(1)
-                
-            except Exception as e:
-                logging.error(f"Monitoring error: {str(e)}", exc_info=True)
-                print(f"Monitoring error: {str(e)}")
-
-    monitor_events()
+                time.sleep(1)
+            
+        except Exception as e:
+            logging.error(f"Monitoring event error: {str(e)}", exc_info=True)
+            print(f"Monitoring event error: {str(e)}")
 
 if __name__ == '__main__':
     version = get_zoom_version()
