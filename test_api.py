@@ -172,9 +172,9 @@ def main():
         print(f"Failed to delete event. Exception: {str(e)}")
 
     # Delete the user
-    print(f"Deleting user with key: {updated_user[EventField.KEY.value]}...")
+    print(f"Deleting user with key: {updated_user[UserField.KEY.value]}...")
     try:
-        delete_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, updated_user[EventField.KEY.value])
+        delete_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, updated_user[UserField.KEY.value])
         print(f"Deleted {Users.nameStr(updated_user)}.")
     except Exception as e:
         print(f"Failed to delete user. Exception: {str(e)}")
