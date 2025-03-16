@@ -16,6 +16,7 @@ from utilities import convert_to_safe_filename
 from automation import Automation
 import pyautogui  
 import traceback
+import constants
 
 # Turn DEBUG on:
 #   - screenshot on error
@@ -78,8 +79,6 @@ if DISPLAY_NAME is None or  len(DISPLAY_NAME) < 3:
         'Android'
     ]
     DISPLAY_NAME = random.choice(NAME_LIST)
-
-TIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
 
 # initialization of global vars
 ONGOING_MEETING = False
@@ -191,7 +190,7 @@ def join(event, dtstart_instance, dtend_instance):
     ffmpeg_debug = None
     if logging.getLogger().level == logging.DEBUG:
         ffmpeg_debug = start_recording( filename = os.path.join( 
-            REC_PATH, convert_to_safe_filename( time.strftime(TIME_FORMAT) + "-" + description + "-JOIN.mkv")))
+            REC_PATH, convert_to_safe_filename( time.strftime(constants.TIME_FORMAT) + "-" + description + "-JOIN.mkv")))
 
     # Exit Zoom if running
     exit_process_by_name("zoom")
@@ -225,7 +224,7 @@ def join(event, dtstart_instance, dtend_instance):
     
     # Create global instance of Automation with proper configuration and load the YAML config
     config_path = os.path.join(BASE_PATH, "zoom_auto.yaml")
-    auto_yaml = Automation(img_path=IMG_PATH, debug_path=DEBUG_PATH, time_format=TIME_FORMAT, config_path=config_path)
+    auto_yaml = Automation(img_path=IMG_PATH, debug_path=DEBUG_PATH, config_path=config_path)
 
     # Join meeting executing automation by config
     joined = auto_yaml.execute_instruction('join', variables)
@@ -243,7 +242,7 @@ def join(event, dtstart_instance, dtend_instance):
     BackgroundThread(auto_yaml)
 
     process = Events.get_instruction_attribute( EventInstructionAttribute.PROCESS, event)
-    filename_recording = os.path.join(REC_PATH, convert_to_safe_filename(time.strftime( TIME_FORMAT) + "-" + description) + ".mkv")
+    filename_recording = os.path.join(REC_PATH, convert_to_safe_filename(time.strftime( constants.TIME_FORMAT) + "-" + description) + ".mkv")
     if process == 'record':
         ffmpeg = start_recording(filename_recording)
 
@@ -313,14 +312,13 @@ def join(event, dtstart_instance, dtend_instance):
     except Exception as e:
         logging.error(f"Error updating event: {e}", exc_info=True)
 
-def play_audio(description):
+def play_audio():
     # Get all files in audio directory
     files=os.listdir(AUDIO_PATH)
     # Filter .wav files
     files=list(filter(lambda f: f.endswith(".wav"), files))
     # Check if .wav files available
     if len(files) > 0:
-        unmute(description)
         # Get random file
         file=random.choice(files)
         path = os.path.join(AUDIO_PATH, file)
@@ -332,7 +330,6 @@ def play_audio(description):
             logging.error("Failed playing file! - " + str(play.returncode) + " - " + str(err))
         else:
             logging.debug("Successfully played audio file! - " + str(play.returncode))
-        mute(description)
     else:
         logging.error("No .wav files found!")
 
