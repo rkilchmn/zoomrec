@@ -45,7 +45,7 @@ class Users(ABC):
         pass
 
     @abstractmethod
-    def get(self, user_key=None, filters=None):
+    def get(self, filters=None):
         pass
 
     @abstractmethod
@@ -200,16 +200,11 @@ class SQLLiteUser(Users):
 
         return user
 
-    def get(self, user_key=None, filters=None):
+    def get(self, filters=None):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             conditions = []
             parameters = []
-
-            # Check for user_key
-            if user_key:
-                conditions.append(f"{UserField.KEY.value} = ?")
-                parameters.append(user_key)
 
             # Check for additional filter queries
             if filters:
@@ -239,7 +234,9 @@ class SQLLiteUser(Users):
         user[UserField.PASSWORD.value] = password.hash_password(user[UserField.PASSWORD.value])
         user[UserField.LAST_UPDATED_TIMESTAMP.value] = datetime.now()
         user = Users.validate(user)
-        old_user = self.get(user[UserField.KEY.value])
+        old_user = self.get(filters=[[UserField.KEY.value, "=", user[UserField.KEY.value]]])
+        if old_user:
+            old_user = old_user[0]
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             set_clause = ", ".join(f"{field} = ?" for field in user.keys())
@@ -256,7 +253,9 @@ class SQLLiteUser(Users):
 
 
     def delete(self, user_key):
-        old_user = self.get(user_key)
+        old_user = self.get(filters=[[UserField.KEY.value, "=", user_key]])
+        if old_user:
+            old_user = old_user[0]
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(f'DELETE FROM users WHERE {UserField.KEY.value} = ?', (user_key,))

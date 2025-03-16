@@ -53,9 +53,11 @@ def event_state_changed_callback(old_event, new_event):
                 message = f"Event '{new_event[EventField.TITLE.value]}' status changed from {old_status_description} to {new_status_description}"
         
             if message:
-                user = users.get(event.get(EventField.USER_KEY.value))
-                if user:
-                    Users.send_message(user, message)
+                user_key = event.get(EventField.USER_KEY.value)
+                if user_key:
+                    user = users.get(filters=[[UserField.KEY.value, "=", user_key]])
+                    if user:
+                        Users.send_message(user, message)
     except Exception as e:
         print(f"Error in event_state_changed_callback: {str(e)}")
 
@@ -83,10 +85,10 @@ def create_user():
 # get with key: curl -u myuser:mypassword "http://localhost:8081/user/SXThWeEpL3aiEWJ6tbytMA"
 # get by login: curl -u myuser:mypassword "http://localhost:8081/user?login=johndoe"
 
-@app.route(f"{config['ROUTE_USER']}/<user_key>", methods=['GET'])
+@app.route(f"{config['ROUTE_USER']}", methods=['GET'])
 @app.route(config['ROUTE_USER'], methods=['GET'])
 @basic_auth.required
-def get_user(user_key=None):
+def get_user():
     filters = []
 
     # Retrieve filter parameters from the request
@@ -106,10 +108,7 @@ def get_user(user_key=None):
                     filters[int(index) - 1][2] = value  # Set value
 
     try:
-        if user_key:
-            returned_users = users.get(user_key=user_key)
-        else:
-            returned_users = users.get(filters=filters)  # Pass the filters to the get method
+        returned_users = users.get(filters=filters)  # Pass the filters to the get method
 
         if returned_users:
             return jsonify(returned_users), 200 # sucesss, returning content
@@ -202,10 +201,10 @@ def delete_event(key):
 
 # all events: curl -u myuser:mypassword "http://localhost:8080/event"
 # with key: curl -u myuser:mypassword "http://localhost:8080/event/G4JbZYQN65Ba35jfbyiHsj"
-@app.route(f"{config['ROUTE_EVENT']}/<event_key>", methods=['GET'])
+@app.route(f"{config['ROUTE_EVENT']}", methods=['GET'])
 @app.route(config['ROUTE_EVENT'], methods=['GET'])
 @basic_auth.required
-def get_event(event_key=None):
+def get_event():
     filters = []
 
     # Retrieve filter parameters from the request
@@ -225,10 +224,7 @@ def get_event(event_key=None):
                     filters[int(index) - 1][2] = value  # Set value
 
     try:
-        if event_key:
-            returned_events = events.get(event_key=event_key)
-        else:
-            returned_events = events.get(filters=filters)  # Pass the filters to the get method
+        returned_events = events.get(filters=filters)  # Pass the filters to the get method
             
         if returned_events:
             return jsonify(returned_events), 200 # sucesss, returning content

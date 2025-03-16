@@ -49,7 +49,7 @@ def main():
     user_key = created_user[UserField.KEY.value]
     print(f"Retrieving user with key: {user_key}...")
     try:
-        updated_user = get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, user_key)[0]
+        updated_user = get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=[[UserField.KEY.value, "=", user_key]])[0]
         print(f"Retrieved {Users.nameStr(updated_user)}:")
         print(updated_user)
         if updated_user[UserField.NAME.value] != user[UserField.NAME.value]:
@@ -85,7 +85,7 @@ def main():
     event_key = new_event[EventField.KEY.value]
     print(f"Retrieving event with key: {event_key}...")
     try:
-        event = get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event_key)[0]
+        event = get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=[[EventField.KEY.value, "=", event_key]])[0]
         print(f"Retrieved {Events.nameStr(event)}:")
         print(event)
     except Exception as e:
@@ -105,7 +105,7 @@ def main():
     # Retrieve the modified event
     print(f"Retrieving modified event with key: {event_key}...")
     try:
-        updated_event = get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event_key)[0]
+        updated_event = get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=[[EventField.KEY.value, "=", event_key]])[0]
         print(f"Retrieved {Events.nameStr(updated_event)}:")
         print(updated_event)
         if updated_event[EventField.TITLE.value] != event[EventField.TITLE.value]:
@@ -140,7 +140,7 @@ def main():
     event_key2 = new_event2[EventField.KEY.value]
     print(f"Retrieving event with key: {event_key2}...")
     try:
-        event2 = get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event_key2)[0]
+        event2 = get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=[[EventField.KEY.value, "=", event_key2]])[0]
         print(f"Retrieved {Events.nameStr(event2)}:")
         print(event2)
     except Exception as e:

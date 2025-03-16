@@ -15,19 +15,16 @@ def create_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, user):
     else:
         raise Exception(f"Failed to create user. Response code: {response.status_code}, Response: {response.text}")     
 
-def get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, user_key=None, filters=None):
+def get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=None):
     """
-    Retrieve users based on either a user key or filter parameters.
+    Retrieve users based on filter parameters.
     Each filter parameter should be an array where the first element is the attribute,
     the second is the operator, and the third is the value.
     """
     url = f"{SERVER_URL}/user"
     params = {}
 
-    # Check for user_key
-    if user_key:
-        url += f"/{user_key}"
-    elif filters:
+    if filters:
         for i, entry in enumerate(filters):
             if len(entry) == 3:  # Ensure the query has three elements
                 attribute, operator, value = entry

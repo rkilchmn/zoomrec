@@ -90,8 +90,8 @@ class Events(ABC):
         pass
 
     @abstractmethod
-    def get(self, event_key=None, filters=None):
-        """Retrieve an event by its key or all events if no key is provided."""
+    def get(self, filters=None):
+        """Retrieve events based on filters. If filters is None, return all events."""
         pass
 
     @abstractmethod
@@ -359,7 +359,7 @@ class SQLLiteEvents(Events):
         
         return event
     
-    def get(self, event_key=None, filters=None):
+    def get(self, filters=None):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             
@@ -368,12 +368,7 @@ class SQLLiteEvents(Events):
             conditions = []
             parameters = []
 
-            # Check for event_key
-            if event_key:
-                conditions.append(f"{EventField.KEY.value} = ?")
-                parameters.append(event_key)
-
-            # Check for additional filter queries
+            # Check for filter queries
             if filters:
                 for filter in filters:
                     if len(filter) == 3:  # Ensure the query has three elements
@@ -399,7 +394,7 @@ class SQLLiteEvents(Events):
         event = Events.clean(event)
         event = Events.validate(event)
         event[EventField.LAST_UPDATED_TIMESTAMP.value] = datetime.now()  # Update last updated timestamp
-        old_event = self.get(event[EventField.KEY.value])
+        old_event = self.get(filters=[[EventField.KEY.value, "=", event[EventField.KEY.value]]])
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()         
             set_clause = ", ".join(f"{field} = ?" for field in event.keys())
@@ -421,7 +416,7 @@ class SQLLiteEvents(Events):
                 (EventStatus.DELETED.value, datetime.now(), event_key,))
             conn.commit()
 
-        old_event = self.get(event_key)
+        old_event = self.get(filters=[[EventField.KEY.value, "=", event_key]])
         event = {}
 
         # Check for changes and call the callback if necessary

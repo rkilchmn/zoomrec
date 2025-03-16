@@ -40,19 +40,17 @@ def delete_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event_key):
     if response.status_code not in range(200, 299):
         raise Exception(f"Failed to delete event {event_key}. Response code: {response.status_code}, Response: {response.text}")
 
-def get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event_key=None, filters=None):
+def get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=None):
     """
-    Retrieve events based on either an event key or filter parameters.
+    Retrieve events based on filter parameters.
     Each filter parameter should be an array where the first element is the attribute,
     the second is the operator, and the third is the value.
+    To retrieve an event by its key, use filters=[[EventField.KEY.value, "=", key_value]]
     """
     url = f"{SERVER_URL}/event"
     params = {}
 
-    # Check for event_key
-    if event_key:
-        url += f"/{event_key}"
-    elif filters:
+    if filters:
         for i, entry in enumerate(filters):
             if len(entry) == 3:  # Ensure the query has three elements
                 attribute, operator, value = entry
