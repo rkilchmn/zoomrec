@@ -49,7 +49,7 @@ class Users(ABC):
         pass
 
     @abstractmethod
-    def update(self, user_key, updates):
+    def update(self, user):
         pass
 
     @abstractmethod
