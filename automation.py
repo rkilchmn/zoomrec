@@ -132,10 +132,9 @@ class Automation:
             logging.error("Image path not set.")
             return False
 
-        
         if variables is None:
             variables = {}
-            
+                
         image = locate_image.get('image')
         image_path = os.path.join(self.img_path, image)
         click = self.str_to_bool(locate_image.get('click', 'False'))
@@ -143,8 +142,6 @@ class Automation:
         until_found = self.str_to_bool(locate_image.get('until_found', 'True'))
         sleep_time = locate_image.get('sleep', 0)
         confidence = locate_image.get('confidence', 0.9)
-        
-        logging.debug(f"Attempting to locate image: {image}")
         
         success = False
         result = None
@@ -171,6 +168,8 @@ class Automation:
 
             if i < iterate - 1 and sleep_time > 0:
                 time.sleep(sleep_time)
+
+        logging.debug(f"Image located result: {result}")
 
         if success:
             # Handle on_success
@@ -262,6 +261,8 @@ class Automation:
             logging.error(f"Error executing keyboard input: {e}", exc_info=True)
             success = False
 
+        logging.debug(f"Keyboard input executed with result: {success}") 
+
         if success:
             # Handle on_success
             on_success = keyboard_input.get('on_success')
@@ -331,9 +332,10 @@ class Automation:
         except Exception as e:
             logging.error(f"Error executing play_audio: {e}", exc_info=True)
             success = False
+
+        logging.debug(f"Audio played with result: {success}")
         
         if success:
-            logging.debug(f"Successfully played audio file: {os.path.basename(audio_file_path)}")
             # Handle on_success
             on_success = play_audio.get('on_success')
             if on_success is not None:
@@ -344,7 +346,6 @@ class Automation:
                     return self.execute_operation(on_success, variables)
             return True
         else:
-            logging.error(f"Failed playing file! - {play.returncode} - {err}")
             # Handle on_failure
             on_failure = play_audio.get('on_failure')
             if on_failure is not None:

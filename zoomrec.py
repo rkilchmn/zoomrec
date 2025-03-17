@@ -346,18 +346,18 @@ def main():
             next_event = get_next_event_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, CLIENT_ID, EventType.ZOOM.value, LEAD_TIME_SEC, TRAIL_TIME_SEC)
                     
             if next_event and next_event['dtstart_instance'] <= next_event['dtnow'] and next_event['dtnow'] <= next_event['dtend_instance']:
-                join(next_event, next_event['dtstart_instance'], next_event['dtend_instance'])                    
-            
-            for _ in range(60):
-                if next_event:
-                    next_event['dtnow'] = Events.now( next_event)
-                    time_diff = next_event["dtstart_instance"] - next_event["dtnow"]
-                    formatted_time = str(time_diff).split(".")[0]  # Removes microseconds
-                    print(f"Next event with title: '{next_event[EventField.TITLE.value]}' starts in {formatted_time}", end="\r", flush=True)
-                else:
-                    print(f"No upcoming events", end="\r", flush=True)
-                
-                time.sleep(1)
+                join(next_event, next_event['dtstart_instance'], next_event['dtend_instance'])  
+            else:                  
+                for _ in range(60):
+                    if next_event:
+                        next_event['dtnow'] = Events.now( next_event)
+                        time_diff = next_event["dtstart_instance"] - next_event["dtnow"]
+                        formatted_time = str(time_diff).split(".")[0]  # Removes microseconds
+                        print(f"Next event with title: '{next_event[EventField.TITLE.value]}' starts in {formatted_time}", end="\r", flush=True)
+                    else:
+                        print(f"No upcoming events", end="\r", flush=True)
+                    
+                    time.sleep(1)
             
         except Exception as e:
             logging.error(f"Monitoring event error: {str(e)}", exc_info=True)

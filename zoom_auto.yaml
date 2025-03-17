@@ -94,7 +94,7 @@ play_hello_audio: &play_hello_audio
   play_audio: 
     audio: 'hello.wav' # remove entry yo play random file from directory
     on_success: "True" # default is "True", but explicit here for clarity
-    on_error: "True" # continue even if not found, default is "False"
+    on_error: "True" # continue even if error, default is "False"
 
 # check if waiting for host
 waiting_for_host: &waiting_for_host
@@ -138,6 +138,14 @@ view_option_speaker: &view_option_speaker
         on_success: "True" # default is "True", but explicit here for clarity
         on_error: "True"   # continue even if not found, default is "False" 
 
+# leave audio and video settings without changes
+minimize_video_panel: &minimize_video_panel
+  locate_image: 
+    image: 'video_panel_minimize.png'
+    click: "True"     # default is "False"
+    on_failure: "True" # continue even if not found, default is "False"
+    on_success: "True" # default is "True", but explicit here for clarity
+
 join:
   # list is processed from the top until a step returns false -> join failed, otherwie join successfull
   - *join_popup_with_id 
@@ -149,4 +157,5 @@ join:
 
 ongoing:
   # list is processed from the top until a step returns false -> meeting ended, otherwise meeting continues
+  - *minimize_video_panel
   - *check_workplace

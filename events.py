@@ -445,7 +445,9 @@ class SQLLiteEvents(Events):
             max_dtend_instance = Events.replaceTimezone( datetime.min) # initialize with min date
             
             # Check all event occurrences
-            for dtstart in Events.get_dtstart_datetime_list(event, dtnow):
+            # choose dtfrom such that an instance that has started is included unless it already ended
+            dtfrom = dtnow -  timedelta(minutes=int(event[EventField.DURATION.value])) - timedelta(seconds=trail_time_sec)
+            for dtstart in Events.get_dtstart_datetime_list(event, dtfrom):
                 dtstart_instance = dtstart - timedelta(seconds=lead_time_sec)
                 dtend_instance = dtstart + timedelta(
                     minutes=int(event[EventField.DURATION.value])) + timedelta(seconds=trail_time_sec)

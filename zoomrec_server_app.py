@@ -234,7 +234,7 @@ def get_event():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# curl -u myuser:mypassword "http://localhost:8080/event/next?astimezone=Australia/Sydney&lead_time_sec=60&trail_time_sec=60"
+# curl -u myuser:mypassword "http://localhost:8081/event/next?client_id=550e8400-e29b-41d4-a716-446655440000&event_type=1&lead_time_sec=60&trail_time_sec=300"
 @app.route(f"{config['ROUTE_EVENT']}/{config['ROUTE_EVENT_NEXT']}", methods=['GET'])
 @basic_auth.required
 def get_event_next():
