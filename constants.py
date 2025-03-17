@@ -1,3 +1,5 @@
 DATE_FORMAT = '%d/%m/%Y'
 TIME_FORMAT = '%H:%M'
 DATETIME_FORMAT = DATE_FORMAT + ' ' + TIME_FORMAT
+
+TIME_FORMAT_LOG = "%Y-%m-%d_%H-%M-%S"

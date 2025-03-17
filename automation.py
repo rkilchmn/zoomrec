@@ -7,6 +7,7 @@ import pyautogui
 import constants
 import subprocess
 import random
+import constants
 
 # Disable failsafe
 pyautogui.FAILSAFE = False
@@ -183,9 +184,9 @@ class Automation:
             return True
         else:
             # Debug screenshot
-            if logging.getLogger().level == logging.DEBUG and self.debug_path is not None and constants.TIME_FORMAT is not None:
+            if logging.getLogger().level == logging.DEBUG and self.debug_path is not None:
                 pyautogui.screenshot(os.path.join(self.debug_path, time.strftime(
-                    constants.TIME_FORMAT) + "-" + image))
+                    constants.TIME_FORMAT_LOG) + "-" + image))
                     
             # Handle on_error or on_failure
             on_error = locate_image.get('on_failure')
@@ -332,7 +333,7 @@ class Automation:
             success = False
         
         if success:
-            logging.debug(f"Successfully played audio file: {os.path.basename(path)}")
+            logging.debug(f"Successfully played audio file: {os.path.basename(audio_file_path)}")
             # Handle on_success
             on_success = play_audio.get('on_success')
             if on_success is not None:

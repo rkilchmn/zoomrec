@@ -190,7 +190,7 @@ def join(event, dtstart_instance, dtend_instance):
     ffmpeg_debug = None
     if logging.getLogger().level == logging.DEBUG:
         ffmpeg_debug = start_recording( filename = os.path.join( 
-            REC_PATH, convert_to_safe_filename( time.strftime(constants.TIME_FORMAT) + "-" + description + "-JOIN.mkv")))
+            REC_PATH, convert_to_safe_filename( time.strftime(constants.TIME_FORMAT_LOG) + "-" + description + "-JOIN.mkv")))
 
     # Exit Zoom if running
     exit_process_by_name("zoom")
@@ -241,7 +241,7 @@ def join(event, dtstart_instance, dtend_instance):
     BackgroundThread(auto_yaml)
 
     process = Events.get_instruction_attribute( EventInstructionAttribute.PROCESS, event)
-    filename_recording = os.path.join(REC_PATH, convert_to_safe_filename(time.strftime( constants.TIME_FORMAT) + "-" + description) + ".mkv")
+    filename_recording = os.path.join(REC_PATH, convert_to_safe_filename(time.strftime( constants.TIME_FORMAT_LOG) + "-" + description) + ".mkv")
     if process == 'record':
         ffmpeg = start_recording(filename_recording)
 
@@ -361,7 +361,7 @@ def main():
             
         except Exception as e:
             logging.error(f"Monitoring event error: {str(e)}", exc_info=True)
-            print(f"Monitoring event error: {str(e)}")
+            print(f"Monitoring event error: {e}", exc_info=True)
 
 if __name__ == '__main__':
     version = get_zoom_version()
