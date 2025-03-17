@@ -214,7 +214,6 @@ def join(event, dtstart_instance, dtend_instance):
         time.sleep(1)
 
     logging.info("Zoom started!")
-    start_date = datetime.now()
     
     variables = {
         "MEET_ID": meet_id,
@@ -224,7 +223,7 @@ def join(event, dtstart_instance, dtend_instance):
     
     # Create global instance of Automation with proper configuration and load the YAML config
     config_path = os.path.join(BASE_PATH, "zoom_auto.yaml")
-    auto_yaml = Automation(img_path=IMG_PATH, debug_path=DEBUG_PATH, config_path=config_path)
+    auto_yaml = Automation(config_path=config_path, img_path=IMG_PATH, audio_path=AUDIO_PATH, debug_path=DEBUG_PATH)
 
     # Join meeting executing automation by config
     joined = auto_yaml.execute_instruction('join', variables)
@@ -312,27 +311,6 @@ def join(event, dtstart_instance, dtend_instance):
     except Exception as e:
         logging.error(f"Error updating event: {e}", exc_info=True)
 
-def play_audio():
-    # Get all files in audio directory
-    files=os.listdir(AUDIO_PATH)
-    # Filter .wav files
-    files=list(filter(lambda f: f.endswith(".wav"), files))
-    # Check if .wav files available
-    if len(files) > 0:
-        # Get random file
-        file=random.choice(files)
-        path = os.path.join(AUDIO_PATH, file)
-        # Use paplay to play .wav file on specific Output
-        command = "/usr/bin/paplay --device=microphone -p " + path
-        play = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        res, err = play.communicate()
-        if play.returncode != 0:
-            logging.error("Failed playing file! - " + str(play.returncode) + " - " + str(err))
-        else:
-            logging.debug("Successfully played audio file! - " + str(play.returncode))
-    else:
-        logging.error("No .wav files found!")
-
 def exit_process_by_name(name):
     list_of_process_ids = find_process_id_by_name(name)
     if len(list_of_process_ids) > 0:
@@ -366,14 +344,16 @@ def main():
     while True:
         try:
             next_event = get_next_event_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, CLIENT_ID, EventType.ZOOM.value, LEAD_TIME_SEC, TRAIL_TIME_SEC)
-                        
-            if next_event and next_event['dtstart_instance'] <= next_event['dtnow'] <= next_event['dtend_instance']:
+                    
+            if next_event and next_event['dtstart_instance'] <= next_event['dtnow'] and next_event['dtnow'] <= next_event['dtend_instance']:
                 join(next_event, next_event['dtstart_instance'], next_event['dtend_instance'])                    
             
             for _ in range(60):
                 if next_event:
                     next_event['dtnow'] = Events.now( next_event)
-                    print(f"Next event with title: '{next_event[EventField.TITLE.value]}' starts in {next_event['dtstart_instance'] - next_event['dtnow']}", end="\r", flush=True)
+                    time_diff = next_event["dtstart_instance"] - next_event["dtnow"]
+                    formatted_time = str(time_diff).split(".")[0]  # Removes microseconds
+                    print(f"Next event with title: '{next_event[EventField.TITLE.value]}' starts in {formatted_time}", end="\r", flush=True)
                 else:
                     print(f"No upcoming events", end="\r", flush=True)
                 

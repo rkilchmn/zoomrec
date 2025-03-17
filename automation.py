@@ -5,6 +5,8 @@ import os
 import time
 import pyautogui  
 import constants
+import subprocess
+import random
 
 # Disable failsafe
 pyautogui.FAILSAFE = False
@@ -14,7 +16,7 @@ class Automation:
     Class for handling YAML configuration operations automation.
     """
     
-    def __init__(self, img_path=None, debug_path=None, config_path=None):
+    def __init__(self, config_path=None, img_path=None, audio_path=None, debug_path=None):
         """
         Initialize the Automation class
         
@@ -22,10 +24,12 @@ class Automation:
             img_path: Path to the image directory
             debug_path: Path to the debug directory
             config_path: Path to the YAML configuration file (optional)
+            audio_path: Path to the audio directory (optional)
         """
         self.config = None
         self.img_path = img_path
         self.debug_path = debug_path
+        self.audio_path = audio_path
         
         # Load configuration if config_path is provided
         if config_path:
@@ -277,6 +281,79 @@ class Automation:
                     return self.execute_operation(on_error, variables)
             return False
     
+    def execute_play_audio(self, play_audio, variables=None):
+        """
+        Execute a play_audio operation from YAML configuration
+        
+        Args:
+            play_audio: Dictionary with play_audio configuration
+            variables: Dictionary of variables to replace
+            
+        Returns:
+            True if audio played successfully, False otherwise
+        """
+        try:
+            if self.audio_path is None:
+                logging.error("Audio path not set.")
+                success = False
+            else:
+                # Check if specific audio file is specified
+                specific_audio = play_audio.get('audio')
+                
+                if specific_audio:
+                    # Play specific audio file
+                    audio_file_path = os.path.join(self.audio_path, specific_audio)
+                    if not os.path.exists(audio_file_path):
+                        logging.error(f"Audio file not found: {audio_file_path}")
+                        audio_file_path = None
+                else:
+                    # Get all files in audio directory
+                    files = os.listdir(self.audio_path)
+                    # Filter .wav files
+                    files = list(filter(lambda f: f.endswith(".wav"), files))
+                    # Check if .wav files available
+                    if len(files) > 0:
+                        # Get random file
+                        file = random.choice(files)
+                        audio_file_path = os.path.join(self.audio_path, file)
+                    else:
+                        logging.error("No .wav files found!")
+                        audio_file_path = None
+
+                if audio_file_path is not None:   
+                    # Use paplay to play .wav file on specific Output
+                    command = "/usr/bin/paplay --device=microphone -p " + audio_file_path
+                    play = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    res, err = play.communicate()
+                    success = play.returncode == 0
+
+        except Exception as e:
+            logging.error(f"Error executing play_audio: {e}", exc_info=True)
+            success = False
+        
+        if success:
+            logging.debug(f"Successfully played audio file: {os.path.basename(path)}")
+            # Handle on_success
+            on_success = play_audio.get('on_success')
+            if on_success is not None:
+                if isinstance(on_success, str):
+                    return self.str_to_bool(on_success)
+                elif isinstance(on_success, dict):
+                    # If it's a dictionary, recursively process it
+                    return self.execute_operation(on_success, variables)
+            return True
+        else:
+            logging.error(f"Failed playing file! - {play.returncode} - {err}")
+            # Handle on_failure
+            on_failure = play_audio.get('on_failure')
+            if on_failure is not None:
+                if isinstance(on_failure, str):
+                    return self.str_to_bool(on_failure)
+                elif isinstance(on_failure, dict):
+                    # If it's a dictionary, recursively process it
+                    return self.execute_operation(on_failure, variables)
+            return False
+                
     def execute_operation(self, operation, variables=None):
         """
         Execute a YAML operation based on its type
@@ -293,9 +370,11 @@ class Automation:
             
         # Identify the operation type
         if 'locate_image' in operation:
-            return self.execute_locate_image( operation.get('locate_image'), variables)
+            return self.execute_locate_image(operation.get('locate_image'), variables)
         elif 'keyboard_input' in operation:
-            return self.execute_keyboard_input( operation.get('keyboard_input'), variables)
+            return self.execute_keyboard_input(operation.get('keyboard_input'), variables)
+        elif 'play_audio' in operation:
+            return self.execute_play_audio(operation.get('play_audio'), variables)
         else:
             # For nested operations, try to process each key
             for key, value in operation.items():
