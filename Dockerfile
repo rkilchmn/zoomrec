@@ -6,7 +6,7 @@ ENV HOME=/home/zoomrec \
     TERM=xfce4-terminal \
     START_DIR=/start \
     DEBIAN_FRONTEND=noninteractive \
-    VNC_RESOLUTION=1024x576 \
+    VNC_RESOLUTION=1280x720 \
     VNC_COL_DEPTH=24 \
     VNC_PW=zoomrec \
     VNC_PORT=5901 \
@@ -133,7 +133,7 @@ RUN apt-get install --no-install-recommends -y \
         gnome-screenshot
 
 # required python module
-RUN pip3 install --upgrade  --break-system-packages --no-cache-dir -r ${HOME}/res/requirements.txt --default-timeout=100
+RUN pip3 install --upgrade  --break-system-packages --no-cache-dir -r ${HOME}/res/requirements.txt --default-timeout=300
 #    pip3 uninstall --yes opencv-python && \
 #    pip3 install opencv-python-headless
 
