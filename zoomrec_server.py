@@ -17,21 +17,15 @@ if DEBUG:
 # Get vars
 BASE_PATH = os.getenv('ZOOMREC_HOME')
 
-# Get the current date and time
-now = datetime.now()
-
-# Format the date and time in the desired format
-timestamp = now.strftime('%Y-%m-%d_%H-%M-%S')
-
 # Create the log file name with the timestamp
-LOG_DIR = os.path.join(BASE_PATH, os.getenv('LOG_SUBDIR'))
-log_file = os.path.join(LOG_DIR, "{}.log".format(timestamp))
+LOG_PATH = os.path.join(BASE_PATH, "logs")
+log_file = os.path.join(LOG_PATH, "zoomrec_server_log")
 
 # Configure the logging
-logging.basicConfig(filename=log_file, format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
+logging.basicConfig(filename=log_file, filemode="a", format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
 
 def start_telegram_bot():
-    bot_log_file = open(f"{log_file}.telegram_bot", "w")
+    bot_log_file = open(os.path.join(LOG_PATH, "telegram_bot_log"), "w")
     
     command = f"python3 telegram_bot.py"
     telegram_bot = subprocess.Popen(
@@ -43,7 +37,7 @@ def start_telegram_bot():
     logging.info("Telegram bot started!")
     
 def start_imap_bot():
-    bot_log_file = open(f"{log_file}.imap_bot", "w")
+    bot_log_file = open(os.path.join(LOG_PATH, "imap_bot_log"), "w")
 
     command = f"python3 imap_bot.py"
     imap_bot = subprocess.Popen(

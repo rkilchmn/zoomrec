@@ -47,6 +47,7 @@ if [[ "$2" == "$VAAPI" ]]; then
     -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
+    -v $ZOOMREC_HOME/logs:/home/zoomrec/logs \
     -p 5678:5678 \
     -p 5901:5901 \
     -p 137-138:137-138 \
@@ -83,6 +84,7 @@ elif [[ "$2" == "$NVIDIA" ]]; then
     -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
+    -v $ZOOMREC_HOME/logs:/home/zoomrec/logs \
     -p 5678:5678 \
     -p 5901:5901 \
     -p 137-139:137-139 \
@@ -109,6 +111,7 @@ else
     -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
+    -v $ZOOMREC_HOME/logs:/home/zoomrec/logs \
     -p 5678:5678 \
     -p 5901:5901 \
     -p 137-139:137-139 \

@@ -2,7 +2,7 @@
 join_popup_audio_video_settings: &join_popup_audio_video_settings
   locate_image: 
     image: 'custom_audio_combination.png'
-    iterate: 30 # default is 1
+    iterate: 30   # default is 1
     sleep: 1      # default is 0
     on_failure: "True" # webinars don't show this popop, so continue
     on_success:
@@ -84,17 +84,35 @@ join_popup_with_id: &join_popup_with_id
                     on_success: *join_popup_audio_video_settings
                     
 # check if joining completed showing the "zoom workplace"
-check_workplace: &check_workplace
+join_check_workplace: &join_check_workplace
   locate_image: 
     image: 'zoom_workplace_joined.png'
     iterate: 20
     sleep: 1
 
-play_hello_audio: &play_hello_audio
-  play_audio: 
-    audio: 'hello.wav' # remove entry yo play random file from directory
+check_toolbar: &check_toolbar
+  locate_image: 
+    image: 'toolbar_leave.png'
+    iterate: 20
+    sleep: 1
+
+audio_mute: &audio_mute
+  locate_image: 
+    image: 'audio_mute.png'
+    click: "True"  # default is "False"
     on_success: "True" # default is "True", but explicit here for clarity
-    on_error: "True" # continue even if error, default is "False"
+    on_failure: "True" # default is "False", but explicit here for clarity
+
+play_hello_audio: &play_hello_audio
+  locate_image: 
+    image: 'audio_unmute.png'
+    click: "True"  # default is "False"
+    on_failure: "True" # continue if failed, default is "False"
+    on_success:
+      play_audio: 
+          audio: 'hello.wav' # remove entry yo play random file from directory
+          on_success: *audio_mute
+          on_error:   *audio_mute
 
 # check if waiting for host
 waiting_for_host: &waiting_for_host
@@ -146,16 +164,34 @@ minimize_video_panel: &minimize_video_panel
     on_failure: "True" # continue even if not found, default is "False"
     on_success: "True" # default is "True", but explicit here for clarity
 
+# check if meeting has ended
+check_meeting_ended: &check_meeting_ended
+  locate_image: 
+    image: 'zoom_workplace_joined.png'
+    iterate: 3
+    sleep: 1
+    on_success: "True" # meeting continues
+    on_failure:
+      locate_image: 
+        image: 'the_host_ended_this_meeting.png'
+        on_failure: "False" # meeting has ended
+        on_success: # close the popup and exit meeting
+          locate_image: 
+            image: 'the_host_ended_this_meeting_close_popup.png'
+            on_success: "False" # meeting has ended
+            on_failure: "False" # meeting has ended
+
 join:
-  # list is processed from the top until a step returns false -> join failed, otherwie join successfull
+  # list is processed from the top until a step returns false -> join failed, otherwise join successfull
   - *join_popup_with_id 
-  - *check_workplace
+  - *join_check_workplace
   - *waiting_for_host
   - *view_option_speaker
   - *view_option_fullscreen
+  - *check_toolbar
   - *play_hello_audio
+  - *minimize_video_panel
 
 ongoing:
   # list is processed from the top until a step returns false -> meeting ended, otherwise meeting continues
-  - *minimize_video_panel
-  - *check_workplace
+  - *check_meeting_ended

@@ -1,8 +1,8 @@
 #!/bin/bash
 mkdir $1
 mkdir $1/recordings
-mkdir $1/recordings/screenshots
 mkdir $1/logs
+mkdir $1/logs/screenshots
 cp -r example/audio $1
 cp -r res/img $1
 cp example/config_client_example.txt $1/config_client.txt

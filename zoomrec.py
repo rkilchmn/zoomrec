@@ -36,7 +36,8 @@ BASE_PATH = os.getenv('ZOOMREC_HOME')
 IMG_PATH = os.path.join(BASE_PATH, "img")
 REC_PATH = os.path.join(BASE_PATH, "recordings")
 AUDIO_PATH = os.path.join(BASE_PATH, "audio")
-DEBUG_PATH = os.path.join(REC_PATH, "screenshots")
+LOG_PATH = os.path.join(BASE_PATH, "logs")
+DEBUG_PATH = os.path.join(LOG_PATH, "screenshots")
 
 FFMPEG_INPUT_PARAMS = os.getenv('FFMPEG_INPUT_PARAMS')
 FFMPEG_OUTPUT_PARAMS = os.getenv('FFMPEG_OUTPUT_PARAMS')
@@ -87,18 +88,12 @@ VIDEO_PANEL_HIDED = False
 # Config path for YAML configuration
 config_path = os.path.join(BASE_PATH, "zoom.yaml")
 
-# Get the current date and time
-now = datetime.now()
-
-# Format the date and time in the desired format
-timestamp = now.strftime('%Y-%m-%d_%H-%M-%S')
-
 # Create the log file name with the timestamp
-log_file = DEBUG_PATH + "/{}.log".format(timestamp)
+log_file = LOG_PATH + "/zoomrec_client_log"
 logLevel = getattr(logging, os.getenv( "LOG_LEVEL", "INFO"), logging.INFO)
 
 # Configure the logging
-logging.basicConfig(filename=log_file, format='%(asctime)s %(levelname)s %(message)s', level=logLevel)
+logging.basicConfig(filename=log_file, filemode="a", format='%(asctime)s %(levelname)s %(message)s', level=logLevel)
 
 class BackgroundThread:
 

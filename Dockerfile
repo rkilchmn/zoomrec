@@ -2,7 +2,6 @@ FROM ubuntu:24.04
 
 ENV HOME=/home/zoomrec \
     ZOOMREC_HOME=/home/zoomrec \
-    TZ=Europe/Berlin \
     TERM=xfce4-terminal \
     START_DIR=/start \
     DEBIAN_FRONTEND=noninteractive \
