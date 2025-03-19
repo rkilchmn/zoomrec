@@ -118,19 +118,7 @@ class Automation:
             # logging.error(f"Error executing function: {func} args: {args}, kwargs: {kwargs}: {e}")
             return None
     
-    def execute_locate_image(self, locate_image, variables=None):
-        """
-        Execute a locate_image operation from YAML configuration
-        
-        Args:
-            variables: Dictionary of variables to replace
-            
-        Returns:
-            Result based on success or failure
-        """
-        if self.img_path is None:
-            logging.error("Image path not set.")
-            return False
+    def execute_locate_image(self, breadcrumbs, locate_image, variables=None):
 
         if variables is None:
             variables = {}
@@ -142,34 +130,39 @@ class Automation:
         until_found = self.str_to_bool(locate_image.get('until_found', 'True'))
         sleep_time = locate_image.get('sleep', 0)
         confidence = locate_image.get('confidence', 0.9)
-        
+
+        breadcrumbs += f"/LocateImage:[{image}]"
+        logging.debug(f"{breadcrumbs}")
+
         success = False
-        result = None
-        for i in range(iterate):
-            result = self.wrap(pyautogui.locateCenterOnScreen, image_path, confidence=confidence)
+        if self.img_path is None:
+            logging.error("Image path not set.")
+        else:
+            for i in range(iterate):
+                result = self.wrap(pyautogui.locateCenterOnScreen, image_path, confidence=confidence)
 
-            if result is not None:
-                # Check if click is required
-                if click: 
-                    x, y = result  
-                    pyautogui.click(x, y)
-                    logging.debug(f"Clicked at position {x}, {y}")
-
-            if until_found:
-                # default - exit  after first time found
                 if result is not None:
-                    success = True
-                    break          
-            else:
-                # inverse - exit after first time NOT found
-                if result is None:
-                    success = True
-                    break
+                    # Check if click is required
+                    if click: 
+                        x, y = result  
+                        pyautogui.click(x, y)
+                        logging.debug(f"Clicked at position {x}, {y}")
 
-            if i < iterate - 1 and sleep_time > 0:
-                time.sleep(sleep_time)
+                if until_found:
+                    # default - exit  after first time found
+                    if result is not None:
+                        success = True
+                        break          
+                else:
+                    # inverse - exit after first time NOT found
+                    if result is None:
+                        success = True
+                        break
 
-        logging.debug(f"Image located result: {result}")
+                if i < iterate - 1 and sleep_time > 0:
+                    time.sleep(sleep_time)
+
+        logging.debug(f"Image: {image} result after {i} of {iterate} iterations: {result} success: {success}")
 
         if success:
             # Handle on_success
@@ -179,7 +172,7 @@ class Automation:
                     return self.str_to_bool(on_success)
                 elif isinstance(on_success, dict):
                     # If it's a dictionary, recursively process it
-                    return self.execute_operation(on_success, variables)
+                    return self.execute_operation(breadcrumbs, on_success, variables)
             return True
         else:
             # Debug screenshot
@@ -193,24 +186,18 @@ class Automation:
                 if isinstance(on_error, str):
                     return self.str_to_bool(on_error)
                 elif isinstance(on_error, dict):
-                    return self.execute_operation(on_error, variables)
+                    return self.execute_operation(breadcrumbs, on_error, variables)
             return False
     
-    def execute_keyboard_input(self, keyboard_input, variables=None):
-        """
-        Execute a keyboard_input operation from YAML configuration
-        
-        Args:
-            variables: Dictionary of variables to replace
-            
-        Returns:
-            Result based on success or failure
-        """
-        
+    def execute_keyboard_input(self, breadcrumbs, keyboard_input, variables=None):
+
         if variables is None:
             variables = {}
             
         sequence = keyboard_input.get('sequence', [])
+
+        breadcrumbs += f"/KeyboardInput[{len(sequence)}]"
+        logging.debug(f"{breadcrumbs}")
         
         success = False
         try:
@@ -261,7 +248,7 @@ class Automation:
             logging.error(f"Error executing keyboard input: {e}", exc_info=True)
             success = False
 
-        logging.debug(f"Keyboard input executed with result: {success}") 
+        logging.debug(f"Keyboard input with sequence of {len(sequence)} keys executed with success: {success}") 
 
         if success:
             # Handle on_success
@@ -271,7 +258,7 @@ class Automation:
                     return self.str_to_bool(on_success)
                 elif isinstance(on_success, dict):
                     # If it's a dictionary, recursively process it
-                    return self.execute_operation(on_success, variables)
+                    return self.execute_operation(breadcrumbs, on_success, variables)
             return True
         else:
             # Handle on_error or on_failure
@@ -280,28 +267,21 @@ class Automation:
                 if isinstance(on_error, str):
                     return self.str_to_bool(on_error)
                 elif isinstance(on_error, dict):
-                    return self.execute_operation(on_error, variables)
+                    return self.execute_operation(breadcrumbs, on_error, variables)
             return False
     
-    def execute_play_audio(self, play_audio, variables=None):
-        """
-        Execute a play_audio operation from YAML configuration
-        
-        Args:
-            play_audio: Dictionary with play_audio configuration
-            variables: Dictionary of variables to replace
-            
-        Returns:
-            True if audio played successfully, False otherwise
-        """
+    def execute_play_audio(self, breadcrumbs, play_audio, variables=None):
         try:
+            # Check if specific audio file is specified
+            specific_audio = play_audio.get('audio')
+
+            breadcrumbs += f"/PlayAudio:[{specific_audio}]"
+            logging.debug(f"{breadcrumbs}")
+            
             if self.audio_path is None:
                 logging.error("Audio path not set.")
                 success = False
             else:
-                # Check if specific audio file is specified
-                specific_audio = play_audio.get('audio')
-                
                 if specific_audio:
                     # Play specific audio file
                     audio_file_path = os.path.join(self.audio_path, specific_audio)
@@ -333,7 +313,7 @@ class Automation:
             logging.error(f"Error executing play_audio: {e}", exc_info=True)
             success = False
 
-        logging.debug(f"Audio played with result: {success}")
+        logging.debug(f"Audio: {audio_file_path} played with result: {success}")
         
         if success:
             # Handle on_success
@@ -343,7 +323,7 @@ class Automation:
                     return self.str_to_bool(on_success)
                 elif isinstance(on_success, dict):
                     # If it's a dictionary, recursively process it
-                    return self.execute_operation(on_success, variables)
+                    return self.execute_operation(breadcrumbs, on_success, variables)
             return True
         else:
             # Handle on_failure
@@ -353,10 +333,10 @@ class Automation:
                     return self.str_to_bool(on_failure)
                 elif isinstance(on_failure, dict):
                     # If it's a dictionary, recursively process it
-                    return self.execute_operation(on_failure, variables)
+                    return self.execute_operation(breadcrumbs, on_failure, variables)
             return False
                 
-    def execute_operation(self, operation, variables=None):
+    def execute_operation(self, breadcrumbs, operation, variables=None):
         """
         Execute a YAML operation based on its type
         
@@ -372,11 +352,11 @@ class Automation:
             
         # Identify the operation type
         if 'locate_image' in operation:
-            return self.execute_locate_image(operation.get('locate_image'), variables)
+            return self.execute_locate_image(breadcrumbs, operation.get('locate_image'), variables)
         elif 'keyboard_input' in operation:
-            return self.execute_keyboard_input(operation.get('keyboard_input'), variables)
+            return self.execute_keyboard_input(breadcrumbs, operation.get('keyboard_input'), variables)
         elif 'play_audio' in operation:
-            return self.execute_play_audio(operation.get('play_audio'), variables)
+            return self.execute_play_audio(breadcrumbs, operation.get('play_audio'), variables)
         else:
             # For nested operations, try to process each key
             for key, value in operation.items():
@@ -412,13 +392,12 @@ class Automation:
         logging.debug(f"Start executing instruction: '{instruction_name}'")
         
         instruction_list = self.config[instruction_name]
-        
+        breadcrumbs = instruction_name
         # If instruction_list is a list, process each item
         if isinstance(instruction_list, list):
             for instruction_item in instruction_list:
                 for operation_name, operation in instruction_item.items():
-                    logging.debug(f"Executing operation: '{operation_name}'")
-                    result = self.execute_operation({operation_name: operation}, variables)
+                    result = self.execute_operation( breadcrumbs, {operation_name: operation}, variables)
                     
                     # If an operation returns False, stop processing
                     if result is False:
@@ -427,7 +406,7 @@ class Automation:
         
         # If it's a dictionary, just execute it
         elif isinstance(instruction_list, dict):
-            result = self.execute_operation(instruction_list, variables)
+            result = self.execute_operation(breadcrumbs, instruction_list, variables)
         
         logging.debug(f"Finished executing instruction: '{instruction_name}' with result: {result}")
         return result
