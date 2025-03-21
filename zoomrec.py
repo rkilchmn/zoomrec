@@ -1,3 +1,4 @@
+from errno import ELIBACC
 import logging
 import os
 import psutil 
@@ -81,10 +82,6 @@ if DISPLAY_NAME is None or  len(DISPLAY_NAME) < 3:
     ]
     DISPLAY_NAME = random.choice(NAME_LIST)
 
-# initialization of global vars
-ONGOING_MEETING = False
-VIDEO_PANEL_HIDED = False
-
 # Config path for YAML configuration
 config_path = os.path.join(BASE_PATH, "zoom.yaml")
 
@@ -94,28 +91,6 @@ logLevel = getattr(logging, os.getenv( "LOG_LEVEL", "INFO"), logging.INFO)
 
 # Configure the logging
 logging.basicConfig(filename=log_file, filemode="a", format='%(asctime)s %(levelname)s %(message)s', level=logLevel)
-
-class BackgroundThread:
-
-    def __init__(self, auto_yaml, interval=10):
-        # Sleep interval between
-        self.interval = interval
-        self.auto_yaml = auto_yaml
-
-        thread = threading.Thread(target=self.run, args=())
-        thread.daemon = True  # Daemonize thread
-        thread.start()  # Start the execution
-
-    def run(self):
-        global ONGOING_MEETING
-        ONGOING_MEETING = True
-
-        logging.info("Check continuously if meeting has ended..")
-
-        while ONGOING_MEETING:
-            ONGOING_MEETING = self.auto_yaml.execute_instruction('ongoing', {})
-
-            time.sleep(self.interval)
 
 def find_process_id_by_name(process_name):
     list_of_process_objects = []
@@ -137,7 +112,7 @@ def start_recording(filename):
     resolution = str(width) + 'x' + str(height)
     disp = os.getenv('DISPLAY')
 
-    logging.debug("Start recording joining process..")
+    logging.info(f"Start recording {filename}")
 
     command = "ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + \
         resolution + " " + FFMPEG_INPUT_PARAMS + " -i " + disp + " " + FFMPEG_OUTPUT_PARAMS + \
@@ -178,9 +153,9 @@ def join(event, dtstart_instance, dtend_instance):
     duration = int(event[EventField.DURATION.value]) * 60
     description = event[EventField.TITLE.value]
 
-    str = f"Joining meeting event with title: '{description}'"
-    logging.info(str)
-    print(str, end="\r", flush=True)
+    info_str = f"Joining meeting event with title: '{description}'"
+    logging.info(info_str)
+    print(info_str, end="\r", flush=True)
 
     ffmpeg_debug = None
     if logging.getLogger().level == logging.DEBUG:
@@ -213,7 +188,8 @@ def join(event, dtstart_instance, dtend_instance):
     variables = {
         "MEET_ID": meet_id,
         "DISPLAY_NAME": DISPLAY_NAME,
-        "PASSWORD": meet_pw
+        "PASSWORD": meet_pw,
+        "HOST_ENDED_MEETING": "False"
     }
     
     # Create global instance of Automation with proper configuration and load the YAML config
@@ -222,18 +198,20 @@ def join(event, dtstart_instance, dtend_instance):
 
     # Join meeting executing automation by config
     joined = auto_yaml.execute_instruction('join', variables)
+
+    # end join debug ffmpeg recording
+    if logging.getLogger().level == logging.DEBUG and ffmpeg_debug is not None:
+        # closing ffmpeg
+        os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
+        atexit.unregister(os.killpg)
     
     if not joined:
         logging.error("Failed to join meeting!")
         os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
-        if logging.getLogger().level == logging.DEBUG and ffmpeg_debug is not None:
-            # closing ffmpeg
-            os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
-            atexit.unregister(os.killpg)
-        return
-
-    # Start BackgroundThread
-    BackgroundThread(auto_yaml)
+        return False
+    
+    meeting_joined = Events.now(event)
+    logging.info(f"Joined meeting at {meeting_joined.strftime(constants.DATETIME_FORMAT)}")
 
     process = Events.get_instruction_attribute( EventInstructionAttribute.PROCESS, event)
     filename_recording = os.path.join(REC_PATH, convert_to_safe_filename(time.strftime( constants.TIME_FORMAT_LOG) + "-" + description) + ".mkv")
@@ -249,18 +227,30 @@ def join(event, dtstart_instance, dtend_instance):
         logging.error(f"Error updating event: {e}", exc_info=True)
 
     now_in_tz = None
-    meeting_running = True
-    while meeting_running:
+    meeting_ongoing = True
+    meeting_duration_exceeded = None
+    while meeting_ongoing:
+        meeting_ongoing = auto_yaml.execute_instruction('ongoing', variables)
         now_in_tz = Events.now(event)
-        if (dtstart_instance <= now_in_tz <= dtend_instance) and ONGOING_MEETING:
+        if (now_in_tz <= dtend_instance):
             time_remaining = dtend_instance - now_in_tz
-            print(f"Meeting ends in {time_remaining}", end="\r", flush=True)
+            # console not visible
+            # print(f"Meeting ends in {time_remaining}", end="\r", flush=True)
         else:
-            meeting_running = False
-        time.sleep(5)
+            meeting_duration_exceeded = True
+            meeting_ongoing = False
+        
+        if meeting_ongoing:
+            time.sleep(5)
 
-    logging.info("Meeting ends at %s" % now_in_tz)
+    meeting_elapsed = now_in_tz - meeting_joined
+    if not (meeting_duration_exceeded or variables['HOST_ENDED_MEETING'] == 'True'):
+        logging.error(f"Meeting prematurely ended at {now_in_tz.strftime(constants.DATETIME_FORMAT)} after {str(meeting_elapsed).split(".")[0]}")
+        return False
 
+    logging.info(f"Meeting ended at {now_in_tz.strftime(constants.DATETIME_FORMAT)} after {str(meeting_elapsed).split(".")[0]}")
+
+    # end zoom and ffmeg recording
     os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
     os.killpg(os.getpgid(ffmpeg.pid), signal.SIGQUIT)
     atexit.unregister(os.killpg)
@@ -278,8 +268,8 @@ def join(event, dtstart_instance, dtend_instance):
             postprocess_process.pid), signal.SIGQUIT)
         
         if postprocess_process:
-            posprocessing_start = datetime.now()
-            txt = f"Started postprocessing task '{postprocess}'..."
+            posprocessing_start = Events.now(event)
+            txt = f"Started postprocessing task '{postprocess}' at {posprocessing_start.strftime(constants.DATETIME_FORMAT)}"
             logging.info(txt)
             print(txt, end="\r", flush=True)
             event[EventField.STATUS.value] = EventStatus.POSTPROCESS.value
@@ -291,9 +281,9 @@ def join(event, dtstart_instance, dtend_instance):
                 logging.error(f"Error updating event: {e}", exc_info=True)
 
             postprocess_process.wait()
-            posprocessing_end = datetime.now()
+            posprocessing_end = Events.now(event)
             postprocessing_duration = posprocessing_end - posprocessing_start
-            logging.info(f"Postprocessing task completed in {postprocessing_duration}")
+            logging.info(f"Postprocessing task '{postprocess}' completed at {posprocessing_end.strftime(constants.DATETIME_FORMAT)} after {str(postprocessing_duration).split(".")[0]}")
 
         else:
             logging.error("Postprocessing script not found or not specified.")
@@ -303,8 +293,10 @@ def join(event, dtstart_instance, dtend_instance):
         event[EventField.ASSIGNED.value] = ''
         event[EventField.ASSIGNED_TIMESTAMP.value] = ''
         update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
+        return True
     except Exception as e:
         logging.error(f"Error updating event: {e}", exc_info=True)
+        return False
 
 def exit_process_by_name(name):
     list_of_process_ids = find_process_id_by_name(name)
@@ -356,7 +348,7 @@ def main():
             
         except Exception as e:
             logging.error(f"Monitoring event error: {str(e)}", exc_info=True)
-            print(f"Monitoring event error: {e}", exc_info=True)
+            print(f"Monitoring event error: {e}")
 
 if __name__ == '__main__':
     version = get_zoom_version()

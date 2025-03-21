@@ -3,6 +3,7 @@ FROM ubuntu:24.04
 ENV HOME=/home/zoomrec \
     ZOOMREC_HOME=/home/zoomrec \
     TERM=xfce4-terminal \
+    TZ=Etc/UTC \
     START_DIR=/start \
     DEBIAN_FRONTEND=noninteractive \
     VNC_RESOLUTION=1280x720 \

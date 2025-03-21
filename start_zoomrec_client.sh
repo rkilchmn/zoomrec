@@ -34,6 +34,7 @@ if [[ "$2" == "$VAAPI" ]]; then
     -e CLIENT_ID="$CLIENT_ID" \
     -e DEBUG="$DEBUG" \
     -e LOG_LEVEL="$LOG_LEVEL" \
+    -e TZ="$TZ" \
     -e DISPLAY_NAME="$DISPLAY_NAME" \
     -e SAMBA_USER="$SAMBA_USER" \
     -e SAMBA_PASS="$SAMBA_PASS" \
@@ -68,6 +69,7 @@ elif [[ "$2" == "$NVIDIA" ]]; then
     -e CLIENT_ID="$CLIENT_ID" \
     -e DEBUG="$DEBUG" \
     -e LOG_LEVEL="$LOG_LEVEL" \
+    -e TZ="$TZ" \
     -e DISPLAY_NAME="$DISPLAY_NAME" \
     -e SAMBA_USER="$SAMBA_USER" \
     -e SAMBA_PASS="$SAMBA_PASS" \
@@ -97,6 +99,7 @@ else
     -e CLIENT_ID="$CLIENT_ID" \
     -e DEBUG="$DEBUG" \
     -e LOG_LEVEL="$LOG_LEVEL" \
+    -e TZ="$TZ" \
     -e DISPLAY_NAME="$DISPLAY_NAME" \
     -e SAMBA_USER="$SAMBA_USER" \
     -e SAMBA_PASS="$SAMBA_PASS" \

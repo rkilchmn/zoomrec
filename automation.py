@@ -8,6 +8,7 @@ import constants
 import subprocess
 import random
 import constants
+import traceback
 
 # Disable failsafe
 pyautogui.FAILSAFE = False
@@ -162,7 +163,7 @@ class Automation:
                 if i < iterate - 1 and sleep_time > 0:
                     time.sleep(sleep_time)
 
-        logging.debug(f"Image: {image} result after {i} of {iterate} iterations: {result} success: {success}")
+        logging.debug(f"Image: {image} result after {i+1} of {iterate} iterations: {result} success: {success}")
 
         if success:
             # Handle on_success
@@ -180,8 +181,8 @@ class Automation:
                 pyautogui.screenshot(os.path.join(self.debug_path, time.strftime(
                     constants.TIME_FORMAT_LOG) + "-" + image))
                     
-            # Handle on_error or on_failure
-            on_error = locate_image.get('on_failure')
+            # Handle on_error or on_error
+            on_error = locate_image.get('on_error')
             if on_error is not None:
                 if isinstance(on_error, str):
                     return self.str_to_bool(on_error)
@@ -261,8 +262,8 @@ class Automation:
                     return self.execute_operation(breadcrumbs, on_success, variables)
             return True
         else:
-            # Handle on_error or on_failure
-            on_error = keyboard_input.get('on_failure')
+            # Handle on_error or on_error
+            on_error = keyboard_input.get('on_error')
             if on_error is not None:
                 if isinstance(on_error, str):
                     return self.str_to_bool(on_error)
@@ -326,16 +327,71 @@ class Automation:
                     return self.execute_operation(breadcrumbs, on_success, variables)
             return True
         else:
-            # Handle on_failure
-            on_failure = play_audio.get('on_failure')
-            if on_failure is not None:
-                if isinstance(on_failure, str):
-                    return self.str_to_bool(on_failure)
-                elif isinstance(on_failure, dict):
+            # Handle on_error
+            on_error = play_audio.get('on_error')
+            if on_error is not None:
+                if isinstance(on_error, str):
+                    return self.str_to_bool(on_error)
+                elif isinstance(on_error, dict):
                     # If it's a dictionary, recursively process it
-                    return self.execute_operation(breadcrumbs, on_failure, variables)
+                    return self.execute_operation(breadcrumbs, on_error, variables)
             return False
                 
+    def execute_set_variable(self, breadcrumbs, set_variable, variables=None):
+        """
+        Execute a set_variable operation
+        
+        Args:
+            breadcrumbs: String tracking execution path
+            set_variable: Dictionary containing set_variable configuration
+            variables: Dictionary of variables to update
+            
+        Returns:
+            Result based on success or failure
+        """
+        if variables is None:
+            variables = {}
+        
+        variable_name = set_variable.get('variable')
+        value = set_variable.get('value')
+        
+        # Process template variables in value if it's a string
+        if isinstance(value, str):
+            value = self.process_template_vars(value, variables)
+        
+        breadcrumbs += f"/SetVariable:[{variable_name}={value}]"
+        logging.debug(f"{breadcrumbs}")
+        
+        success = False
+        try:
+            variables[variable_name] = eval(value)
+            success = True
+            logging.debug(f"Set variable '{variable_name}' to '{value}'")
+        except Exception as e:
+            logging.error(f"Error setting variable '{variable_name}' to '{value}': {e}", exc_info=True)
+            success = False
+        
+        if success:
+            # Handle on_success
+            on_success = set_variable.get('on_success')
+            if on_success is not None:
+                if isinstance(on_success, str):
+                    return self.str_to_bool(on_success)
+                elif isinstance(on_success, dict):
+                    # If it's a dictionary, recursively process it
+                    return self.execute_operation(breadcrumbs, on_success, variables)
+            return True
+        else:
+            # Handle on_error
+            on_error = set_variable.get('on_error')
+            if on_error is not None:
+                if isinstance(on_error, str):
+                    return self.str_to_bool(on_error)
+                elif isinstance(on_error, dict):
+                    # If it's a dictionary, recursively process it
+                    return self.execute_operation(breadcrumbs, on_error, variables)
+            return False
+            
     def execute_operation(self, breadcrumbs, operation, variables=None):
         """
         Execute a YAML operation based on its type
@@ -357,6 +413,8 @@ class Automation:
             return self.execute_keyboard_input(breadcrumbs, operation.get('keyboard_input'), variables)
         elif 'play_audio' in operation:
             return self.execute_play_audio(breadcrumbs, operation.get('play_audio'), variables)
+        elif 'set_variable' in operation:
+            return self.execute_set_variable(breadcrumbs, operation.get('set_variable'), variables)
         else:
             # For nested operations, try to process each key
             for key, value in operation.items():
@@ -368,16 +426,8 @@ class Automation:
             return True
     
     def execute_instruction(self, instruction_name, variables=None):
-        """
-        Execute a list of instructions from the YAML configuration
-        
-        Args:
-            instruction_name: Name of instruction to execute
-            variables: Dictionary of variables to replace
-            
-        Returns:
-            True if all instructions executed successfully, False otherwise
-        """
+        logging.debug(f"Start executing instruction: '{instruction_name}'")
+
         if self.config is None:
             logging.error("Configuration not loaded. Call load_config first.")
             return False
@@ -388,14 +438,15 @@ class Automation:
         if instruction_name not in self.config:
             logging.error(f"Instruction: '{instruction_name}' not found in configuration")
             return False
-
-        logging.debug(f"Start executing instruction: '{instruction_name}'")
         
         instruction_list = self.config[instruction_name]
         breadcrumbs = instruction_name
         # If instruction_list is a list, process each item
+        result = True
         if isinstance(instruction_list, list):
             for instruction_item in instruction_list:
+                if result is False:
+                    break
                 for operation_name, operation in instruction_item.items():
                     result = self.execute_operation( breadcrumbs, {operation_name: operation}, variables)
                     
