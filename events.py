@@ -394,7 +394,7 @@ class SQLLiteEvents(Events):
         event = Events.clean(event)
         event = Events.validate(event)
         event[EventField.LAST_UPDATED_TIMESTAMP.value] = datetime.now()  # Update last updated timestamp
-        old_event = self.get(filters=[[EventField.KEY.value, "=", event[EventField.KEY.value]]])
+        old_event = self.get(filters=[[EventField.KEY.value, "=", event[EventField.KEY.value]]])[0]
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()         
             set_clause = ", ".join(f"{field} = ?" for field in event.keys())
@@ -416,7 +416,7 @@ class SQLLiteEvents(Events):
                 (EventStatus.DELETED.value, datetime.now(), event_key,))
             conn.commit()
 
-        old_event = self.get(filters=[[EventField.KEY.value, "=", event_key]])
+        old_event = self.get(filters=[[EventField.KEY.value, "=", event[EventField.KEY.value]]])[0]
         event = {}
 
         # Check for changes and call the callback if necessary

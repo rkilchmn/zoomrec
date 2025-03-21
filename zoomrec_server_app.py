@@ -37,27 +37,49 @@ basic_auth = BasicAuth(app)
 
 # Define the state_changed_callback function
 def event_state_changed_callback(old_event, new_event):
+    # Timestamp fields to exclude from change detection
+    timestamp_fields = [
+        EventField.ASSIGNED_TIMESTAMP.value,
+        EventField.CREATED_TIMESTAMP.value,
+        EventField.LAST_UPDATED_TIMESTAMP.value
+    ]
+
     try:
         message = None
         if old_event is None:
             event = new_event
-            message = f"Create new event with title '{new_event[EventField.TITLE.value]}' and key '{new_event[EventField.KEy.value]}'."
+            message = f"Created {Events.nameStr(event)}\n"
         elif new_event is None:
             event = old_event
-            message = f"Deleted event with title '{new_event[EventField.TITLE.value]}' and key '{new_event[EventField.KEy.value]}'."
+            message = f"Deleted {Events.nameStr(event)}\n"
         else:
+            changes = []
+            # Check for changes in all fields except timestamps
+            for field in EventField:
+                field_value = field.value
+                if field_value not in timestamp_fields and field_value in old_event and field_value in new_event:
+                    if old_event[field_value] != new_event[field_value]:
+                        # Special handling for status field
+                        if field_value == EventField.STATUS.value:
+                            new_status_description = EventStatus.get_description(new_event[field_value])
+                            old_status_description = EventStatus.get_description(old_event[field_value])
+                            changes.append(f"status changed from '{old_status_description}' to '{new_status_description}'\n")
+                        else:
+                            # Generic handling for other fields
+                            # For empty values, replace with "(empty)" for better readability
+                            old_value = old_event[field_value] if old_event[field_value] else "(empty)"
+                            new_value = new_event[field_value] if new_event[field_value] else "(empty)"
+                            changes.append(f"Field: '{field_value}' changed from '{old_value}' to '{new_value}'\n")
+            
+            # Build the message
+            message = f"Updated {Events.nameStr(new_event)}:\n{', '.join(changes)}"
             event = new_event
-            if old_event[EventField.STATUS.value] != new_event[EventField.STATUS.value]:
-                new_status_description = EventStatus.get_description(new_event[EventField.STATUS.value])
-                old_status_description = EventStatus.get_description(old_event[EventField.STATUS.value])
-                message = f"Event '{new_event[EventField.TITLE.value]}' status changed from {old_status_description} to {new_status_description}"
         
-            if message:
-                user_key = event.get(EventField.USER_KEY.value)
-                if user_key:
-                    user = users.get(filters=[[UserField.KEY.value, "=", user_key]])
-                    if user:
-                        Users.send_message(user, message)
+        # Send the message if there is one
+        if message:
+            user = users.get(filters=[[UserField.KEY.value, "=", event[EventField.USER_KEY.value]]])[0]
+            if user:
+                Users.send_message(user, message)
     except Exception as e:
         print(f"Error in event_state_changed_callback: {str(e)}")
 
