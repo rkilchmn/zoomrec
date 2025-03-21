@@ -35,10 +35,10 @@ class EventStatus(Enum):
     @classmethod
     def get_description(cls, status):
         return {
-            cls.SCHEDULED: "Scheduled",
-            cls.PROCESS: "Processing",
-            cls.POSTPROCESS: "Postprocessing",
-            cls.DELETED: "Deleted"
+            cls.SCHEDULED.value: "Scheduled",
+            cls.PROCESS.value: "Processing",
+            cls.POSTPROCESS.value: "Postprocessing",
+            cls.DELETED.value: "Deleted"
         }.get(status, "Unknown Status")
 
 # IMPORTANT: ordering needs to align with table create
@@ -331,6 +331,7 @@ class SQLLiteEvents(Events):
                         {EventField.CREATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         {EventField.LAST_UPDATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY ({EventField.USER_KEY.value}) REFERENCES users({UserField.KEY.value})
+                        ON DELETE RESTRICT;
                     )
                 ''')
                 conn.commit()
