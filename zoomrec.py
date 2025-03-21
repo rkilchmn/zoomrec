@@ -244,7 +244,7 @@ def join(event, dtstart_instance, dtend_instance):
             time.sleep(5)
 
     meeting_elapsed = now_in_tz - meeting_joined
-    if not (meeting_duration_exceeded or variables['HOST_ENDED_MEETING'] == 'True'):
+    if not (meeting_duration_exceeded or variables['HOST_ENDED_MEETING']):
         logging.error(f"Meeting prematurely ended at {now_in_tz.strftime(constants.DATETIME_FORMAT)} after {str(meeting_elapsed).split(".")[0]}")
         return False
 
