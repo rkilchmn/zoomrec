@@ -384,23 +384,23 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 # User management commands
 async def add_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    args = parse_quoted_args(context.args)
-    if len(args) < 3:
-        await update.message.reply_text("Usage: " + USAGE_ADD_USER)
-        return
-
-    user = {
-        UserField.NAME.value: args[0],
-        UserField.LOGIN.value: args[1],
-        UserField.PASSWORD.value: args[2],
-        UserField.EMAIL.value: args[3] if len(args) > 3 else '',
-        UserField.ROLE.value: int(args[4]) if len(args) > 4 else UserRole.NORMAL
-    }
-
-    # add telegram client id 
-    Users.set_messenger_attribute( messenger_attribute=MessengerAttribute.TELEGRAM_CHAT_ID, user=user, value=update.message.from_user.id)
-
     try:
+        args = parse_quoted_args(context.args)
+        if len(args) < 3:
+            await update.message.reply_text("Usage: " + USAGE_ADD_USER)
+            return
+
+        user = {
+            UserField.NAME.value: args[0],
+            UserField.LOGIN.value: args[1],
+            UserField.PASSWORD.value: args[2],
+            UserField.EMAIL.value: args[3] if len(args) > 3 else '',
+            UserField.ROLE.value: int(args[4]) if len(args) > 4 else UserRole.NORMAL
+        }
+
+        # add telegram client id 
+        Users.set_messenger_attribute( messenger_attribute=MessengerAttribute.TELEGRAM_CHAT_ID, user=user, value=update.message.from_user.id)
+    
         created_user = users_api.create_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, user)
         await update.message.reply_text(f"Created {Users.nameStr(created_user)}")
     except Exception as error:
