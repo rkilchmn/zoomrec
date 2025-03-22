@@ -301,11 +301,15 @@ class SQLLiteEvents(Events):
         self.stateChanged = stateChanged  # Initialize the callback
         self._initialize_db()
 
+    def _get_connection(self):
+        """Create and return a database connection with foreign key support enabled."""
+        conn = sqlite3.connect(self.db_path)
+        conn.execute('PRAGMA foreign_keys = ON;')
+        return conn
+
     def _initialize_db(self):
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
-            # Enable foreign key support
-            cursor.execute('PRAGMA foreign_keys = ON;')
             
             # Check if the table exists
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='events'")
@@ -346,7 +350,7 @@ class SQLLiteEvents(Events):
         event[EventField.CREATED_TIMESTAMP.value] = datetime.now()  # Set created timestamp
         event[EventField.LAST_UPDATED_TIMESTAMP.value] = event[EventField.CREATED_TIMESTAMP.value]  # Set last updated timestamp
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             
             # Create a list of field names in the order defined by the EventField enum
@@ -367,7 +371,7 @@ class SQLLiteEvents(Events):
         return event
     
     def get(self, filters=None):
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             
             # Start building the SQL query
@@ -402,7 +406,7 @@ class SQLLiteEvents(Events):
         event = Events.validate(event)
         event[EventField.LAST_UPDATED_TIMESTAMP.value] = datetime.now()  # Update last updated timestamp
         old_event = self.get(filters=[[EventField.KEY.value, "=", event[EventField.KEY.value]]])[0]
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()         
             set_clause = ", ".join(f"{field} = ?" for field in event.keys())
             cursor.execute(f'''
@@ -418,7 +422,7 @@ class SQLLiteEvents(Events):
     
     def delete(self, event_key):
         old_event = self.get(filters=[[EventField.KEY.value, "=", event_key]])[0]
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(f'UPDATE events SET status = ?, {EventField.LAST_UPDATED_TIMESTAMP.value} = ? WHERE {EventField.KEY.value} = ?', 
                 (EventStatus.DELETED.value, datetime.now(), event_key,))

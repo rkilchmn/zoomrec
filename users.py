@@ -151,8 +151,14 @@ class SQLLiteUser(Users):
         self.stateChanged = stateChanged  # Initialize the callback
         self._initialize_db()
 
+    def _get_connection(self):
+        """Create and return a database connection with foreign key support enabled."""
+        conn = sqlite3.connect(self.db_path)
+        conn.execute('PRAGMA foreign_keys = ON;')
+        return conn
+
     def _initialize_db(self):
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             # IMPORTANT: order of field needs to align with EventFields order
             cursor.execute(f'''
@@ -184,7 +190,7 @@ class SQLLiteUser(Users):
         # Validate user data
         user = Users.validate(user)
 
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(f'''
                 INSERT INTO users (
@@ -201,7 +207,7 @@ class SQLLiteUser(Users):
         return user
 
     def get(self, filters=None):
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             conditions = []
             parameters = []
@@ -237,7 +243,7 @@ class SQLLiteUser(Users):
         old_user = self.get(filters=[[UserField.KEY.value, "=", user[UserField.KEY.value]]])
         if old_user:
             old_user = old_user[0]
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             set_clause = ", ".join(f"{field} = ?" for field in user.keys())
             cursor.execute(f'''
@@ -256,7 +262,7 @@ class SQLLiteUser(Users):
         old_user = self.get(filters=[[UserField.KEY.value, "=", user_key]])
         if old_user:
             old_user = old_user[0]
-        with sqlite3.connect(self.db_path) as conn:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(f'DELETE FROM users WHERE {UserField.KEY.value} = ?', (user_key,))
             conn.commit()
