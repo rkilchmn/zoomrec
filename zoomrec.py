@@ -288,7 +288,7 @@ def join(event, dtstart_instance, dtend_instance):
                 logging.error("Postprocessing script not found or not specified.")
 
         try:
-            event[EventField.STATUS.value] = EventStatus.SCHEDULED.value
+            event[EventField.STATUS.value] = EventStatus.ENDED.value
             event[EventField.ASSIGNED.value] = ''
             event[EventField.ASSIGNED_TIMESTAMP.value] = ''
             update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)

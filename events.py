@@ -30,6 +30,7 @@ class EventStatus(Enum):
     SCHEDULED = 1
     PROCESS = 2
     POSTPROCESS = 3
+    ENDED = 4
     DELETED = 99
 
     @classmethod
@@ -38,6 +39,7 @@ class EventStatus(Enum):
             cls.SCHEDULED.value: "Scheduled",
             cls.PROCESS.value: "Processing",
             cls.POSTPROCESS.value: "Postprocessing",
+            cls.ENDED.value: "Ended",
             cls.DELETED.value: "Deleted"
         }.get(status, "Unknown Status")
 
@@ -331,8 +333,8 @@ class SQLLiteEvents(Events):
                         {EventField.CREATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         {EventField.LAST_UPDATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY ({EventField.USER_KEY.value}) REFERENCES users({UserField.KEY.value})
-                        ON DELETE RESTRICT;
-                    )
+                        ON DELETE RESTRICT
+                    );
                 ''')
                 conn.commit()
 
@@ -434,6 +436,8 @@ class SQLLiteEvents(Events):
         events = self.get(filters=[filter_type,[EventField.STATUS.value, "=", EventStatus.SCHEDULED.value]])
         # also get events in PROCESS - the client could have crashed and is restarting
         events.extend(self.get(filters=[filter_type,[EventField.STATUS.value, "=", EventStatus.PROCESS.value]]))
+        # also get events in ENDED - it may be a recurring meeting and there may be a previous instance that has ended
+        events.extend(self.get(filters=[filter_type,[EventField.STATUS.value, "=", EventStatus.ENDED.value]]))
 
         # Process events
         next_event = None
@@ -462,14 +466,22 @@ class SQLLiteEvents(Events):
                 #     next_event = event
                 #     break  # we have a meeting that has started
                 # elif dtstart_instance > dtnow and dtstart_instance < next_event_dtstart:
-                if dtnow < dtend_instance and (next_event is None or dtend_instance < next_event['dtend_instance']):
+                if  dtnow < dtend_instance and \
+                    ( event[EventField.STATUS.value] == EventStatus.SCHEDULED.value or \
+                      event[EventField.STATUS.value] == EventStatus.PROCESS.value) and \
+                    (next_event is None or dtend_instance < next_event['dtend_instance']):
                     next_event = event
                     next_event['dtstart_instance'] = dtstart_instance
                     next_event['dtend_instance'] = dtend_instance
                     next_event['dtnow'] = dtnow
-                   
-            # delte expired events
-            if max_dtend_instance < dtnow:  # all event dtstart expired
+
+                if event[EventField.STATUS.value] == EventStatus.ENDED.value and dtend_instance < dtnow:
+                    # this event instance has ended, but there are future instances
+                    event[EventField.STATUS.value] = EventStatus.SCHEDULED.value
+                    self.update( event)
+
+            if max_dtend_instance < dtnow:
+                # all instances have expired
                 self.delete( event_key=event[EventField.KEY.value])
 
         return next_event
