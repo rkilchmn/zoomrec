@@ -357,6 +357,10 @@ class SQLLiteEvents(Events):
                 ) VALUES ({", ".join("?" for _ in field_names)})
             ''', field_values)  # Use list comprehension to get values in the correct order
             conn.commit()
+
+        # Check for changes and call the callback if necessary
+        if self.stateChanged and event:
+            self.stateChanged(None, event)
         
         return event
     
@@ -411,18 +415,16 @@ class SQLLiteEvents(Events):
         return event
     
     def delete(self, event_key):
+        old_event = self.get(filters=[[EventField.KEY.value, "=", event_key]])[0]
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(f'UPDATE events SET status = ?, {EventField.LAST_UPDATED_TIMESTAMP.value} = ? WHERE {EventField.KEY.value} = ?', 
                 (EventStatus.DELETED.value, datetime.now(), event_key,))
             conn.commit()
 
-        old_event = self.get(filters=[[EventField.KEY.value, "=", event[EventField.KEY.value]]])[0]
-        event = {}
-
         # Check for changes and call the callback if necessary
-        if self.stateChanged and old_event != event:
-            self.stateChanged(old_event, event)
+        if self.stateChanged and old_event:
+            self.stateChanged(old_event, None)
 
         return True
 

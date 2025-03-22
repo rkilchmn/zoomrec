@@ -8,6 +8,8 @@ from events import FIELDNAMES, Events, EventStatus, EventField, SQLLiteEvents
 from urllib.parse import unquote
 from users import SQLLiteUser, Users, UserField
 import debugpy
+import logging
+import traceback
 
 DEBUG = True if os.getenv('DEBUG','') == 'zoomrec_server_app' else False
 
@@ -23,12 +25,17 @@ BASE_PATH = os.getenv('ZOOMREC_HOME')
 ZOOMREC_DB = 'zoomrec_server_db'
 ZOOMREC_DB_PATH = os.path.join(BASE_PATH, ZOOMREC_DB)
 
+# Get Gunicorn logger
+gunicorn_logger = logging.getLogger("gunicorn.error")
+app.logger.handlers = gunicorn_logger.handlers  # Use the same handlers
+app.logger.setLevel(logging.ERROR)  # Match Gunicorn's error level
+
 # Load configuration from YAML file
 with open('zoomrec_server_app.yaml', "r") as f:
     config = yaml.safe_load(f)
 
-FIRMWARE_PATH = os.path.join(BASE_PATH, os.getenv('FIRMWARE_SUBDIR'))
-LOG_PATH = os.path.join(BASE_PATH, os.getenv('LOG_SUBDIR'))
+FIRMWARE_PATH = os.path.join(BASE_PATH, 'firmware')
+LOG_PATH = os.path.join(BASE_PATH, 'logs')
 
 # Configure basic authentication
 app.config['BASIC_AUTH_USERNAME'] = os.getenv('SERVER_USERNAME')
@@ -265,24 +272,24 @@ def get_event():
 @app.route(f"{config['ROUTE_EVENT']}/{config['ROUTE_EVENT_NEXT']}", methods=['GET'])
 @basic_auth.required
 def get_event_next():
-    client_id = request.args.get('client_id')
-    event_type = request.args.get('event_type')
+    try:
+        client_id = request.args.get('client_id')
+        event_type = request.args.get('event_type')
 
-    if client_id is None or event_type is None:
-        return 'mandatory parameter client_id or event_type missing', 404
+        if client_id is None or event_type is None:
+            return 'mandatory parameter client_id or event_type missing', 404
     
-    # Retrieve lead_time_sec and trail_time_sec from request parameters
-    lead_time_sec = 0
-    trail_time_sec = 0
-    try:
-        lead_time_sec = int(request.args.get('lead_time_sec'))
-        trail_time_sec = int(request.args.get('trail_time_sec'))
-    except ValueError:
-        return 'invalid paramter lead_time_sec and/or trail_time_sec', 404
-    except TypeError:
-        pass
+        # Retrieve lead_time_sec and trail_time_sec from request parameters
+        lead_time_sec = 0
+        trail_time_sec = 0
+        try:
+            lead_time_sec = int(request.args.get('lead_time_sec'))
+            trail_time_sec = int(request.args.get('trail_time_sec'))
+        except ValueError:
+            return 'invalid paramter lead_time_sec and/or trail_time_sec', 404
+        except TypeError:
+            pass
 
-    try:
         response_data = events.get_next(client_id, event_type, lead_time_sec, trail_time_sec)
         # return timestamp in ISO 8601 format 
         if not response_data is None:
@@ -293,6 +300,7 @@ def get_event_next():
         else:
             return jsonify({}), 204 # sucsess, but "204 No Content"
     except Exception as e:
+        app.logger.error(f"Error getting next event: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 def get_file_mtime(file_path):

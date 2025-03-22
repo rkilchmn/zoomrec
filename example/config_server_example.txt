@@ -4,8 +4,6 @@ LOG_LEVEL=WARNING # Default is INFO, other option DEBUG, ERROR, WARNING
 
 # directories
 ZOOMREC_HOME=~/zoomrec_home
-LOG_SUBDIR=logs # server log files under $ZOOMREC_HOME
-FIRMWARE_SUBDIR=firmware # ESP8266_zoomrec firmware updates via server
 
 # API server
 DOCKER_API_PORT=8081 # not required for docker but local testing
