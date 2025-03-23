@@ -188,7 +188,7 @@ def join(event, dtstart_instance, dtend_instance):
             "MEET_ID": meet_id,
             "DISPLAY_NAME": DISPLAY_NAME,
             "PASSWORD": meet_pw,
-            "HOST_ENDED_MEETING": "False"
+            "HOST_ENDED_MEETING": False
         }
         
         # Create global instance of Automation with proper configuration and load the YAML config
