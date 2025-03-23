@@ -454,17 +454,32 @@ class SQLLiteEvents(Events):
             dtnow = Events.now( event)
 
             max_dtend_instance = Events.replaceTimezone( datetime.min) # initialize with min date
+            min_dtstart_instance = Events.replaceTimezone( datetime.max) # initialize with max date
+            min_dtend_instance = Events.replaceTimezone( datetime.max) # initialize with max date
             
             # Check all event occurrences
             # choose dtfrom such that an instance that has started is included unless it already ended
-            dtfrom = dtnow -  timedelta(minutes=int(event[EventField.DURATION.value])) - timedelta(seconds=trail_time_sec)
+            dtfrom = dtnow - timedelta(minutes=int(event[EventField.DURATION.value])) - timedelta(seconds=trail_time_sec)
+            instance_count = 0
             for dtstart in Events.get_dtstart_datetime_list(event, dtfrom):
+                instance_count += 1
                 dtstart_instance = dtstart - timedelta(seconds=lead_time_sec)
                 dtend_instance = dtstart + timedelta(
                     minutes=int(event[EventField.DURATION.value])) + timedelta(seconds=trail_time_sec)
                 
                 if dtend_instance > max_dtend_instance:
                     max_dtend_instance = dtend_instance
+                if dtend_instance < min_dtend_instance:
+                    min_dtend_instance = dtend_instance
+                if dtstart_instance < min_dtstart_instance:
+                    min_dtstart_instance = dtstart_instance
+
+                exclude_ended_instance = False
+                if event[EventField.STATUS.value] == EventStatus.ENDED.value: 
+                    if dtstart_instance <= dtnow <= dtend_instance:
+                        # this event instance has been ended (by host), but still in progress based in schedule
+                        # exclude this instance such that we don't join again a already ended instance
+                        exclude_ended_instance = True
                 
                 # if dtstart_instance <= dtnow <= dtend_instance:
                 #     next_event = event
@@ -472,20 +487,23 @@ class SQLLiteEvents(Events):
                 # elif dtstart_instance > dtnow and dtstart_instance < next_event_dtstart:
                 if  dtnow < dtend_instance and \
                     ( event[EventField.STATUS.value] == EventStatus.SCHEDULED.value or \
-                      event[EventField.STATUS.value] == EventStatus.PROCESS.value) and \
+                      event[EventField.STATUS.value] == EventStatus.PROCESS.value or \
+                      event[EventField.STATUS.value] == EventStatus.ENDED.value) and \
+                    not exclude_ended_instance and \
                     (next_event is None or dtend_instance < next_event['dtend_instance']):
                     next_event = event
                     next_event['dtstart_instance'] = dtstart_instance
                     next_event['dtend_instance'] = dtend_instance
                     next_event['dtnow'] = dtnow
 
-                if event[EventField.STATUS.value] == EventStatus.ENDED.value and dtend_instance < dtnow:
-                    # this event instance has ended, but there are future instances
+            if instance_count > 0:
+                if max_dtend_instance < dtnow:
+                    # all instances have expired
+                    self.delete( event_key=event[EventField.KEY.value])
+                elif event[EventField.STATUS.value] == EventStatus.ENDED.value and \
+                    min_dtstart_instance > dtnow and min_dtend_instance > dtnow:
+                    # a previous instance has ended, but there are future instances
                     event[EventField.STATUS.value] = EventStatus.SCHEDULED.value
                     self.update( event)
-
-            if max_dtend_instance < dtnow:
-                # all instances have expired
-                self.delete( event_key=event[EventField.KEY.value])
 
         return next_event
