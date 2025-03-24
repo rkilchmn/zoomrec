@@ -599,6 +599,9 @@ def start_bot() -> None:
     application.add_handler(CommandHandler(CMD_HELP, help_command))
     application.add_handler(CommandHandler(CMD_INFO, info_command))
 
+    # Add handler for unknown commands (must be added after all other command handlers)
+    application.add_handler(MessageHandler(filters.COMMAND, unknown))
+    
     # on non command
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unknown))
 
