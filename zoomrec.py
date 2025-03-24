@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from events import Events, EventType, EventField, EventStatus, EventInstructionAttribute
 import debugpy
 from events_api import get_next_event_api, update_event_api  # Ensure you import the function
-from utilities import convert_to_safe_filename
+from utilities import convert_to_safe_filename, create_unique_filename
 from automation import Automation
 import pyautogui  
 import traceback
@@ -158,8 +158,7 @@ def join(event, dtstart_instance, dtend_instance):
 
         ffmpeg_debug = None
         if logging.getLogger().level == logging.DEBUG:
-            ffmpeg_debug = start_recording( filename = os.path.join( 
-                REC_PATH, convert_to_safe_filename( time.strftime(constants.TIME_FORMAT_LOG) + "-" + description + "-JOIN.mkv")))
+            ffmpeg_debug = start_recording( create_unique_filename(REC_PATH, f"{description}-{dtstart_instance.strftime( constants.DATETIME_FORMAT)}-JOIN", '.mkv'))
 
         # Exit Zoom if running
         exit_process_by_name("zoom")
@@ -213,7 +212,7 @@ def join(event, dtstart_instance, dtend_instance):
         logging.info(f"Joined meeting at {meeting_joined.strftime(constants.DATETIME_FORMAT)}")
 
         process = Events.get_instruction_attribute( EventInstructionAttribute.PROCESS, event)
-        filename_recording = os.path.join(REC_PATH, convert_to_safe_filename(time.strftime( constants.TIME_FORMAT_LOG) + "-" + description) + ".mkv")
+        filename_recording = create_unique_filename(REC_PATH, f"{description}-{dtstart_instance.strftime( constants.DATETIME_FORMAT)}", '.mkv')
         if process == 'record':
             ffmpeg = start_recording(filename_recording)
 
