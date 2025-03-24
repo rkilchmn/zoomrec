@@ -25,7 +25,7 @@ log_file = os.path.join(LOG_PATH, "zoomrec_server_log")
 logging.basicConfig(filename=log_file, filemode="a", format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
 
 def start_telegram_bot():
-    bot_log_file = open(os.path.join(LOG_PATH, "telegram_bot_log"), "w")
+    bot_log_file = open(os.path.join(LOG_PATH, "telegram_bot_log"), "a")
     
     command = f"python3 telegram_bot.py"
     telegram_bot = subprocess.Popen(
@@ -37,7 +37,7 @@ def start_telegram_bot():
     logging.info("Telegram bot started!")
     
 def start_imap_bot():
-    bot_log_file = open(os.path.join(LOG_PATH, "imap_bot_log"), "w")
+    bot_log_file = open(os.path.join(LOG_PATH, "imap_bot_log"), "a")
 
     command = f"python3 imap_bot.py"
     imap_bot = subprocess.Popen(

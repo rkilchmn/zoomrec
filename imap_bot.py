@@ -15,6 +15,7 @@ from ics import Calendar
 import os
 import math  # Define math module
 import debugpy
+import traceback
 try:
     from zoneinfo import ZoneInfo # >= 3.9
 except ImportError:
@@ -258,12 +259,12 @@ def start_bot():
             # Wait for 1 mins before checking again
             time.sleep(1*60)
             
-        except Exception as error:
-                if isinstance(error, KeyboardInterrupt):
-                    # Exit the program if the exception is a KeyboardInterrupt
-                    raise error
-                else:
-                    logging.exception("An error occurred")  # Enhanced to include full stack trace
+        except Exception as e:
+            if isinstance(e, KeyboardInterrupt):
+                # Exit the program if the exception is a KeyboardInterrupt
+                raise e
+            else:
+                logging.error(f"An error occurred: {e}", exc_info=True)  # Enhanced to include full stack trace
             
 if __name__ == "__main__":
     if not (EMAIL_PASSWORD and IMAP_SERVER and IMAP_PORT and EMAIL_ADDRESS and  SERVER_URL and SERVER_USERNAME and SERVER_PASSWORD):
