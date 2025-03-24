@@ -192,6 +192,8 @@ check_meeting_ended: &check_meeting_ended
     on_error:
       locate_image: 
         image: 'the_host_ended_this_meeting.png'
+        iterate: 3
+        sleep: 1
         on_error: "False" # meeting duration ended
         on_success: # the host ended the meeting
           set_variable:
@@ -230,9 +232,9 @@ join:
   - *minimize_video_panel
   - *check_toolbar
   - *play_hello_audio
-  - *close_message_info_is_here
+  # - *close_message_info_is_here
   
 ongoing:
   # list is processed from the top until a step returns false -> meeting ended, otherwise meeting continues
   - *check_meeting_ended
-  - *close_message_info_is_here
+  # - *close_message_info_is_here
