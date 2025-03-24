@@ -131,6 +131,7 @@ class Automation:
         until_found = self.str_to_bool(locate_image.get('until_found', 'True'))
         sleep_time = locate_image.get('sleep', 0)
         confidence = locate_image.get('confidence', 0.9)
+        minSearchTime = locate_image.get('minSearchTime', 0)
 
         breadcrumbs += f"/LocateImage:[{image}]"
         logging.debug(f"{breadcrumbs}")
@@ -140,7 +141,7 @@ class Automation:
             logging.error("Image path not set.")
         else:
             for i in range(iterate):
-                result = self.wrap(pyautogui.locateCenterOnScreen, image_path, confidence=confidence)
+                result = self.wrap(pyautogui.locateCenterOnScreen, image_path, confidence=confidence, minSearchTime=minSearchTime)
 
                 if result is not None:
                     # Check if click is required
