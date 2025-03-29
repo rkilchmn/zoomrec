@@ -160,7 +160,7 @@ def update_user(key):
         user = request.json
         user[UserField.KEY.value] = key
         users.update(user)
-        updated_user = users.get(key)[0]
+        updated_user = users.get(filters=[[UserField.KEY.value, '=', key]])[0]
         return jsonify(updated_user), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
