@@ -4,6 +4,7 @@ import re
 import validators
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from dateutil.rrule import rrulestr
 try:
     from zoneinfo import ZoneInfo # >= 3.9
@@ -162,8 +163,8 @@ class Events(ABC):
         if EventField.RRULE.value in event and event[EventField.RRULE.value]:
             try:
                 dtstart_datetime_list = Events.get_dtstart_datetime_list(event)
-            except ValueError:
-                raise ValueError(f"Invalid attribute {EventField.RRULE.value} '{event[EventField.RRULE.value]}'. Not a valid RRULE string.")
+            except Exception as e:
+                raise ValueError(f"Invalid attribute {EventField.RRULE.value} '{event[EventField.RRULE.value]}'. Not a valid RRULE string. {e}")
 
         if EventField.URL.value in event and event[EventField.URL.value]:
             if event[EventField.URL.value].startswith("http"):
@@ -235,7 +236,7 @@ class Events(ABC):
             else:
                 dtstart_list = []
             # Generate occurrences within a reasonable time frame
-            for dt in rule.between(dtstart, dtstart.replace(month=dtstart.month + 1), inc=True):
+            for dt in rule.between(dtstart, dtstart + relativedelta(months=1), inc=True):
                 dt = dt.replace(hour=dtstart.hour, minute=dtstart.minute, second=dtstart.second, microsecond=dtstart.microsecond, tzinfo=dtstart.tzinfo)
                 if dt >= dtfrom: # only include occurrences from the future
                     dtstart_list.append(dt)
