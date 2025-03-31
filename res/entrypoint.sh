@@ -7,7 +7,7 @@ setfacl -R -m "g:samba:rwx" ${HOME}/recordings
 
 # change bind mount ownership to zoomrec
 chown -R zoomrec:zoomrec ${HOME}/recordings
-chown -R zoomrec:zoomrec ${HOME}/audioexit
+chown -R zoomrec:zoomrec ${HOME}/audio
 
 # start application witwith non-root
 echo -e "Starting Zoomrec..."
