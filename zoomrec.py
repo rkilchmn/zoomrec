@@ -82,15 +82,18 @@ if DISPLAY_NAME is None or  len(DISPLAY_NAME) < 3:
     ]
     DISPLAY_NAME = random.choice(NAME_LIST)
 
-# Config path for YAML configuration
-config_path = os.path.join(BASE_PATH, "zoom.yaml")
+try:
+    # Config path for YAML configuration
+    config_path = os.path.join(BASE_PATH, "zoom.yaml")
 
-# Create the log file name with the timestamp
-log_file = LOG_PATH + "/zoomrec_client_log"
-logLevel = getattr(logging, os.getenv( "LOG_LEVEL", "INFO"), logging.INFO)
+    # Create the log file name with the timestamp
+    log_file = LOG_PATH + "/zoomrec_client_log"
+    logLevel = getattr(logging, os.getenv( "LOG_LEVEL", "INFO"), logging.INFO)
 
-# Configure the logging
-logging.basicConfig(filename=log_file, filemode="a", format='%(asctime)s %(levelname)s %(message)s', level=logLevel)
+    # Configure the logging
+    logging.basicConfig(filename=log_file, filemode="a", format='%(asctime)s %(levelname)s %(message)s', level=logLevel)
+except Exception as e:
+    print(f"Error start logging: {str(e)}")
 
 def find_process_id_by_name(process_name):
     list_of_process_objects = []

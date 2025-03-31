@@ -46,9 +46,11 @@ if [[ "$2" == "$VAAPI" ]]; then
     -e SERVER_URL="$SERVER_URL" \
     -e LEAD_TIME_SEC="$LEAD_TIME_SEC" \
     -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
+    -e SSH_SERVER_URL="$SSH_SERVER_URL" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
     -v $ZOOMREC_HOME/logs:/home/zoomrec/logs \
+    -v $SSH_IDENTITY_FILE:/home/zoomrec/.ssh/id_rsa:ro \
     -p 5678:5678 \
     -p 5901:5901 \
     -p 137-138:137-138 \
@@ -84,9 +86,11 @@ elif [[ "$2" == "$NVIDIA" ]]; then
     -e SERVER_URL="$SERVER_URL" \
     -e LEAD_TIME_SEC="$LEAD_TIME_SEC" \
     -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
+    -e SSH_SERVER_URL="$SSH_SERVER_URL" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
     -v $ZOOMREC_HOME/logs:/home/zoomrec/logs \
+    -v $SSH_IDENTITY_FILE:/home/zoomrec/.ssh/id_rsa:ro \
     -p 5678:5678 \
     -p 5901:5901 \
     -p 137-139:137-139 \
@@ -112,9 +116,11 @@ else
     -e SERVER_URL="$SERVER_URL" \
     -e LEAD_TIME_SEC="$LEAD_TIME_SEC" \
     -e TRAIL_TIME_SEC="$TRAIL_TIME_SEC" \
+    -e SSH_SERVER_URL="$SSH_SERVER_URL" \
     -v $ZOOMREC_HOME/recordings:/home/zoomrec/recordings \
     -v $ZOOMREC_HOME/audio:/home/zoomrec/audio \
     -v $ZOOMREC_HOME/logs:/home/zoomrec/logs \
+    -v $SSH_IDENTITY_FILE:/home/zoomrec/.ssh/id_rsa:ro \
     -p 5678:5678 \
     -p 5901:5901 \
     -p 137-139:137-139 \

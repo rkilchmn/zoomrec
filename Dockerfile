@@ -27,7 +27,7 @@ ARG GPU_BUILD=""
 ARG RENDER_GROUPID="" 
 
 # Add user
-RUN useradd -ms /bin/bash zoomrec -d ${HOME}
+RUN useradd -ms /bin/bash -u 1999 zoomrec -d ${HOME}
 WORKDIR ${HOME}
 
 ADD res/requirements.txt ${HOME}/res/requirements.txt
@@ -130,7 +130,7 @@ RUN apt-get install --no-install-recommends -y \
         python3-dev \
         python3-setuptools \
         scrot \
-        gnome-screenshot
+        gnome-screenshot 
 
 # required python module
 RUN pip3 install --upgrade  --break-system-packages --no-cache-dir -r ${HOME}/res/requirements.txt --default-timeout=300
@@ -140,11 +140,15 @@ RUN pip3 install --upgrade  --break-system-packages --no-cache-dir -r ${HOME}/re
 # work around error in Python 3.7: AttributeError: type object 'Callable' has no attribute '_abc_registry'
 RUN if pip3 show typing > /dev/null 2>&1; then pip3 uninstall -y --break-system-packages typing; fi
 
-# samba servr
+# samba server
 RUN apt-get install --no-install-recommends -y \
         samba \
         samba-common-bin \
         acl
+
+ # ssh/sftp client
+RUN apt-get install --no-install-recommends -y \
+        openssh-client
 
 # Clean up APT when done.
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -265,8 +269,11 @@ ADD res/img ${HOME}/img/
 ADD zoom_auto.yaml ${HOME}/
 
 # posprocessing scripts
-ADD res/postprocess.sh ${HOME}/
-ADD res/transcribe_video.sh ${HOME}/
+COPY res/postprocess.sh res/transcribe_video.sh res/sftp_transfer.sh res/concatenate_video.sh ${HOME}/
+# RUN chmod a+x ${HOME}/postprocess.sh && \
+#     chmod a+x ${HOME}/transcribe_video.sh && \
+#     chmod a+x ${HOME}/sftp_transfer.sh && \
+#     chmod a+x ${HOME}/concatenate_video.sh
 
 # required by pyautogui 
 ADD res/.Xauthority ${HOME}/
@@ -280,6 +287,9 @@ RUN chown -R zoomrec:zoomrec ${HOME} && \
     chmod -R a+rw ${START_DIR} && \
     find ${HOME}/ -name '*.sh' -exec chmod -v a+x {} + && \
     find ${HOME}/ -name '*.desktop' -exec chmod -v a+x {} +
+
+# ssh client - identity file directory
+RUN mkdir -p ${HOME}/.ssh
 
 # samba server setup
 COPY res/smb.conf /etc/samba/smb.conf

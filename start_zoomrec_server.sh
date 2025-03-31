@@ -32,6 +32,8 @@ docker run -d --restart unless-stopped --name zoomrec_server \
     -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
     -v $ZOOMREC_HOME/logs:/home/zoomrec/logs \
     -v $ZOOMREC_HOME/firmware:/home/zoomrec/firmware \
+    -v /root/sftp-data:/root/sftp-data \
     -p $SERVER_PORT:$DOCKER_API_PORT \
+    -p $SSH_PORT:22 \
     -p 5679:5679 \
     rkilchmn/zoomrec_server:latest

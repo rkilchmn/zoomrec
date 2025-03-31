@@ -11,4 +11,5 @@ python-dateutil
 shortuuid
 ics
 bcrypt
+pam
 debugpy
