@@ -186,13 +186,11 @@ minimize_video_panel: &minimize_video_panel
 check_meeting_ended: &check_meeting_ended
   locate_image: 
     image: 'toolbar_leave.png'
-    iterate: 3
-    sleep: 1
     on_success: "True" # meeting continues
     on_error:
       locate_image: 
         image: 'the_host_ended_this_meeting.png'
-        iterate: 3
+        iterate: 2
         sleep: 1
         on_error: "False" # meeting duration ended
         on_success: # the host ended the meeting
