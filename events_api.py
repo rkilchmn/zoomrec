@@ -87,7 +87,11 @@ def get_next_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, client_id, 
         response_data['dtstart_instance'] = datetime.fromisoformat(response_data['dtstart_instance'])
         response_data['dtstart_instance'] = Events.replaceTimezone(response_data['dtstart_instance'], response_data['timezone'])
         response_data['dtend_instance'] = datetime.fromisoformat(response_data['dtend_instance'])
-        response_data['dtend_instance'] = Events.replaceTimezone(response_data['dtend_instance'], response_data['timezone'])
+        response_data['dtend_instance'] = Events.replaceTimezone(response_data['dtend_instance'], response_data['timezone'])    
+        response_data['dtstart_instance_lead'] = datetime.fromisoformat(response_data['dtstart_instance_lead'])
+        response_data['dtstart_instance_lead'] = Events.replaceTimezone(response_data['dtstart_instance_lead'], response_data['timezone'])
+        response_data['dtend_instance_trail'] = datetime.fromisoformat(response_data['dtend_instance_trail'])
+        response_data['dtend_instance_trail'] = Events.replaceTimezone(response_data['dtend_instance_trail'], response_data['timezone'])
         response_data['dtnow'] = datetime.fromisoformat(response_data['dtnow'])
         response_data['dtnow'] = Events.replaceTimezone(response_data['dtnow'], response_data['timezone'])
         return response_data

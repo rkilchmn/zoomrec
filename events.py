@@ -464,37 +464,40 @@ class SQLLiteEvents(Events):
             instance_count = 0
             for dtstart in Events.get_dtstart_datetime_list(event, dtfrom):
                 instance_count += 1
-                dtstart_instance = dtstart - timedelta(seconds=lead_time_sec)
-                dtend_instance = dtstart + timedelta(
-                    minutes=int(event[EventField.DURATION.value])) + timedelta(seconds=trail_time_sec)
+                dtstart_instance = dtstart
+                dtend_instance = dtstart_instance + timedelta(minutes=int(event[EventField.DURATION.value]))
+                dtstart_instance_lead = dtstart_instance - timedelta(seconds=lead_time_sec)
+                dtend_instance_trail = dtend_instance + timedelta(seconds=trail_time_sec)
                 
-                if dtend_instance > max_dtend_instance:
-                    max_dtend_instance = dtend_instance
-                if dtend_instance < min_dtend_instance:
-                    min_dtend_instance = dtend_instance
-                if dtstart_instance < min_dtstart_instance:
-                    min_dtstart_instance = dtstart_instance
+                if dtend_instance_trail > max_dtend_instance:
+                    max_dtend_instance = dtend_instance_trail
+                if dtend_instance_trail < min_dtend_instance:
+                    min_dtend_instance = dtend_instance_trail
+                if dtstart_instance_lead < min_dtstart_instance:
+                    min_dtstart_instance = dtstart_instance_lead
 
                 exclude_ended_instance = False
                 if event[EventField.STATUS.value] == EventStatus.ENDED.value: 
-                    if dtstart_instance <= dtnow <= dtend_instance:
+                    if dtstart_instance_lead <= dtnow <= dtend_instance_trail:
                         # this event instance has been ended (by host), but still in progress based in schedule
                         # exclude this instance such that we don't join again a already ended instance
                         exclude_ended_instance = True
                 
-                # if dtstart_instance <= dtnow <= dtend_instance:
+                # if dtstart_instance_lead <= dtnow <= dtend_instance_trail:
                 #     next_event = event
                 #     break  # we have a meeting that has started
-                # elif dtstart_instance > dtnow and dtstart_instance < next_event_dtstart:
-                if  dtnow < dtend_instance and \
+                # elif dtstart_instance_lead > dtnow and dtstart_instance_lead < next_event_dtstart:
+                if  dtnow < dtend_instance_trail and \
                     ( event[EventField.STATUS.value] == EventStatus.SCHEDULED.value or \
                       event[EventField.STATUS.value] == EventStatus.PROCESS.value or \
                       event[EventField.STATUS.value] == EventStatus.ENDED.value) and \
                     not exclude_ended_instance and \
-                    (next_event is None or dtend_instance < next_event['dtend_instance']):
+                    (next_event is None or dtend_instance_trail < next_event['dtend_instance_trail']):
                     next_event = event
                     next_event['dtstart_instance'] = dtstart_instance
                     next_event['dtend_instance'] = dtend_instance
+                    next_event['dtstart_instance_lead'] = dtstart_instance_lead
+                    next_event['dtend_instance_trail'] = dtend_instance_trail
                     next_event['dtnow'] = dtnow
 
             if instance_count > 0:

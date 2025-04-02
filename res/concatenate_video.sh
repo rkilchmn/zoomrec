@@ -11,8 +11,21 @@ if [[ -z "$BASE_NAME" || -z "$EXTENSION" ]]; then
     exit 1
 fi
 
+# Check if a file with exactly the basename.extension exists
+EXACT_MATCH="${BASE_NAME}.${EXTENSION}"
+if [[ -f "$EXACT_MATCH" ]]; then
+    NEW_NAME="${BASE_NAME}_0.${EXTENSION}"
+    if [[ -f "$NEW_NAME" ]]; then
+        echo "File $NEW_NAME already exists. Cannot rename $EXACT_MATCH to this name. Aborting."
+        exit 2
+    fi
+    echo "Renaming $EXACT_MATCH to $NEW_NAME"
+    mv "$EXACT_MATCH" "$NEW_NAME"
+fi
+
 # Find matching files
-FILE_LIST=($(ls "${BASE_NAME}"*.${EXTENSION} 2>/dev/null))
+shopt -s nullglob  # Avoids error when no files match
+FILE_LIST=( "${BASE_NAME}"*.${EXTENSION} )
 
 # Check if there are multiple matching files
 if [[ ${#FILE_LIST[@]} -lt 2 ]]; then
@@ -29,7 +42,7 @@ for file in "${FILE_LIST[@]}"; do
 done
 
 # Output file name
-OUTPUT_FILE="${BASE_NAME}_merged.${EXTENSION}"
+OUTPUT_FILE="${BASE_NAME}.${EXTENSION}"
 
 # Run ffmpeg to concatenate
 ffmpeg -f concat -safe 0 -i "$INPUT_FILE" -c copy "$OUTPUT_FILE"

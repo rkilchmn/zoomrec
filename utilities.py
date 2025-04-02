@@ -27,8 +27,6 @@ def create_unique_filename(directory_path, basename, extension):
     # Ensure extension starts with a dot
     if extension and not extension.startswith('.'):
         extension = '.' + extension
-
-    basename = convert_to_safe_filename(basename)
     
     # Create the initial filename
     filename = os.path.join(directory_path, f"{basename}{extension}")

@@ -295,6 +295,8 @@ def get_event_next():
         if not response_data is None:
             response_data['dtstart_instance'] = response_data['dtstart_instance'].isoformat()
             response_data['dtend_instance'] = response_data['dtend_instance'].isoformat()
+            response_data['dtstart_instance_lead'] = response_data['dtstart_instance_lead'].isoformat()
+            response_data['dtend_instance_trail'] = response_data['dtend_instance_trail'].isoformat()
             response_data['dtnow'] = response_data['dtnow'].isoformat()
             return jsonify(response_data), 200
         else:

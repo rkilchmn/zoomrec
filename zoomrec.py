@@ -12,7 +12,9 @@ import atexit
 from datetime import datetime, timedelta
 from events import Events, EventType, EventField, EventStatus, EventInstructionAttribute
 import debugpy
-from events_api import get_next_event_api, update_event_api  # Ensure you import the function
+from users import UserField
+from users_api import get_user_api
+from events_api import get_next_event_api, update_event_api
 from utilities import convert_to_safe_filename, create_unique_filename
 from automation import Automation
 import pyautogui  
@@ -34,16 +36,19 @@ if DEBUG:
 
 # Get vars
 BASE_PATH = os.getenv('ZOOMREC_HOME')
-IMG_PATH = os.path.join(BASE_PATH, "img")
-REC_PATH = os.path.join(BASE_PATH, "recordings")
-AUDIO_PATH = os.path.join(BASE_PATH, "audio")
-LOG_PATH = os.path.join(BASE_PATH, "logs")
-DEBUG_PATH = os.path.join(LOG_PATH, "screenshots")
+IMG_PATH = os.path.join(BASE_PATH, constants.IMG_DIR)
+REC_PATH = os.path.join(BASE_PATH, constants.RECORDINGS_DIR)
+AUDIO_PATH = os.path.join(BASE_PATH, constants.AUDIO_DIR)
+LOG_PATH = os.path.join(BASE_PATH, constants.LOG_DIR)
+DEBUG_PATH = os.path.join(LOG_PATH, constants.DEBUG_DIR)
 
 FFMPEG_INPUT_PARAMS = os.getenv('FFMPEG_INPUT_PARAMS')
 FFMPEG_OUTPUT_PARAMS = os.getenv('FFMPEG_OUTPUT_PARAMS')
 
 CLIENT_ID = os.getenv('CLIENT_ID')
+
+SSH_SERVER_URL = os.getenv('SSH_SERVER_URL')
+SSH_IDENTITY_FILE = os.getenv('SSH_IDENTITY_FILE')
 
 def getIntEnv( env_str, default_value):
     int_val = default_value
@@ -131,7 +136,7 @@ def start_recording(filename):
     
     return subprocess_info
     
-def join(event, dtstart_instance, dtend_instance):
+def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_instance_trail):
     try:
         if int(event[EventField.STATUS.value]) == int(EventStatus.SCHEDULED.value):
             if not event[EventField.ASSIGNED.value]:
@@ -161,7 +166,14 @@ def join(event, dtstart_instance, dtend_instance):
 
         ffmpeg_debug = None
         if logging.getLogger().level == logging.DEBUG:
-            ffmpeg_debug = start_recording( create_unique_filename(REC_PATH, f"{description}-{dtstart_instance.strftime( constants.DATETIME_FORMAT)}-JOIN", '.mkv'))
+            ffmpeg_debug = start_recording( 
+                os.path.join(REC_PATH, 
+                    create_unique_filename(REC_PATH, 
+                        convert_to_safe_filename(f"{description}-JOIN-{dtstart_instance.strftime( constants.DATETIME_FORMAT)}"), 
+                        constants.VIDEO_EXTENSION
+                    )
+                )
+            )
 
         # Exit Zoom if running
         exit_process_by_name("zoom")
@@ -178,7 +190,7 @@ def join(event, dtstart_instance, dtend_instance):
                                     shell=True, preexec_fn=os.setsid)
 
         # Wait while zoom process is there
-        list_of_process_ids = find_process_id_by_name('zoom')
+        list_of_process_ids = find_process_id_by_name('zoom')   
         while len(list_of_process_ids) <= 0:
             logging.info("No Running Zoom Process found!")
             list_of_process_ids = find_process_id_by_name('zoom')
@@ -215,7 +227,9 @@ def join(event, dtstart_instance, dtend_instance):
         logging.info(f"Joined meeting at {meeting_joined.strftime(constants.DATETIME_FORMAT)}")
 
         process = Events.get_instruction_attribute( EventInstructionAttribute.PROCESS, event)
-        filename_recording = create_unique_filename(REC_PATH, f"{description}-{dtstart_instance.strftime( constants.DATETIME_FORMAT)}", '.mkv')
+        basename = f"{description}-{dtstart_instance.strftime( constants.DATETIME_FORMAT)}"
+        basename = convert_to_safe_filename(basename)
+        filename_recording = os.path.join(REC_PATH, create_unique_filename(REC_PATH, basename, constants.VIDEO_EXTENSION))
         if process == 'record':
             ffmpeg = start_recording(filename_recording)
 
@@ -233,8 +247,8 @@ def join(event, dtstart_instance, dtend_instance):
         while meeting_ongoing:
             meeting_ongoing = auto_yaml.execute_instruction('ongoing', variables)
             now_in_tz = Events.now(event)
-            if (now_in_tz <= dtend_instance):
-                time_remaining = dtend_instance - now_in_tz
+            if (now_in_tz <= dtend_instance_trail):
+                time_remaining = dtend_instance_trail - now_in_tz
                 # console not visible
                 # print(f"Meeting ends in {time_remaining}", end="\r", flush=True)
             else:
@@ -255,7 +269,16 @@ def join(event, dtstart_instance, dtend_instance):
         os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
         os.killpg(os.getpgid(ffmpeg.pid), signal.SIGQUIT)
         atexit.unregister(os.killpg)
-                    
+
+        # consolidate videos if multiple recordings of same meeting
+        command = f"./concatenate_video.sh '{os.path.join(REC_PATH, basename)}' {constants.VIDEO_EXTENSION} yes"
+        logging.debug(f"Consolidate video command: {command}")
+        result = subprocess.run(command, shell=True, capture_output=True, text=True)
+        if result.returncode != 0:
+            logging.error(f"Error consolidating video: {result.stderr}")
+        else:
+            logging.debug(f"Consolidated video: {result.stdout}")
+            
         # postprocessing
         postprocess = Events.get_instruction_attribute( EventInstructionAttribute.POSTPROCESS, event)  
         if postprocess:
@@ -285,9 +308,21 @@ def join(event, dtstart_instance, dtend_instance):
                 posprocessing_end = Events.now(event)
                 postprocessing_duration = posprocessing_end - posprocessing_start
                 logging.info(f"Postprocessing task '{postprocess}' completed at {posprocessing_end.strftime(constants.DATETIME_FORMAT)} after {str(postprocessing_duration).split(".")[0]}")
-
             else:
                 logging.error("Postprocessing script not found or not specified.")
+
+        # transfer file(s) to server
+        if SSH_SERVER_URL:
+            user = get_user_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, [[UserField.KEY.value, "=", event[EventField.USER_KEY.value]]])[0]    
+            command = f"./sftp_transfer.sh '{os.path.join(REC_PATH, basename)}' '{SSH_SERVER_URL}' '{os.path.join(BASE_PATH,constants.SSH_IDENTITY_FILE)}' '{user[UserField.LOGIN.value]}/{constants.RECORDINGS_DIR}' yes"
+            logging.debug(f"SFTP transfer command: {command}")
+            result = subprocess.run(command, shell=True, capture_output=True, text=True)
+            if result.returncode != 0:
+                logging.error(f"Error transferring file(s) to server: {result.stderr}")
+            else:
+                logging.debug(f"File(s) transferred to server: {result.stdout}")
+        else:
+            logging.error("SFT transfer to server cannot be initiated: SSH_SERVER_URL not specified.")
 
         try:
             event[EventField.STATUS.value] = EventStatus.ENDED.value
@@ -336,13 +371,13 @@ def main():
         try:
             next_event = get_next_event_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, CLIENT_ID, EventType.ZOOM.value, LEAD_TIME_SEC, TRAIL_TIME_SEC)
                     
-            if next_event and next_event['dtstart_instance'] <= next_event['dtnow'] and next_event['dtnow'] <= next_event['dtend_instance']:
-                join(next_event, next_event['dtstart_instance'], next_event['dtend_instance'])  
+            if next_event and next_event['dtstart_instance_lead'] <= next_event['dtnow'] and next_event['dtnow'] <= next_event['dtend_instance_trail']:
+                join(next_event, next_event['dtstart_instance'], next_event['dtend_instance'], next_event['dtstart_instance_lead'], next_event['dtend_instance_trail'])  
             else:                  
                 for _ in range(60):
                     if next_event:
                         next_event['dtnow'] = Events.now( next_event)
-                        time_diff = next_event["dtstart_instance"] - next_event["dtnow"]
+                        time_diff = next_event["dtstart_instance_lead"] - next_event["dtnow"]
                         formatted_time = str(time_diff).split(".")[0]  # Removes microseconds
                         print(f"Next event with title: '{next_event[EventField.TITLE.value]}' starts in {formatted_time}", end="\r", flush=True)
                     else:

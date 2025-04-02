@@ -3,12 +3,13 @@
 # Base filename without extension
 BASE_NAME="$1"
 SSH_SERVER_URL="$2"
-TARGET_DIR="$3"
-DELETE_SOURCE_FILES="$4"
+IDENTITY_FILE="$3"
+TARGET_DIR="$4"
+DELETE_SOURCE_FILES="$5"
 
 # Ensure all parameters are provided
-if [[ -z "$BASE_NAME" || -z "$SSH_SERVER_URL" || -z "$TARGET_DIR" ]]; then
-    echo "Usage: $0 <base_filename_without_extension> <ssh_server_url> <target_directory> [delete_source_files]"
+if [[ -z "$BASE_NAME" || -z "$SSH_SERVER_URL" || -z "$IDENTITY_FILE" || -z "$TARGET_DIR" ]]; then
+    echo "Usage: $0 <base_filename_without_extension> <ssh_server_url> <identity_file> <target_directory> [delete_source_files]"
     exit 1
 fi
 
@@ -18,7 +19,8 @@ if [[ -z "$DELETE_SOURCE_FILES" ]]; then
 fi
 
 # Find matching files
-FILE_LIST=($(ls "${BASE_NAME}"* 2>/dev/null))
+shopt -s nullglob  # Avoids error when no files match
+FILE_LIST=( "${BASE_NAME}"* )
 
 # Check if there are matching files
 if [[ ${#FILE_LIST[@]} -lt 1 ]]; then
@@ -29,7 +31,10 @@ fi
 # Transfer files via SFTP
 for file in "${FILE_LIST[@]}"; do
     echo "Transferring $file to $SSH_SERVER_URL:$TARGET_DIR..."
-    sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ~/.ssh/id_rsa "$SSH_SERVER_URL" <<< $'put '"$file" "$TARGET_DIR/"
+    sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "$IDENTITY_FILE" "sftp://$SSH_SERVER_URL" <<EOF
+cd $TARGET_DIR
+put "$file"
+EOF
 done
 
 echo "File transfer complete."

@@ -260,6 +260,7 @@ ADD zoomrec.py ${HOME}/
 ADD events.py ${HOME}/
 ADD events_api.py ${HOME}/
 ADD users.py ${HOME}/
+ADD users_api.py ${HOME}/
 ADD msg_telegram.py ${HOME}/
 ADD constants.py ${HOME}/
 ADD utilities.py ${HOME}/
@@ -289,7 +290,9 @@ RUN chown -R zoomrec:zoomrec ${HOME} && \
     find ${HOME}/ -name '*.desktop' -exec chmod -v a+x {} +
 
 # ssh client - identity file directory
-RUN mkdir -p ${HOME}/.ssh
+RUN mkdir -p ${HOME}/.ssh && \
+    chown zoomrec:zoomrec ${HOME}/.ssh && \
+    chmod 700 ${HOME}/.ssh
 
 # samba server setup
 COPY res/smb.conf /etc/samba/smb.conf
