@@ -28,6 +28,7 @@ docker run -d --restart unless-stopped --name zoomrec_server \
     -e EMAIL_ADDRESS="$EMAIL_ADDRESS" \
     -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
     -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
+    -e TELEGRAM_BOT_ADMIN_USERIDS="$TELEGRAM_BOT_ADMIN_USERIDS" \
     -v $ZOOMREC_HOME/zoomrec_server_db:/home/zoomrec/zoomrec_server_db \
     -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
     -v $ZOOMREC_HOME/logs:/home/zoomrec/logs \

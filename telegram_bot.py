@@ -20,6 +20,7 @@ from events import Events, EventField, EventStatus
 from users import MessengerAttribute, Users, UserField, UserRole
 from constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT
 import debugpy
+import logging
 
 DEBUG = True if os.getenv('DEBUG', '') == 'telegram_bot' else False
 
@@ -34,6 +35,11 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 SERVER_URL = os.getenv('SERVER_URL')
 SERVER_USERNAME = os.getenv('SERVER_USERNAME')
 SERVER_PASSWORD = os.getenv('SERVER_PASSWORD')
+
+# telegram bot admin user ids
+TELEGRAM_BOT_ADMIN_USERIDS = os.getenv('TELEGRAM_BOT_ADMIN_USERIDS', '')
+# Parse admin user IDs into an array once at the beginning
+ADMIN_USER_IDS = [str(user_id.strip()) for user_id in TELEGRAM_BOT_ADMIN_USERIDS.split(',') if user_id.strip()] if TELEGRAM_BOT_ADMIN_USERIDS else []
 
 # Define the number of events per page
 PAGE_EVENTS = 5
@@ -127,7 +133,7 @@ def parse_quoted_args(args):
     # Handle unclosed quotes
     if in_quotes:
         result.append(" ".join(current_arg))
-
+    
     return result
     
     # Handle unclosed quotes by joining remaining args
@@ -155,6 +161,9 @@ async def list_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     except Exception as error:
         await update.message.reply_text(f"Error retrieving events: {error}")
         return
+
+    # Filter events based on user permissions
+    events_list = filter_events_by_permission(update.effective_user.id, update.effective_chat.id, events_list)
 
     current_page = 1
     target_indices = list(range(len(events_list))) # default traget list with all events
@@ -265,6 +274,9 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await update.message.reply_text(f"Error retrieving events: {error}")
             return
 
+        # Filter events based on user permissions
+        events_list = filter_events_by_permission(update.effective_user.id, update.effective_chat.id, events_list)
+
         # Determine if the first argument is an index or a search term
         if args[0].isdigit() and int(args[0]) <= 99:
             index = int(args[0])
@@ -354,6 +366,9 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await update.message.reply_text(f"Error retrieving events: {error}")
             return
 
+        # Filter events based on user permissions
+        events_list = filter_events_by_permission(update.effective_user.id, update.effective_chat.id, events_list)
+
         # Determine if the first argument is an index or a search term
         if args[0].isdigit() and int(args[0]) <= 99:
             index = int(args[0])
@@ -422,6 +437,12 @@ async def modify_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             await update.message.reply_text(f"Error retrieving users: {error}")
             return
 
+        # Filter users based on user permissions
+        user_list = filter_users_by_permission(update.effective_user.id, update.effective_chat.id, user_list)
+        if not user_list:
+            await update.message.reply_text(f"No users found that you have permission to modify.")
+            return
+
         # Determine if the first argument is an index or a search term
         if args[0].isdigit() and int(args[0]) <= 99:
             index = int(args[0])
@@ -474,6 +495,12 @@ async def delete_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             await update.message.reply_text(f"Error retrieving users: {error}")
             return
 
+        # Filter users based on user permissions
+        user_list = filter_users_by_permission(update.effective_user.id, update.effective_chat.id, user_list)
+        if not user_list:
+            await update.message.reply_text(f"No users found that you have permission to delete.")
+            return
+
         # Determine if the first argument is an index or a search term
         if args[0].isdigit() and int(args[0]) <= 99:
             index = int(args[0])
@@ -513,12 +540,18 @@ async def list_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if not users:
             await update.message.reply_text(f"No users found.")
             return
+            
+        # Filter users based on user permissions
+        users = filter_users_by_permission(update.effective_user.id, update.effective_chat.id, users)
+        if not users:
+            await update.message.reply_text(f"No users found that you have permission to view.")
+            return
     except Exception as error:
         await update.message.reply_text(f"Error retrieving users: {error}")
         return
     
     current_page = 1
-    target_indices = list(range(len(users)))  # default traget list with all users
+    target_indices = list(range(len(users)))  # default target list with all users
 
     if len(args) == 1:  # page or search term
         try:
@@ -578,6 +611,56 @@ async def info_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def unknown(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text("Invalid command. Use /help to see a list of available commands.")
+
+# Helper function to check if a user is an admin
+def is_admin(user_id):
+    return str(user_id) in ADMIN_USER_IDS
+
+# Helper function to filter events based on user permissions
+def filter_events_by_permission(user_id, chat_id, events_list):
+    # If user is admin, return all events
+    if is_admin(user_id):
+        return events_list
+    
+    # For non-admin users, filter events based on telegram chat ID
+    filtered_events = []
+    
+    for event in events_list:
+        try:
+            # Get the user associated with this event
+            user_filters = [[UserField.KEY.value, "=", event[EventField.USER_KEY.value]]]
+            user_list = users_api.get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=user_filters)
+            
+            if user_list and len(user_list) > 0:
+                user = user_list[0]
+                # Check if the telegram chat ID matches
+                telegram_chat_id = Users.get_messenger_attribute(MessengerAttribute.TELEGRAM_CHAT_ID, user)
+                if telegram_chat_id and str(telegram_chat_id) == str(chat_id):
+                    filtered_events.append(event)
+        except Exception as e:
+            logging.error(f"Error filtering event {event.get(EventField.KEY.value, 'unknown')}: {str(e)}", exc_info=True)
+    
+    return filtered_events
+
+# Helper function to filter users based on user permissions
+def filter_users_by_permission(user_id, chat_id, users_list):
+    # If user is admin, return all users
+    if is_admin(user_id):
+        return users_list
+    
+    # For non-admin users, filter users based on telegram chat ID
+    filtered_users = []
+    
+    for user in users_list:
+        try:
+            # Check if the telegram chat ID matches
+            telegram_chat_id = Users.get_messenger_attribute(MessengerAttribute.TELEGRAM_CHAT_ID, user)
+            if telegram_chat_id and str(telegram_chat_id) == str(chat_id):
+                filtered_users.append(user)
+        except Exception as e:
+            logging.error(f"Error filtering user {user.get(UserField.KEY.value, 'unknown')}: {str(e)}", exc_info=True)
+    
+    return filtered_users
 
 def start_bot() -> None:
     """Start the bot."""
