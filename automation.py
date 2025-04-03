@@ -8,7 +8,6 @@ import constants
 import subprocess
 import random
 import constants
-import traceback
 
 # Disable failsafe
 pyautogui.FAILSAFE = False

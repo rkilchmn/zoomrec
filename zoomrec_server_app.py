@@ -9,7 +9,6 @@ from urllib.parse import unquote
 from users import SQLLiteUser, Users, UserField
 import debugpy
 import logging
-import traceback
 
 DEBUG = True if os.getenv('DEBUG','') == 'zoomrec_server_app' else False
 

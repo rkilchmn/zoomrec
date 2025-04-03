@@ -15,7 +15,6 @@ from ics import Calendar
 import os
 import math  # Define math module
 import debugpy
-import traceback
 try:
     from zoneinfo import ZoneInfo # >= 3.9
 except ImportError:

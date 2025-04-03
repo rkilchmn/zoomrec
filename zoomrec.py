@@ -18,7 +18,6 @@ from events_api import get_next_event_api, update_event_api
 from utilities import convert_to_safe_filename, create_unique_filename
 from automation import Automation
 import pyautogui  
-import traceback
 import constants
 
 # Turn DEBUG on:

@@ -42,3 +42,12 @@ def create_unique_filename(directory_path, basename, extension):
         if not os.path.exists(new_filename):
             return new_filename
         counter += 1
+
+# Define a function to log uncaught exceptions
+def exception_handler(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)  # Allow Ctrl+C to exit normally
+        return
+    logger.error("Unhandled exception", exc_info=(exc_type, exc_value, exc_traceback))
+
+logging.getLogger()
