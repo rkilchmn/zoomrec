@@ -11,6 +11,8 @@ from events import Events, EventField, DATETIME_FORMAT, EventType, EventStatus
 from events_api import create_event_api, get_event_api, update_event_api
 from users import UserField
 from users_api import get_user_api
+from constants import LOG_IMAP_BOT_FILENAME
+from utilities import start_logging
 from ics import Calendar
 import os
 import math  # Define math module
@@ -27,6 +29,9 @@ if DEBUG:
     print("Waiting for debugger attach")
     debugpy.wait_for_client()
     print("Debugger attached")
+
+start_logging( LOG_IMAP_BOT_FILENAME)
+logging.info("Starting IMAP bot")
 
 CONTENT_TYPE_PLAIN = "text/plain"
 CONTENT_TYPE_HTML = "text/html"

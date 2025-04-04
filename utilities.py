@@ -1,3 +1,8 @@
+import logging
+import os
+import constants
+import traceback
+import sys
 
 def convert_to_safe_filename(filename):
     invalid_chars = '\\/:*?"\'<>|'
@@ -42,3 +47,30 @@ def create_unique_filename(directory_path, basename, extension):
         if not os.path.exists(new_filename):
             return new_filename
         counter += 1
+
+# Define a function to log uncaught exceptions using traceback
+def exception_handler(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)  # Allow Ctrl+C to exit normally
+        return
+    
+    # Manually format the full traceback
+    error_message = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+    logging.error(f"Unhandled Exception:\n{error_message}")
+
+def start_logging( log_filename):
+    sys.excepthook = exception_handler
+    try:
+        BASE_PATH = os.getenv('ZOOMREC_HOME')
+        LOG_PATH = os.path.join(BASE_PATH, constants.LOG_DIR)
+        log_filename = os.path.join(LOG_PATH, log_filename)
+
+        # Create the log file name with the timestamp
+        LOG_LEVEL = getattr(logging, os.getenv( "LOG_LEVEL", "INFO"), logging.INFO)
+
+        # Configure the logging
+        logging.basicConfig(filename=log_filename, filemode="a", format='%(asctime)s %(levelname)s %(message)s', level=LOG_LEVEL)
+        return True
+    except Exception as e:
+        print(f"Error start logging: {str(e)}")
+        return False

@@ -12,7 +12,7 @@ import debugpy
 from users import UserField
 from users_api import get_user_api
 from events_api import get_next_event_api, update_event_api
-from utilities import convert_to_safe_filename, create_unique_filename
+from utilities import convert_to_safe_filename, create_unique_filename, start_logging
 from automation import Automation
 import pyautogui  
 import constants
@@ -30,11 +30,14 @@ if DEBUG:
     debugpy.wait_for_client()
     print("Debugger attached")
 
+start_logging(constants.LOG_CLIENT_FILENAME)
+logging.info("Starting Zoomrec Client")
+
 # Get vars
 BASE_PATH = os.getenv('ZOOMREC_HOME')
 IMG_PATH = os.path.join(BASE_PATH, constants.IMG_DIR)
 REC_PATH = os.path.join(BASE_PATH, constants.RECORDINGS_DIR)
-AUDIO_PATH = os.path.join(BASE_PATH, constants.AUDIO_DIR)
+AUDIO_PATH = os.path.join(BASE_PATH, constants.AUDIO_DIR) 
 LOG_PATH = os.path.join(BASE_PATH, constants.LOG_DIR)
 DEBUG_PATH = os.path.join(LOG_PATH, constants.DEBUG_DIR)
 
@@ -82,19 +85,6 @@ if DISPLAY_NAME is None or  len(DISPLAY_NAME) < 3:
         'Android'
     ]
     DISPLAY_NAME = random.choice(NAME_LIST)
-
-try:
-    # Config path for YAML configuration
-    config_path = os.path.join(BASE_PATH, "zoom.yaml")
-
-    # Create the log file name with the timestamp
-    log_file = LOG_PATH + "/zoomrec_client_log"
-    logLevel = getattr(logging, os.getenv( "LOG_LEVEL", "INFO"), logging.INFO)
-
-    # Configure the logging
-    logging.basicConfig(filename=log_file, filemode="a", format='%(asctime)s %(levelname)s %(message)s', level=logLevel)
-except Exception as e:
-    print(f"Error start logging: {str(e)}")
 
 def find_process_id_by_name(process_name):
     list_of_process_objects = []

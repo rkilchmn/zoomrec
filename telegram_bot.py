@@ -2,6 +2,8 @@
 
 # pylint: disable=unused-argument, wrong-import-position
 from telegram import __version__ as TG_VER
+
+import utilities
 try:
     from telegram import __version_info__
 except ImportError:
@@ -18,9 +20,11 @@ import events_api  # Import the events_api module
 import users_api  # Import the users_api module
 from events import Events, EventField, EventStatus
 from users import MessengerAttribute, Users, UserField, UserRole
-from constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT
+from constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT, LOG_TELEGRAM_BOT_FILENAME
 import debugpy
 import logging
+from utilities import start_logging 
+import sys
 
 DEBUG = True if os.getenv('DEBUG', '') == 'telegram_bot' else False
 
@@ -29,6 +33,9 @@ if DEBUG:
     print("Waiting for debugger attach")
     debugpy.wait_for_client()
     print("Debugger attached")
+
+start_logging(LOG_TELEGRAM_BOT_FILENAME)
+logging.info("Starting Telegram bot")
 
 # get env vars
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -695,7 +702,12 @@ def start_bot() -> None:
         except Exception as e:
             if isinstance(e, KeyboardInterrupt):
                 # Exit the program if the exception is a KeyboardInterrupt
-                raise e
+                return
+            elif isinstance(e, NetworkError):
+                logging.error(f"Network error: {str(e)}")
+                continue
+            else:
+                raise e # will be caucht be exception handler and added to log
 
 if __name__ == "__main__":
     if not (TELEGRAM_BOT_TOKEN and SERVER_URL and SERVER_USERNAME and SERVER_PASSWORD):
