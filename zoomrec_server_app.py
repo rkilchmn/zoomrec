@@ -1,4 +1,3 @@
-import debugpy
 from flask import Flask, request, Response, jsonify, send_file # pip install flask
 from flask_basicauth import BasicAuth # pip install flask-basicauth
 from datetime import datetime
@@ -7,34 +6,28 @@ import yaml
 from events import FIELDNAMES, Events, EventStatus, EventField, SQLLiteEvents
 from urllib.parse import unquote
 from users import SQLLiteUser, Users, UserField
-import debugpy
 import logging
+import constants
+from utilities import start_debug
 
-DEBUG = True if os.getenv('DEBUG','') == 'zoomrec_server_app' else False
-
-if DEBUG:
-    debugpy.listen(("0.0.0.0", 5679))
-    print("Waiting for debugger attach")
-    debugpy.wait_for_client()
-    print("Debugger attached")
+start_debug(constants.DEBUG_MODULE_ZOOMREC_SERVER_APP, os.getenv('DEBUG_PORT'))
 
 app = Flask(__name__)
-
-BASE_PATH = os.getenv('ZOOMREC_HOME')
-ZOOMREC_DB = 'zoomrec_server_db'
-ZOOMREC_DB_PATH = os.path.join(BASE_PATH, ZOOMREC_DB)
 
 # Get Gunicorn logger
 gunicorn_logger = logging.getLogger("gunicorn.error")
 app.logger.handlers = gunicorn_logger.handlers  # Use the same handlers
 app.logger.setLevel(logging.ERROR)  # Match Gunicorn's error level
 
+BASE_PATH = os.getenv('ZOOMREC_HOME')
+ZOOMREC_DB_PATH = os.path.join(BASE_PATH, constants.ZOOMREC_DB_FILENAME)
+
 # Load configuration from YAML file
-with open('zoomrec_server_app.yaml', "r") as f:
+with open(constants.ZOOMREC_SERVER_APP_CONFIG_FILENAME, "r") as f:
     config = yaml.safe_load(f)
 
-FIRMWARE_PATH = os.path.join(BASE_PATH, 'firmware')
-LOG_PATH = os.path.join(BASE_PATH, 'logs')
+FIRMWARE_PATH = os.path.join(BASE_PATH, constants.FIRMWARE_DIR)
+LOG_PATH = os.path.join(BASE_PATH, constants.LOG_DIR)
 
 # Configure basic authentication
 app.config['BASIC_AUTH_USERNAME'] = os.getenv('SERVER_USERNAME')
@@ -376,4 +369,4 @@ def log_handler():
     return jsonify({'message': 'Log appended successfully'}), 200
      
 if __name__ == '__main__':
-    app.run(debug=True,host='0.0.0.0',port=os.getenv("DOCKER_API_PORT", "8080"))
+    app.run(debug=True,host='0.0.0.0',port=os.getenv("DOCKER_SERVER_PORT"))

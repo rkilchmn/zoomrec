@@ -8,7 +8,6 @@ import subprocess
 import time
 import atexit
 from events import Events, EventType, EventField, EventStatus, EventInstructionAttribute
-import debugpy
 from users import UserField
 from users_api import get_user_api
 from events_api import get_next_event_api, update_event_api
@@ -16,22 +15,10 @@ from utilities import convert_to_safe_filename, create_unique_filename, start_lo
 from automation import Automation
 import pyautogui  
 import constants
-
-# Turn DEBUG on:
-#   - screenshot on error
-#   - record joining
-#   - do not exit container on error
-#   - wait for debugger attach
-DEBUG = True if os.getenv('DEBUG') == 'zoomrec' else False
-
-if DEBUG:
-    debugpy.listen(("0.0.0.0", 5678))
-    print("Waiting for debugger attach")
-    debugpy.wait_for_client()
-    print("Debugger attached")
+from utilities import start_debug
 
 start_logging(constants.LOG_CLIENT_FILENAME)
-logging.info("Starting Zoomrec Client")
+start_debug(constants.DEBUG_MODULE_ZOOMREC_CLIENT, os.getenv('DEBUG_PORT'))
 
 # Get vars
 BASE_PATH = os.getenv('ZOOMREC_HOME')
@@ -148,7 +135,7 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
 
         info_str = f"Joining meeting event with title: '{description}'"
         logging.info(info_str)
-        print(info_str, end="\r", flush=True)
+        print_console(info_str)
 
         ffmpeg_debug = None
         if logging.getLogger().level == logging.DEBUG:
@@ -236,7 +223,7 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
             if (now_in_tz <= dtend_instance_trail):
                 time_remaining = dtend_instance_trail - now_in_tz
                 # console not visible
-                # print(f"Meeting ends in {time_remaining}", end="\r", flush=True)
+                # print_console(f"Meeting ends in {time_remaining}")
             else:
                 meeting_duration_exceeded = True
                 meeting_ongoing = False
@@ -281,7 +268,7 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
                 posprocessing_start = Events.now(event)
                 txt = f"Started postprocessing task '{postprocess}' at {posprocessing_start.strftime(constants.DATETIME_FORMAT)}"
                 logging.info(txt)
-                print(txt, end="\r", flush=True)
+                print_console(txt)
                 event[EventField.STATUS.value] = EventStatus.POSTPROCESS.value
                 event[EventField.ASSIGNED.value] = CLIENT_ID
                 event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
@@ -300,7 +287,10 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
         # transfer file(s) to server
         if SSH_SERVER_URL:
             user = get_user_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, [[UserField.KEY.value, "=", event[EventField.USER_KEY.value]]])[0]    
-            command = f"./sftp_transfer.sh '{os.path.join(REC_PATH, basename)}' '{SSH_SERVER_URL}' '{os.path.join(BASE_PATH,constants.SSH_IDENTITY_FILE)}' '{user[UserField.LOGIN.value]}/{constants.RECORDINGS_DIR}' yes"
+            command = f"./sftp_transfer.sh '{os.path.join(REC_PATH, basename)}' \
+                '{constants.SFTP_ADMIN_USERNAME}@{SSH_SERVER_URL}' \
+                '{os.path.join(BASE_PATH,constants.SSH_IDENTITY_FILE)}' \
+                '{user[UserField.LOGIN.value]}/{constants.RECORDINGS_DIR}' yes"
             logging.debug(f"SFTP transfer command: {command}")
             result = subprocess.run(command, shell=True, capture_output=True, text=True)
             if result.returncode != 0:
@@ -351,6 +341,16 @@ def get_zoom_version():
     except subprocess.CalledProcessError:
         return None
 
+def print_console(message, no_scroll=True):
+    """Print a message to the console with carriage return and flush.
+    Message is padded to 89 characters to clear any previous longer messages.
+    If no_scroll is True, then the same (last line is overwritten)"""
+    padded_message = f"{message:<60}"  # Left align and pad with spaces to 60 chars
+    if no_scroll:
+        print(padded_message, end="\r", flush=True)
+    else:
+        print(padded_message, flush=True)
+
 def main():
     # loop to retrive next event and wait for it to join
     while True:
@@ -365,17 +365,17 @@ def main():
                         next_event['dtnow'] = Events.now( next_event)
                         time_diff = next_event["dtstart_instance_lead"] - next_event["dtnow"]
                         formatted_time = str(time_diff).split(".")[0]  # Removes microseconds
-                        print(f"Next event with title: '{next_event[EventField.TITLE.value]}' starts in {formatted_time}", end="\r", flush=True)
+                        print_console(f"Next event with title: '{next_event[EventField.TITLE.value]}' starts in {formatted_time}")
                     else:
-                        print(f"No upcoming events", end="\r", flush=True)
+                        print_console("No upcoming events")
                     
                     time.sleep(1)
             
         except Exception as e:
             logging.error(f"Monitoring event error: {str(e)}", exc_info=True)
-            print(f"Monitoring event error: {e}")
+            print_console(f"Monitoring event error: {e}")
 
 if __name__ == '__main__':
     version = get_zoom_version()
-    print(f"Zoom version: {version}")
+    print_console(f"Zoom version: {version}", False)
     main()

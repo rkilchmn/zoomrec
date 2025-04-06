@@ -3,12 +3,15 @@ set -e  # Exit on any error
 
 # This command will run inetutils-syslogd in the background and start logging.
 /etc/init.d/inetutils-syslogd start
+
+# Configure SSH port (cant be done in docker as its runtime)
+sed -i "s/#Port 22/Port ${DOCKER_SSH_PORT}/" /etc/ssh/sshd_config
 service ssh start 
 
 # ./create-sftp-user.sh sftpuser1
 
 # within docker container this is the url   
-SERVER_URL="http://localhost:${DOCKER_API_PORT}"
+SERVER_URL="http://localhost:${DOCKER_SERVER_PORT}"
 export SERVER_URL
 
 # Write environment variables to /etc/environment

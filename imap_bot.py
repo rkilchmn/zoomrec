@@ -7,37 +7,29 @@ import html
 import logging
 from datetime import datetime
 from bs4 import BeautifulSoup
-from events import Events, EventField, DATETIME_FORMAT, EventType, EventStatus
+from events import Events, EventField, DATETIME_FORMAT, EventStatus
 from events_api import create_event_api, get_event_api, update_event_api
 from users import UserField
 from users_api import get_user_api
-from constants import LOG_IMAP_BOT_FILENAME
+from constants import LOG_IMAP_BOT_FILENAME, DEBUG_MODULE_IMAP_BOT
 from utilities import start_logging
 from ics import Calendar
 import os
 import math  # Define math module
-import debugpy
 try:
     from zoneinfo import ZoneInfo # >= 3.9
 except ImportError:
     from backports.zoneinfo import ZoneInfo # < 3.9
-
-DEBUG = True if os.getenv('DEBUG','') == 'imap_bot' else False
-
-if DEBUG:
-    debugpy.listen(("0.0.0.0", 5679))
-    print("Waiting for debugger attach")
-    debugpy.wait_for_client()
-    print("Debugger attached")
+from utilities import start_logging, start_debug
 
 start_logging( LOG_IMAP_BOT_FILENAME)
-logging.info("Starting IMAP bot")
+start_debug(DEBUG_MODULE_IMAP_BOT, os.getenv('DEBUG_PORT'))
 
 CONTENT_TYPE_PLAIN = "text/plain"
 CONTENT_TYPE_HTML = "text/html"
 CONTENT_TYPE_CALENDAR = "text/calendar"
 
-# Get vars
+# Get varsh
 BASE_PATH = os.getenv('ZOOMREC_HOME')
 
 EMAIL_TYPE_PATH = os.path.join(BASE_PATH, "email_types.yaml")

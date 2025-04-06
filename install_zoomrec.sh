@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # create zoomrec user
-useradd -s /usr/sbin/nologin -d $1 -u 1991 zoomrec
+useradd -s /usr/sbin/nologin -m -d $1 -u 1999 zoomrec
 
 mkdir $1
 mkdir $1/recordings

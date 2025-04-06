@@ -3,6 +3,7 @@ import os
 import constants
 import traceback
 import sys
+import debugpy
 
 def convert_to_safe_filename(filename):
     invalid_chars = '\\/:*?"\'<>|'
@@ -63,14 +64,27 @@ def start_logging( log_filename):
     try:
         BASE_PATH = os.getenv('ZOOMREC_HOME')
         LOG_PATH = os.path.join(BASE_PATH, constants.LOG_DIR)
-        log_filename = os.path.join(LOG_PATH, log_filename)
+        log_filepath = os.path.join(LOG_PATH, log_filename)
 
         # Create the log file name with the timestamp
         LOG_LEVEL = getattr(logging, os.getenv( "LOG_LEVEL", "INFO"), logging.INFO)
 
         # Configure the logging
-        logging.basicConfig(filename=log_filename, filemode="a", format='%(asctime)s %(levelname)s %(message)s', level=LOG_LEVEL)
+        logging.basicConfig(filename=log_filepath, filemode="a", format='%(asctime)s %(levelname)s %(message)s', level=LOG_LEVEL)
+        logging.info(f"Starting logging {log_filename}")
         return True
     except Exception as e:
         print(f"Error start logging: {str(e)}")
+        return False
+
+def start_debug(debug_module, debug_port): 
+    if os.getenv('DEBUG_MODULE','').lower().strip() == debug_module.lower() and debug_port:
+        logging.info(f"Listening for debugger for module {debug_module} on port {debug_port}") 
+        debugpy.listen(("0.0.0.0", int(debug_port)))
+        print("Waiting for debugger attach")
+        debugpy.wait_for_client()
+        print("Debugger attached")
+        logging.info(f"Debugger attached for module {debug_module} on port {debug_port}") 
+        return True
+    else:
         return False

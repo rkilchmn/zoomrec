@@ -7,9 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 ENV HOME=/home/zoomrec \
     ZOOMREC_HOME=/home/zoomrec \
-    TZ=Etc/UTC \
-    SERVER_USERNAME="myuser" \
-    SERVER_PASSWORD="mypassword"
+    TZ=Etc/UTC
 
 # Install Python, SSH, sudo, and required packages
 RUN apt update && apt install -y \
@@ -68,26 +66,26 @@ RUN echo "auth sufficient  pam_python.so ${HOME}/pam_sftp.py" > /etc/pam.d/sshd 
     echo "session optional pam_python.so ${HOME}/pam_sftp.py" >> /etc/pam.d/sshd
 
 # Configure SSH for SFTP-only access and PAM authentication
-RUN sed -i 's/#UsePAM no/UsePAM yes/' /etc/ssh/sshd_config && \
-    sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
-    sed -i 's/#ChallengeResponseAuthentication yes/ChallengeResponseAuthentication yes/' /etc/ssh/sshd_config && \
-    sed -i 's/^#SyslogFacility.*$/SyslogFacility AUTH/' /etc/ssh/sshd_config && \
-    sed -i 's/^#LogLevel.*$/LogLevel DEBUG/' /etc/ssh/sshd_config && \
-    echo 'Subsystem sftp internal-sftp -l DEBUG' >> /etc/ssh/sshd_config && \
-    echo 'Match User *,!zoomrec_admin' >> /etc/ssh/sshd_config && \
+RUN sed -i "s/#UsePAM no/UsePAM yes/" /etc/ssh/sshd_config && \
+    sed -i "s/PasswordAuthentication no/PasswordAuthentication yes/" /etc/ssh/sshd_config && \
+    sed -i "s/#ChallengeResponseAuthentication yes/ChallengeResponseAuthentication yes/" /etc/ssh/sshd_config && \
+    sed -i "s/^#SyslogFacility.*$/SyslogFacility AUTH/" /etc/ssh/sshd_config && \
+    sed -i "s/^#LogLevel.*$/LogLevel DEBUG/" /etc/ssh/sshd_config && \
+    echo "Subsystem sftp internal-sftp -l DEBUG" >> /etc/ssh/sshd_config && \
+    echo "Match User *,!zoomrec_admin" >> /etc/ssh/sshd_config && \
     echo "    ChrootDirectory /root/sftp-data/%u" >> /etc/ssh/sshd_config && \
-    echo '    ForceCommand internal-sftp' >> /etc/ssh/sshd_config && \
-    echo '    AllowTcpForwarding no' >> /etc/ssh/sshd_config && \
-    echo '    X11Forwarding no' >> /etc/ssh/sshd_config && \
-    echo 'Match User zoomrec_admin' >> /etc/ssh/sshd_config && \
+    echo "    ForceCommand internal-sftp" >> /etc/ssh/sshd_config && \
+    echo "    AllowTcpForwarding no" >> /etc/ssh/sshd_config && \
+    echo "    X11Forwarding no" >> /etc/ssh/sshd_config && \
+    echo "Match User zoomrec_admin" >> /etc/ssh/sshd_config && \
     echo "    ChrootDirectory /root/sftp-data" >> /etc/ssh/sshd_config && \
-    echo '    ForceCommand internal-sftp' >> /etc/ssh/sshd_config && \
-    echo '    AllowTcpForwarding no' >> /etc/ssh/sshd_config && \
-    echo '    X11Forwarding no' >> /etc/ssh/sshd_config
+    echo "    ForceCommand internal-sftp" >> /etc/ssh/sshd_config && \
+    echo "    AllowTcpForwarding no" >> /etc/ssh/sshd_config && \
+    echo "    X11Forwarding no" >> /etc/ssh/sshd_config
 
 # Expose SFTP and API ports
-EXPOSE 22
-EXPOSE $DOCKER_API_PORT
+EXPOSE $DOCKER_SSH_PORT
+EXPOSE $DOCKER_SERVER_PORT
 
 # Set the entrypoint to run the startup script
 CMD ["/bin/sh", "-c", "${HOME}/entrypoint.sh"]

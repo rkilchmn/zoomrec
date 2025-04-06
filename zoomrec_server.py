@@ -3,21 +3,12 @@ import os
 import signal
 import subprocess
 import atexit
-import debugpy
 import time
-from constants import LOG_SERVER_FILENAME
-from utilities import start_logging
-
-DEBUG = True if os.getenv('DEBUG','') == 'zoomrec_server' else False
-
-if DEBUG:
-    debugpy.listen(("0.0.0.0", 5679))
-    print("Waiting for debugger attach")
-    debugpy.wait_for_client()
-    print("Debugger attached")
+from constants import LOG_SERVER_FILENAME, DEBUG_MODULE_ZOOMREC_SERVER      
+from utilities import start_logging,start_debug
 
 start_logging(LOG_SERVER_FILENAME)
-logging.info("Starting Zoomrec Server")
+start_debug(DEBUG_MODULE_ZOOMREC_SERVER, os.getenv('DEBUG_PORT'))
 
 def start_telegram_bot():
     
@@ -67,10 +58,6 @@ def create_sftp_users():
     logging.info("SFTP users process started")
 
 def main():
-
-    # this is the url in the server to access API - no done in entrypoint.sh
-    # os.environ['SERVER_URL'] = f"http://localhost:{os.getenv('DOCKER_API_PORT')}"
-    # logging.info(f"Setting environment variable SERVER_URL to '{os.getenv('SERVER_URL')}'")
 
     # start bots
     start_imap_bot()

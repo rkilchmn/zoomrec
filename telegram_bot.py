@@ -20,22 +20,11 @@ import events_api  # Import the events_api module
 import users_api  # Import the users_api module
 from events import Events, EventField, EventStatus
 from users import MessengerAttribute, Users, UserField, UserRole
-from constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT, LOG_TELEGRAM_BOT_FILENAME
-import debugpy
-import logging
-from utilities import start_logging 
-import sys
-
-DEBUG = True if os.getenv('DEBUG', '') == 'telegram_bot' else False
-
-if DEBUG:
-    debugpy.listen(("0.0.0.0", 5679))
-    print("Waiting for debugger attach")
-    debugpy.wait_for_client()
-    print("Debugger attached")
+from constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT, LOG_TELEGRAM_BOT_FILENAME, DEBUG_MODULE_TELEGRAM_BOT   
+from utilities import start_logging, start_debug
 
 start_logging(LOG_TELEGRAM_BOT_FILENAME)
-logging.info("Starting Telegram bot")
+start_debug(DEBUG_MODULE_TELEGRAM_BOT, os.getenv('DEBUG_PORT'))
 
 # get env vars
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')

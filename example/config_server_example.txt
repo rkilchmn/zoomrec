@@ -6,7 +6,7 @@ LOG_LEVEL=WARNING # Default is INFO, other option DEBUG, ERROR, WARNING
 ZOOMREC_HOME=~/zoomrec_home
 
 # API server
-DOCKER_API_PORT=8081 # not required for docker but local testing
+DOCKER_SERVER_PORT=8081 # not required for docker but local testing
 SERVER_PORT=8081 # docker port exposed for API server
 SERVER_URL=http://localhost:$SERVER_PORT # not required for docker but local testing
 SERVER_USERNAME=myuser # API server username

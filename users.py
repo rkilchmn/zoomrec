@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from msg_telegram import send_telegram_message
 from datetime import datetime
 import password
+from constants import SFTP_ADMIN_USERNAME
 
 # IMPORTANT: ordering needs to align with table create
 class UserField(Enum):
@@ -134,6 +135,9 @@ class Users(ABC):
         
         if not user.get(UserField.LOGIN.value):
             raise ValueError("Missing required field: login.")
+        else:
+            if user.get(UserField.LOGIN.value) == SFTP_ADMIN_USERNAME:
+                raise ValueError(f"Invalid login: {SFTP_ADMIN_USERNAME} is reserved.")
         
         if not user.get(UserField.PASSWORD.value):
             raise ValueError("Missing required field: password.")

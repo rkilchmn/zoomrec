@@ -10,31 +10,43 @@ fi
 source $1
 
 # environment variables used inside docker for internal API port
-DOCKER_API_PORT=8080
+# DOCKER_SERVER_PORT=8080
+# DOCKER_SSH_PORT=22
 
 # defaults
 docker stop zoomrec_server
 docker rm $(docker ps -aqf "name=zoomrec_server")
 
-docker run -d --restart unless-stopped --name zoomrec_server \
-    -e DEBUG="$DEBUG" \
-    -e LOG_LEVEL="$LOG_LEVEL" \
-    -e TZ="$TZ" \
-    -e DOCKER_API_PORT=$DOCKER_API_PORT \
-    -e SERVER_USERNAME="$SERVER_USERNAME" \
-    -e SERVER_PASSWORD="$SERVER_PASSWORD" \
-    -e IMAP_SERVER="$IMAP_SERVER" \
-    -e IMAP_PORT="$IMAP_PORT" \
-    -e EMAIL_ADDRESS="$EMAIL_ADDRESS" \
-    -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
-    -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
-    -e TELEGRAM_BOT_ADMIN_USERIDS="$TELEGRAM_BOT_ADMIN_USERIDS" \
+docker run -d --restart unless-stopped --env-file $1 --name zoomrec_server \
     -v $ZOOMREC_HOME/zoomrec_server_db:/home/zoomrec/zoomrec_server_db \
     -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
     -v $ZOOMREC_HOME/logs:/home/zoomrec/logs \
     -v $ZOOMREC_HOME/firmware:/home/zoomrec/firmware \
     -v /root/sftp-data:/root/sftp-data \
-    -p $SERVER_PORT:$DOCKER_API_PORT \
-    -p $SSH_PORT:22 \
-    -p 5679:5679 \
+    -p $SERVER_PORT:$DOCKER_SERVER_PORT \
+    -p $SSH_PORT:$DOCKER_SSH_PORT \
+    -p $DEBUG_PORT:$DEBUG_PORT \
     rkilchmn/zoomrec_server:latest
+
+    # docker run -d --restart unless-stopped --env-file $1 --name zoomrec_server \
+    # -e DEBUG="$DEBUG" \
+    # -e LOG_LEVEL="$LOG_LEVEL" \
+    # -e TZ="$TZ" \
+    # -e DOCKER_SERVER_PORT=$DOCKER_SERVER_PORT \
+    # -e SERVER_USERNAME="$SERVER_USERNAME" \
+    # -e SERVER_PASSWORD="$SERVER_PASSWORD" \
+    # -e IMAP_SERVER="$IMAP_SERVER" \
+    # -e IMAP_PORT="$IMAP_PORT" \
+    # -e EMAIL_ADDRESS="$EMAIL_ADDRESS" \
+    # -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
+    # -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
+    # -e TELEGRAM_BOT_ADMIN_USERIDS="$TELEGRAM_BOT_ADMIN_USERIDS" \
+    # -v $ZOOMREC_HOME/zoomrec_server_db:/home/zoomrec/zoomrec_server_db \
+    # -v $ZOOMREC_HOME/email_types.yaml:/home/zoomrec/email_types.yaml:ro \
+    # -v $ZOOMREC_HOME/logs:/home/zoomrec/logs \
+    # -v $ZOOMREC_HOME/firmware:/home/zoomrec/firmware \
+    # -v /root/sftp-data:/root/sftp-data \
+    # -p $SERVER_PORT:$DOCKER_SERVER_PORT \
+    # -p $SSH_PORT:22 \
+    # -p 5679:5679 \
+    # rkilchmn/zoomrec_server:latest
