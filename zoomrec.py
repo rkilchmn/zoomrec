@@ -244,7 +244,7 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
         atexit.unregister(os.killpg)
 
         # consolidate videos if multiple recordings of same meeting
-        command = f"./concatenate_video.sh '{os.path.join(REC_PATH, basename)}' {constants.VIDEO_EXTENSION} yes"
+        command = f"./concatenate_video.sh '{os.path.join(REC_PATH, basename)}' {constants.VIDEO_EXTENSION} no"
         logging.debug(f"Consolidate video command: {command}")
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
         if result.returncode != 0:
@@ -290,7 +290,7 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
             command = f"./sftp_transfer.sh '{os.path.join(REC_PATH, basename)}' \
                 '{constants.SFTP_ADMIN_USERNAME}@{SSH_SERVER_URL}' \
                 '{os.path.join(BASE_PATH,constants.SSH_IDENTITY_FILE)}' \
-                '{user[UserField.LOGIN.value]}/{constants.RECORDINGS_DIR}' yes"
+                '{user[UserField.LOGIN.value]}/{constants.RECORDINGS_DIR}' no"
             logging.debug(f"SFTP transfer command: {command}")
             result = subprocess.run(command, shell=True, capture_output=True, text=True)
             if result.returncode != 0:
