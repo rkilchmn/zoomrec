@@ -21,6 +21,8 @@ try:
 except ImportError:
     from backports.zoneinfo import ZoneInfo # < 3.9
 from utilities import start_logging, start_debug
+from ai_service import LLMChat
+from typing import Optional
 
 start_logging( LOG_IMAP_BOT_FILENAME)
 start_debug(DEBUG_MODULE_IMAP_BOT, os.getenv('DEBUG_PORT'))
@@ -41,6 +43,32 @@ EMAIL_PASSWORD  = os.getenv('EMAIL_PASSWORD')
 SERVER_URL  = os.getenv('SERVER_URL')
 SERVER_USERNAME  = os.getenv('SERVER_USERNAME')
 SERVER_PASSWORD  = os.getenv('SERVER_PASSWORD')
+
+def mapping_ai(attribute_name: str, attribute_value: str, ai_config: dict) -> Optional[str]:
+    """
+    Maps an attribute value using an AI service.
+
+    Args:
+    attribute_name (str): The name of the attribute being mapped.
+    attribute_value (str): The value of the attribute being mapped.
+    ai_config (dict): A dictionary containing the AI service configuration.
+
+    Returns:
+    Optional[str]: The mapped attribute value, or None if an error occurs.
+    """
+    try:           
+        llm = LLMChat(
+            model=ai_config["model"],
+            api_url=ai_config["api_url"],
+            api_key_env=ai_config["api_key_env"]
+        )
+        prompt = ai_config["prompt_template"].format(input=attribute_value)
+        result = llm.ask(prompt)
+        return result
+        
+    except Exception as e:
+        logging.error(f"Error mapping attribute: {attribute_name} value: {attribute_value} using AI: {str(e)}", exc_info=True)
+        return None
 
 def start_bot():   
     # Load the YAML config file
@@ -176,7 +204,9 @@ def start_bot():
                                             else:
                                                 event[attribute] = ""
                                                 logging.warning( f"Mapping {attribute} not found for {event[attribute]}")
-
+                                        elif category == "mapping-ai":
+                                            config_dict = section[attribute+"_mapping-ai"]
+                                            event[attribute] = mapping_ai(attribute, event[attribute], config_dict)
                                 if not section['section'] == 'calendar':
                                     # only one loop if not calendar
                                     break

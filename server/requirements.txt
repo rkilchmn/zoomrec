@@ -12,4 +12,7 @@ shortuuid
 ics
 bcrypt
 pam
+langchain_community
+langchain-openai
+langchain-core
 debugpy

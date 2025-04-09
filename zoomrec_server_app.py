@@ -1,5 +1,5 @@
-from flask import Flask, request, Response, jsonify, send_file # pip install flask
-from flask_basicauth import BasicAuth # pip install flask-basicauth
+from flask import Flask, request, jsonify, send_file
+from flask_basicauth import BasicAuth
 from datetime import datetime
 import os.path
 import yaml

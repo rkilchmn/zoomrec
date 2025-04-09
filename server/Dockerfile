@@ -39,8 +39,8 @@ RUN pip install --no-cache-dir -r ${HOME}/requirements.txt
 
 # Copy application files
 COPY zoomrec_server.py zoomrec_server_app.py gunicorn_conf.py telegram_bot.py imap_bot.py \
-     events.py events_api.py users.py users_api.py msg_telegram.py constants.py password.py utilities.py \
-     zoomrec_server_app.yaml ${HOME}/
+     events.py events_api.py users.py users_api.py msg_telegram.py constants.py password.py \
+     utilities.py ai_service.py zoomrec_server_app.yaml ${HOME}/
 
 # Copy and set up the startup script
 COPY server/entrypoint.sh ${HOME}/
