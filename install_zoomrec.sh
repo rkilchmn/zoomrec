@@ -1,28 +1,92 @@
 #!/bin/bash
 
-# create zoomrec user
-useradd -s /usr/sbin/nologin -m -d $1 -u 1999 zoomrec
+# Show usage help
+show_help() {
+  echo "Usage: $0 <ZOOMREC_HOME> <TYPE> [ACCELERATION]"
+  echo ""
+  echo "Parameters:"
+  echo "  ZOOMREC_HOME   Path to install/setup zoomrec (e.g., /opt/zoomrec)"
+  echo "  TYPE           CLIENT | SERVER | BOTH"
+  echo "  ACCELERATION   VAAPI | NVIDIA | (blank for none)"
+  echo ""
+  echo "Example:"
+  echo "  $0 /opt/zoomrec BOTH VAAPI"
+  exit 1
+}
 
-mkdir $1
-mkdir $1/recordings
-mkdir $1/logs
-mkdir $1/logs/screenshots
-
-chown -R zoomrec:zoomrec $1
-chmod -R 755 $1
-
-# sftp data dir 
-mkdir $1/sftp-data
-# needs to be owned by root becasue if sftp using chroot jail
-sudo chown root:root $1/sftp-data
-chmod 755 $1/sftp-data
-
-cp -r example/audio $1
-cp -r res/img $1
-cp example/config_client_example.txt $1/config_client.txt
-cp example/config_server_example.txt $1/config_server.txt
-cp example/email_types_example.yaml $1/email_types.yaml
-# create empty db if it does not exist
-if [ ! -f "$1/zoomrec_server_db" ]; then
-    touch $1/zoomrec_server_db
+# Check for required parameters
+if [ -z "$1" ] || [ -z "$2" ]; then
+  echo "Error: Missing required parameters."
+  show_help
 fi
+
+ZOOMREC_HOME=$1
+TYPE=$2
+ACCELERATION=$3
+
+# Validate TYPE
+if [[ "$TYPE" != "CLIENT" && "$TYPE" != "SERVER" && "$TYPE" != "BOTH" ]]; then
+  echo "Error: TYPE must be CLIENT, SERVER, or BOTH."
+  show_help
+fi
+
+# Validate ACCELERATION
+if [[ -n "$ACCELERATION" && "$ACCELERATION" != "VAAPI" && "$ACCELERATION" != "NVIDIA" ]]; then
+  echo "Error: ACCELERATION must be VAAPI, NVIDIA, or blank."
+  show_help
+fi
+
+echo "[INFO] Setting up zoomrec environment at $ZOOMREC_HOME"
+mkdir -p "$ZOOMREC_HOME"
+
+# Create zoomrec user if not exists
+if id "zoomrec" &>/dev/null; then
+  echo "[INFO] User 'zoomrec' already exists."
+else
+  echo "[INFO] Creating user 'zoomrec'"
+  useradd -s /bin/bash -d "$ZOOMREC_HOME" -m -u 1999 zoomrec
+  passwd zoomrec
+fi
+
+# Add user to docker group
+usermod -aG docker zoomrec
+
+# VAAPI setup
+if [ "$ACCELERATION" == "VAAPI" ]; then
+  usermod -aG video zoomrec
+  usermod -aG render zoomrec
+fi
+
+mkdir -p "$ZOOMREC_HOME/logs"
+
+if [ "$TYPE" == "CLIENT" ] || [ "$TYPE" == "BOTH" ]; then
+  echo "[INFO] Setting up CLIENT components"
+  mkdir -p "$ZOOMREC_HOME/recordings"
+  mkdir -p "$ZOOMREC_HOME/audio"
+  mkdir -p "$ZOOMREC_HOME/logs/screenshots"
+
+  cp -r example/audio "$ZOOMREC_HOME"
+  cp -r res/img "$ZOOMREC_HOME"
+  cp example/config_client_example.txt "$ZOOMREC_HOME/config_client.txt"
+fi
+
+if [ "$TYPE" == "SERVER" ] || [ "$TYPE" == "BOTH" ]; then
+  echo "[INFO] Setting up SERVER components"
+  mkdir -p "$ZOOMREC_HOME/firmware"
+
+  mkdir -p /root/sftp-data
+  chown root:root /root/sftp-data
+  chmod 755 /root/sftp-data
+
+  cp example/config_server_example.txt "$ZOOMREC_HOME/config_server.txt"
+  cp example/email_types_example.yaml "$ZOOMREC_HOME/email_types.yaml"
+
+  if [ ! -f "$ZOOMREC_HOME/zoomrec_server_db" ]; then
+    touch "$ZOOMREC_HOME/zoomrec_server_db"
+  fi
+fi
+
+chown -R zoomrec:zoomrec "$ZOOMREC_HOME"
+chmod -R 755 "$ZOOMREC_HOME"
+
+echo "[INFO] Setup complete."
