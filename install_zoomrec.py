@@ -125,18 +125,8 @@ def main():
         setup_server(zoomrec_home)
 
     # Set final permissions
-    for root, dirs, files in os.walk(zoomrec_home):
-        try:
-            zoomrec_uid = pwd.getpwnam('zoomrec').pw_uid
-            zoomrec_gid = grp.getgrnam('zoomrec').gr_gid
-            os.chown(root, zoomrec_uid, zoomrec_gid)
-            os.chmod(root, 0o755)
-            for file in files:
-                file_path = os.path.join(root, file)
-                os.chown(file_path, zoomrec_uid, zoomrec_gid)
-                os.chmod(file_path, 0o755)
-        except (KeyError, PermissionError) as e:
-            logging.error(f"Error setting permissions: {e}", exc_info=True)
+    os.system(f'chown -R zoomrec:zoomrec {zoomrec_home}')
+    os.system(f'chmod -R 755 {zoomrec_home}')
 
     logging.info("Setup complete.")
 
