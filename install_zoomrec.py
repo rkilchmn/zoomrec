@@ -78,7 +78,8 @@ def setup_client(zoomrec_home):
     # Copy example files
     shutil.copytree('example/audio', os.path.join(zoomrec_home, AUDIO_DIR), dirs_exist_ok=True)
     shutil.copytree('res/img', os.path.join(zoomrec_home, IMG_DIR), dirs_exist_ok=True)
-    shutil.copy('example/config_client_example.txt', os.path.join(zoomrec_home, 'config_client.txt'))
+    shutil.copy('example/email_types_example.yaml', os.path.join(zoomrec_home, 'email_types.yaml'))
+    shutil.copy('example/example.client.env', os.path.join(zoomrec_home, 'example.client.env'))
 
 def setup_server(zoomrec_home):
     """Set up server components."""
@@ -93,7 +94,7 @@ def setup_server(zoomrec_home):
     os.chmod(SFTP_DATA_PATH, 0o755)
 
     # Copy example files
-    shutil.copy('example/config_server_example.txt', os.path.join(zoomrec_home, 'config_server.txt'))
+    shutil.copy('example/example.server.env', os.path.join(zoomrec_home, 'example.server.env'))
     shutil.copy('example/email_types_example.yaml', os.path.join(zoomrec_home, 'email_types.yaml'))
 
     # Create empty database file if it doesn't exist
