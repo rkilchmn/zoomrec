@@ -284,6 +284,7 @@ ADD password.py ${HOME}/
 ADD utilities.py ${HOME}/
 ADD res/img ${HOME}/img/
 ADD zoom_auto.yaml ${HOME}/
+ADD test_vaapi_x265.sh ${HOME}/
 
 # posprocessing scripts
 COPY res/postprocess.sh res/transcribe_video.sh res/sftp_transfer.sh res/concatenate_video.sh ${HOME}/
