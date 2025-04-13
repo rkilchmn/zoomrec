@@ -130,6 +130,7 @@ def main():
     os.system(f'chmod -R 755 {zoomrec_home}')
 
     logging.info("Setup complete.")
-
+    logging.info("IMPORTANT: Re-login to apply group changes.")
+    
 if __name__ == "__main__":
     main()
