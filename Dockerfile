@@ -21,8 +21,12 @@ ENV HOME=/home/zoomrec \
     EMAIL_ADDRESS="" \
     EMAIL_PASSWORD="" 
 
-# build container for specific GPU 
+# build container for specific GPU type
 ARG GPU_BUILD=""
+
+# build container for specific GPU subtype
+ARG GPU_BUILD_SUBTYPE=""
+
 # group id for the 'render' group (used for VAAPI)
 ARG RENDER_GROUPID="" 
 
@@ -158,7 +162,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # ENV LIBVA_TRACE=${HOME}/recordings/screenshots/libva_trace.log
 # Install support for VA-API GPU hardware accelerators used by ffmpeg encoders
-RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
+RUN if [ "$GPU_BUILD" = "VAAPI" ] && [ "$GPU_BUILD_SUBTYPE" = "INTEL-WSL2" ]; then \
         # add repoisitory for latest mesa drivers
         # apt update && apt-get install -y software-properties-common && \
         # add-apt-repository ppa:kisak/kisak-mesa && \
@@ -201,6 +205,17 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ]; then \
         adduser zoomrec render && \
         adduser zoomrec video ; \
     fi
+
+RUN if [ "$GPU_BUILD" = "VAAPI" ] && [ "$GPU_BUILD_SUBTYPE" = "INTEL" ]; then \
+        apt-get update && \
+        apt-get install --no-install-recommends -y \
+            intel-media-va-driver-non-free  \
+            vainfo && \
+        groupadd -g ${RENDER_GROUPID} render && \
+        adduser zoomrec render && \
+        adduser zoomrec video ; \
+    fi
+
 # RUN if [ "$GPU_BUILD" = "AMD" ]; then \
 #         apt-get install --no-install-recommends -y \
 #             mesa-va-drivers && \

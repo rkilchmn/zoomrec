@@ -7,9 +7,9 @@ VAAPI="VAAPI"
 NVIDIA="NVIDIA"
 
 # Check if at least one parameter is passed
-if [ $# -gt 1 ]; then
-  echo "Error: Only 1 optional parameter is allowed."
-  echo "Usage: $0 [Optional: hardware acceleration $VAAPI or $NVIDIA]"
+if [ $# -gt 2 ]; then
+  echo "Error: Only 2 optional parameters are allowed."
+  echo "Usage: $0 [Optional: hardware acceleration $VAAPI or $NVIDIA] [Optional: GPU subtype]"
   exit 1
 fi
 
@@ -25,7 +25,7 @@ fi
 if [ "$1" == "VAAPI" ]; then
   RENDER_GROUPID=$(getent group render | cut -d':' -f3)
   echo  "render=$RENDER_GROUPID"
-  docker build --build-arg GPU_BUILD=$1 --build-arg RENDER_GROUPID=$RENDER_GROUPID -t rkilchmn/zoomrec_client .
+  docker build --build-arg GPU_BUILD=$1 --build-arg GPU_BUILD_SUBTYPE=$2 --build-arg RENDER_GROUPID=$RENDER_GROUPID -t rkilchmn/zoomrec_client .
 else
   docker build --build-arg GPU_BUILD=$1 -t rkilchmn/zoomrec_client .
 fi
