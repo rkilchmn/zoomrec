@@ -233,7 +233,7 @@ def start_bot():
                                     try:
                                         user = get_user_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=[[UserField.LOGIN.value, '=', type['user_login']]])[0]
                                     except Exception as error:
-                                        logging.error( f"User {section['user_login']} not found.")
+                                        logging.error( f"User {type['user_login']} not found.")
                                         continue
                                 
                                     event[EventField.USER_KEY.value] = user[UserField.KEY.value]
