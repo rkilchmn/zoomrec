@@ -51,7 +51,7 @@ COPY server/create-sftp-user.sh ${HOME}/
 RUN chmod +x ${HOME}/create-sftp-user.sh
 
 # Create necessary directories for SSH and logs
-RUN mkdir -p /var/run/sshd /usr/local/bin ${HOME}/sftp-data/sftpuser1/recordings
+RUN mkdir -p /var/run/sshd /usr/local/bin
 
 # Copy and set up the SFTP authentication script
 COPY server/pam_sftp.py ${HOME}/
