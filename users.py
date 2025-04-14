@@ -6,6 +6,7 @@ from msg_telegram import send_telegram_message
 from datetime import datetime
 import password
 from constants import SFTP_ADMIN_USERNAME
+from sftp_user import create_sftp_user
 
 # IMPORTANT: ordering needs to align with table create
 class UserField(Enum):
@@ -203,6 +204,9 @@ class SQLLiteUser(Users):
             ''', list(user.values()))
             conn.commit()
 
+        if user[UserField.SFTP_USERNAME.value] != '':
+            create_sftp_user(user[UserField.SFTP_USERNAME.value])
+
         # Check for changes and call the callback if necessary
         old_user = {}
         if self.stateChanged and old_user != user:
@@ -254,7 +258,11 @@ class SQLLiteUser(Users):
                 UPDATE users SET {set_clause} WHERE {UserField.KEY.value} = ?
             ''', list(user.values()) + [user[UserField.KEY.value]])
             conn.commit()
-        
+
+        if user[UserField.SFTP_USERNAME.value] != old_user[UserField.SFTP_USERNAME.value] and \
+            user[UserField.SFTP_USERNAME.value] != '':
+            create_sftp_user(user[UserField.SFTP_USERNAME.value])
+            
         # Check for changes and call the callback if necessary
         if self.stateChanged and old_user != user:
             self.stateChanged(old_user, user)
