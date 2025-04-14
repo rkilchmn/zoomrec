@@ -49,7 +49,7 @@ def start_api_server():
     logging.info("Gunicorn API server process started")
 
 def create_sftp_users():
-    command = ["python3", "pam_sftp.py"]
+    command = ["python3", "sftp_user.py"]
     create_sftp_users = subprocess.Popen(command, preexec_fn=os.setsid)
 
     atexit.register(os.killpg, os.getpgid(
