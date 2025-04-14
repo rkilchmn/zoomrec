@@ -282,6 +282,7 @@ ADD utilities.py ${HOME}/
 ADD automation.py ${HOME}/
 ADD password.py ${HOME}/
 ADD utilities.py ${HOME}/
+ADD sftp_user.py ${HOME}/
 ADD res/img ${HOME}/img/
 ADD zoom_auto.yaml ${HOME}/
 ADD test_vaapi_x265.sh ${HOME}/
