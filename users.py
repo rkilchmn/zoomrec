@@ -187,7 +187,13 @@ class SQLLiteUser(Users):
     def create(self, user):
         user = Users.clean(user)
         user[UserField.PASSWORD.value] = password.hash_password(user[UserField.PASSWORD.value])
+
         user = Users.set_missing_defaults(user)
+
+        # default sftp username to login
+        if user[UserField.SFTP_USERNAME.value] == '':
+            user[UserField.SFTP_USERNAME.value] = user[UserField.LOGIN.value]
+
         user[UserField.KEY.value] = shortuuid.uuid()
         user[UserField.CREATED_TIMESTAMP.value] = datetime.now()
         user[UserField.LAST_UPDATED_TIMESTAMP.value] = user[UserField.CREATED_TIMESTAMP.value]
@@ -245,12 +251,14 @@ class SQLLiteUser(Users):
 
     def update(self, user):
         user = Users.clean(user)
-        user[UserField.PASSWORD.value] = password.hash_password(user[UserField.PASSWORD.value])
         user[UserField.LAST_UPDATED_TIMESTAMP.value] = datetime.now()
         user = Users.validate(user)
-        old_user = self.get(filters=[[UserField.KEY.value, "=", user[UserField.KEY.value]]])
-        if old_user:
-            old_user = old_user[0]
+        old_user = self.get(filters=[[UserField.KEY.value, "=", user[UserField.KEY.value]]])[0]
+
+        # hash password only if password is different and therefore provided in cleartext
+        if user[UserField.PASSWORD.value] != old_user[UserField.PASSWORD.value]:
+            user[UserField.PASSWORD.value] = password.hash_password(user[UserField.PASSWORD.value])
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
             set_clause = ", ".join(f"{field} = ?" for field in user.keys())
