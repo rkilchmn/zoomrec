@@ -11,6 +11,16 @@ if [[ -z "$BASE_NAME" || -z "$EXTENSION" ]]; then
     exit 1
 fi
 
+# Find matching files
+shopt -s nullglob  # Avoids error when no files match
+FILE_LIST=( "${BASE_NAME}"*.${EXTENSION} )
+
+# Check if there are multiple matching files
+if [[ ${#FILE_LIST[@]} -lt 2 ]]; then
+    echo "Not enough files to concatenate. Found: ${#FILE_LIST[@]}"
+    exit 0
+fi
+
 # Check if a file with exactly the basename.extension exists
 EXACT_MATCH="${BASE_NAME}.${EXTENSION}"
 if [[ -f "$EXACT_MATCH" ]]; then
@@ -23,15 +33,9 @@ if [[ -f "$EXACT_MATCH" ]]; then
     mv "$EXACT_MATCH" "$NEW_NAME"
 fi
 
-# Find matching files
+# Find matching files (again after renaming)
 shopt -s nullglob  # Avoids error when no files match
 FILE_LIST=( "${BASE_NAME}"*.${EXTENSION} )
-
-# Check if there are multiple matching files
-if [[ ${#FILE_LIST[@]} -lt 2 ]]; then
-    echo "Not enough files to concatenate. Found: ${#FILE_LIST[@]}"
-    exit 0
-fi
 
 # Create input list file for ffmpeg
 INPUT_FILE="input.txt"
