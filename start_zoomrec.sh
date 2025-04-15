@@ -8,4 +8,4 @@ fi
 ./start_zoomrec_server.sh $1
 
 ./build_zoomrec_client.sh $3 $4
-./start_zoomrec_client.sh $2 $3
+./start_zoomrec_client.sh $2 $3 $4
