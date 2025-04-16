@@ -95,6 +95,8 @@ check_toolbar: &check_toolbar
     image: 'toolbar_leave.png'
     iterate: 20
     sleep: 1
+    on_success: "True" # default is "True", but explicit here for clarity
+    on_error: "True" # default is "False", but explicit here for clarity
 
 audio_mute: &audio_mute
   locate_image: 
@@ -151,6 +153,7 @@ view_option_fullscreen: &view_option_fullscreen
     on_success: 
       locate_image: 
         image: 'view_options_fullscreen.png'
+        minSearchTime: 0.5
         iterate: 5    # options menu is sliding in, so first iteration may not be there or final position
         sleep: 1         # delays next iteration by 1 sec 
         click: "True"      # default is "False"

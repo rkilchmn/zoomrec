@@ -452,7 +452,7 @@ class Automation:
                     
                     # If an operation returns False, stop processing
                     if result is False:
-                        logging.warning(f"Operation: '{operation_name} 'returned False, stopping execution")
+                        logging.warning(f"Instruction: '{instruction_name}' Operation: '{operation_name}' Details: '{operation}' returned False, stopping execution")
                         break
         
         # If it's a dictionary, just execute it
