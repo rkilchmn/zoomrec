@@ -254,8 +254,9 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
             
         # postprocessing
         postprocess = Events.get_instruction_attribute( EventInstructionAttribute.POSTPROCESS, event)  
+        filename_postprocess = os.path.join(REC_PATH, f"{basename}.{constants.VIDEO_EXTENSION}")
         if postprocess:
-            command = f"./postprocess.sh {postprocess} '{filename_recording}'"
+            command = f"./postprocess.sh {postprocess} '{filename_postprocess}'"
             logging.debug(f"Postprocess command: {command}")
 
             postprocess_process = subprocess.Popen(
