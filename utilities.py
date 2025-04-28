@@ -59,6 +59,11 @@ def exception_handler(exc_type, exc_value, exc_traceback):
     error_message = "".join(traceback.format_exception(exc_type, exc_value, exc_traceback))
     logging.error(f"Unhandled Exception:\n{error_message}")
 
+class FlushFileHandler(logging.FileHandler):
+    def emit(self, record):
+        super().emit(record)
+        self.flush()
+
 def start_logging( log_filename):
     sys.excepthook = exception_handler
     try:
@@ -69,8 +74,19 @@ def start_logging( log_filename):
         # Create the log file name with the timestamp
         LOG_LEVEL = getattr(logging, os.getenv( "LOG_LEVEL", "INFO"), logging.INFO)
 
-        # Configure the logging
-        logging.basicConfig(filename=log_filepath, filemode="a", format='%(asctime)s %(levelname)s %(message)s', level=LOG_LEVEL)
+        logger = logging.getLogger()
+        logger.setLevel(LOG_LEVEL)
+
+        # Remove default handlers (if re-running in interactive environments)
+        logger.handlers.clear()
+
+        handler = FlushFileHandler(log_filepath, mode="a")
+        formatter = logging.Formatter(constants.LOG_FORMAT)
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+        # # Configure the logging
+        # logging.basicConfig(filename=log_filepath, filemode="a", format=constants.LOG_FORMAT, level=LOG_LEVEL)
         logging.info(f"Starting logging {log_filename}")
         return True
     except Exception as e:

@@ -20,6 +20,7 @@ LOG_IMAP_BOT_FILENAME = 'imap_bot_log.txt'
 LOG_TELEGRAM_BOT_FILENAME = 'telegram_bot_log.txt'
 LOG_GUNICORN_ACCESS_LOG_FILENAME = 'gunicorn_access_log.txt'
 LOG_GUNICORN_ERROR_LOG_FILENAME = 'gunicorn_error_log.txt'
+LOG_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 
 # OTHER
 SFTP_ADMIN_USERNAME = 'zoomrec_admin'
