@@ -9,11 +9,11 @@ def create_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, user):
     url = f"{SERVER_URL}/user"
     headers = {'Content-Type': 'application/json'}
     
-    response = requests.post(url, json=user, headers=headers, auth=(SERVER_USERNAME, SERVER_PASSWORD))
-    if response.status_code in range(200, 299):
-        return response.json()
-    else:
-        raise Exception(f"Failed to create user. Response code: {response.status_code}, Response: {response.text}")     
+    with requests.post(url, json=user, headers=headers, auth=(SERVER_USERNAME, SERVER_PASSWORD)) as response:
+        if response.status_code in range(200, 299):
+            return response.json()
+        else:
+            raise Exception(f"Failed to create user. Response code: {response.status_code}, Response: {response.text}")     
 
 def get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=None):
     """
@@ -34,14 +34,13 @@ def get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=None):
                 params[f"Filter.{i + 1}.Value"] = value
 
     headers = {'Content-Type': 'application/json'}
-    response = requests.get(url, params=params, headers=headers, auth=(SERVER_USERNAME, SERVER_PASSWORD))
-
-    if response.status_code == 200: # success, content returned
-        return response.json()
-    elif response.status_code == 204: # success, NO content returned
-        return []
-    else:
-        raise Exception(f"Failed to retrieve user(s). Response code: {response.status_code}, Response: {response.text}")
+    with requests.get(url, params=params, headers=headers, auth=(SERVER_USERNAME, SERVER_PASSWORD)) as response:
+        if response.status_code == 200: # success, content returned
+            return response.json()
+        elif response.status_code == 204: # success, NO content returned
+            return []
+        else:
+            raise Exception(f"Failed to retrieve user(s). Response code: {response.status_code}, Response: {response.text}")
 
 def update_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, user):
     """
@@ -52,11 +51,11 @@ def update_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, user):
     url = f"{SERVER_URL}/user/{user_key}"
     headers = {'Content-Type': 'application/json'}
     
-    response = requests.put(url, json=user, headers=headers, auth=(SERVER_USERNAME, SERVER_PASSWORD))
-    if response.status_code in range(200, 299):
-        return response.json()
-    else:
-        raise Exception(f"Failed to update user {user_key}. Response code: {response.status_code}, Response: {response.text}")  
+    with requests.put(url, json=user, headers=headers, auth=(SERVER_USERNAME, SERVER_PASSWORD)) as response:
+        if response.status_code in range(200, 299):
+            return response.json()
+        else:
+            raise Exception(f"Failed to update user {user_key}. Response code: {response.status_code}, Response: {response.text}")  
 
 def delete_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, user_key):
     """
@@ -64,6 +63,6 @@ def delete_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, user_key):
     """
     url = f"{SERVER_URL}/user/{user_key}"
     
-    response = requests.delete(url, auth=(SERVER_USERNAME, SERVER_PASSWORD))
-    if response.status_code not in range(200, 299):
-        raise Exception(f"Failed to delete user {user_key}. Response code: {response.status_code}, Response: {response.text}") 
+    with requests.delete(url, auth=(SERVER_USERNAME, SERVER_PASSWORD)) as response:
+        if response.status_code not in range(200, 299):
+            raise Exception(f"Failed to delete user {user_key}. Response code: {response.status_code}, Response: {response.text}") 
