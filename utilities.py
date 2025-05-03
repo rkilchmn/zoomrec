@@ -4,6 +4,7 @@ import constants
 import traceback
 import sys
 import debugpy
+import signal
 
 def convert_to_safe_filename(filename):
     invalid_chars = '\\/:*?"\'<>|'
@@ -104,3 +105,9 @@ def start_debug(debug_module, debug_port):
         return True
     else:
         return False
+
+def end_process(proc):
+    if proc is not None:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        proc = None
+        

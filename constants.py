@@ -37,3 +37,7 @@ DEBUG_MODULE_ZOOMREC_CLIENT = 'zoomrec'
 DEBUG_MODULE_IMAP_BOT = 'imap_bot'
 DEBUG_MODULE_TELEGRAM_BOT = 'telegram_bot'
 DEBUG_MODULE_ZOOMREC_SERVER = 'zoomrec_server'
+
+# terminal dimensions
+TERMINAL_WIDTH = 85
+TERMINAL_HEIGHT = 7

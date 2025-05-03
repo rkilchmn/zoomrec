@@ -15,7 +15,8 @@ from utilities import convert_to_safe_filename, create_unique_filename, start_lo
 from automation import Automation
 import pyautogui  
 import constants
-from utilities import start_debug
+from utilities import start_debug, end_process
+import shlex
 
 start_logging(constants.LOG_CLIENT_FILENAME)
 start_debug(constants.DEBUG_MODULE_ZOOMREC_CLIENT, os.getenv('DEBUG_PORT'))
@@ -35,6 +36,20 @@ CLIENT_ID = os.getenv('CLIENT_ID')
 
 SSH_SERVER_URL = os.getenv('SSH_SERVER_URL')
 SSH_IDENTITY_FILE = os.getenv('SSH_IDENTITY_FILE')
+
+# process variables
+zoom_proc = None
+ffmpeg_recording_proc = None
+ffmpeg_recording_join_proc = None
+postprocess_proc = None
+
+def cleanup():
+    end_process(zoom_proc)
+    end_process(ffmpeg_recording_proc)
+    end_process(ffmpeg_recording_join_proc)
+    end_process(postprocess_proc)
+
+atexit.register(cleanup)
 
 def getIntEnv( env_str, default_value):
     int_val = default_value
@@ -101,11 +116,9 @@ def start_recording(filename):
 
     logging.debug(f"Recording command: {command}")
 
+    command = shlex.split(command)
     subprocess_info = subprocess.Popen(
-        command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-    
-    atexit.register(os.killpg, os.getpgid(
-        subprocess_info.pid), signal.SIGQUIT)
+        command, stdout=subprocess.PIPE, shell=False, preexec_fn=os.setsid)
     
     return subprocess_info
     
@@ -137,9 +150,8 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
         logging.info(info_str)
         print_console(info_str)
 
-        ffmpeg_debug = None
         if logging.getLogger().level == logging.DEBUG:
-            ffmpeg_debug = start_recording( 
+            ffmpeg_recording_join_proc = start_recording( 
                 os.path.join(REC_PATH, 
                     create_unique_filename(REC_PATH, 
                         convert_to_safe_filename(f"{description}-JOIN-{dtstart_instance.strftime( constants.DATETIME_FORMAT)}"), 
@@ -156,10 +168,10 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
         # Start Zoom
         if join_by_url:
             logging.info("Starting zoom with url")
-            zoom = subprocess.Popen(f'zoom --url="{meet_url}"', stdout=subprocess.PIPE,
+            zoom_proc = subprocess.Popen(f'zoom --url="{meet_url}"', stdout=subprocess.PIPE,
                                     shell=True, preexec_fn=os.setsid)
         else:
-            zoom = subprocess.Popen("zoom", stdout=subprocess.PIPE,
+            zoom_proc = subprocess.Popen("zoom", stdout=subprocess.PIPE,
                                     shell=True, preexec_fn=os.setsid)
 
         # Wait while zoom process is there
@@ -184,16 +196,12 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
 
         # Join meeting executing automation by config
         joined = auto_yaml.execute_instruction('join', variables)
-
-        # end join debug ffmpeg recording
-        if logging.getLogger().level == logging.DEBUG and ffmpeg_debug is not None:
-            # closing ffmpeg
-            os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
-            atexit.unregister(os.killpg)
+        
+        end_process(ffmpeg_recording_join_proc)
         
         if not joined:
             logging.error("Failed to join meeting!")
-            os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
+            end_process(zoom_proc)
             return False
         
         meeting_joined = Events.now(event)
@@ -204,7 +212,7 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
         basename = convert_to_safe_filename(basename)
         filename_recording = os.path.join(REC_PATH, create_unique_filename(REC_PATH, basename, constants.VIDEO_EXTENSION))
         if process == 'record':
-            ffmpeg = start_recording(filename_recording)
+            ffmpeg_recording_proc = start_recording(filename_recording)
 
         # update event
         try:
@@ -232,16 +240,16 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
                 time.sleep(5)
 
         meeting_elapsed = now_in_tz - meeting_joined
+
+        # end zoom and ffmeg recording
+        end_process(zoom_proc)
+        end_process(ffmpeg_recording_proc)
+
         if not (meeting_duration_exceeded or variables['HOST_ENDED_MEETING']):
             logging.error(f"Meeting prematurely ended at {now_in_tz.strftime(constants.DATETIME_FORMAT)} after {str(meeting_elapsed).split(".")[0]}")
             return False
 
         logging.info(f"Meeting ended at {now_in_tz.strftime(constants.DATETIME_FORMAT)} after {str(meeting_elapsed).split(".")[0]}")
-
-        # end zoom and ffmeg recording
-        os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
-        os.killpg(os.getpgid(ffmpeg.pid), signal.SIGQUIT)
-        atexit.unregister(os.killpg)
 
         # consolidate videos if multiple recordings of same meeting
         command = f"./concatenate_video.sh '{os.path.join(REC_PATH, basename)}' {constants.VIDEO_EXTENSION} yes"
@@ -259,13 +267,10 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
             command = f"./postprocess.sh {postprocess} '{filename_postprocess}'"
             logging.debug(f"Postprocess command: {command}")
 
-            postprocess_process = subprocess.Popen(
+            postprocess_proc = subprocess.Popen(
                 command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
             
-            atexit.register(os.killpg, os.getpgid(
-                postprocess_process.pid), signal.SIGQUIT)
-            
-            if postprocess_process:
+            if postprocess_proc:
                 posprocessing_start = Events.now(event)
                 txt = f"Started postprocessing task '{postprocess}' at {posprocessing_start.strftime(constants.DATETIME_FORMAT)}"
                 logging.info(txt)
@@ -278,7 +283,8 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
                 except Exception as e:
                     logging.error(f"Error updating event: {e}", exc_info=True)
 
-                postprocess_process.wait()
+                postprocess_proc.wait()
+                postprocess_proc = None
                 posprocessing_end = Events.now(event)
                 postprocessing_duration = posprocessing_end - posprocessing_start
                 logging.info(f"Postprocessing task '{postprocess}' completed at {posprocessing_end.strftime(constants.DATETIME_FORMAT)} after {str(postprocessing_duration).split(".")[0]}")
@@ -346,7 +352,7 @@ def print_console(message, no_scroll=True):
     """Print a message to the console with carriage return and flush.
     Message is padded to 89 characters to clear any previous longer messages.
     If no_scroll is True, then the same (last line is overwritten)"""
-    padded_message = f"{message:<60}"  # Left align and pad with spaces to 60 chars
+    padded_message = f"{message:<{constants.TERMINAL_WIDTH}}"  # Left align and pad with spaces to x chars
     if no_scroll:
         print(padded_message, end="\r", flush=True)
     else:
