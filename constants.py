@@ -41,3 +41,7 @@ DEBUG_MODULE_ZOOMREC_SERVER = 'zoomrec_server'
 # terminal dimensions
 TERMINAL_WIDTH = 85
 TERMINAL_HEIGHT = 7
+
+# intervals in seconds
+INTERVAL_CHECK_NEXT_EVENT = 15
+INTERVAL_CHECK_MEETING_ONGOING = 5

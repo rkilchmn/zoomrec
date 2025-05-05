@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 import os
-from users_api import get_user_api
+from users_api import UserAPI
 from users import UserField
 import constants
 from sftp_user import create_sftp_user
@@ -14,7 +14,8 @@ SERVER_PASSWORD  = os.getenv('SERVER_PASSWORD')
 def create_sftp_users():
     create_sftp_user(constants.SFTP_ADMIN_USERNAME)
 
-    sftp_users = get_user_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=[[UserField.SFTP_USERNAME.value, '!=', '']])
+    with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+        sftp_users = user_api.get(filters=[[UserField.SFTP_USERNAME.value, '!=', '']])
     for sftp_user in sftp_users:
         create_sftp_user(sftp_user[UserField.SFTP_USERNAME.value])
 

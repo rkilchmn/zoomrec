@@ -5,7 +5,7 @@ import os
 import sys
 # PAM module needs to be able to import users_api and password
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from users_api import get_user_api
+from users_api import UserAPI
 from password import verify_password
 from users import UserField
 
@@ -23,10 +23,11 @@ SERVER_PASSWORD  = os.getenv('SERVER_PASSWORD')
 
 def pam_sm_authenticate(pamh, flags, argv):
     try:
-        username = pamh.get_user(None)
+        username = pamh.get(None)
         password = pamh.conversation(pamh.Message(pamh.PAM_PROMPT_ECHO_OFF, 'SSH client is conversation handler and asking for password')).resp
 
-        sftp_user = get_user_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=[[UserField.SFTP_USERNAME.value, '=', username]])[0]
+        with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+            sftp_user = user_api.get(filters=[[UserField.SFTP_USERNAME.value, '=', username]])[0]
         if sftp_user and verify_password(password, sftp_user[UserField.PASSWORD.value]):
             syslog.syslog(syslog.LOG_AUTH | syslog.LOG_INFO, f"PAM[{__name__}] Authentication successful for {username}")
             return pam.PAM_SUCCESS
@@ -40,7 +41,7 @@ def pam_sm_authenticate(pamh, flags, argv):
 
 def pam_sm_open_session(pamh, flags, argv):
     # creating user is too late her - it is checked before calling PAM
-    username = pamh.get_user(None)
+    username = pamh.get(None)
     syslog.syslog(syslog.LOG_AUTH | syslog.LOG_INFO, f"PAM[{__name__}] Open session successful for {username}")
 
     return pamh.PAM_SUCCESS
@@ -52,7 +53,7 @@ def pam_sm_setcred(pamh, flags, argv):
     return pamh.PAM_SUCCESS
 
 def pam_sm_acct_mgmt(pamh, flags, argv):
-    username = pamh.get_user(None)
+    username = pamh.get(None)
     syslog.syslog(syslog.LOG_AUTH | syslog.LOG_INFO, f"PAM[{__name__}] Account management successful for {username}")
     return pamh.PAM_SUCCESS
 

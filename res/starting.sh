@@ -58,16 +58,16 @@ echo -e "\nStart script.."
 sleep 5
 
 # Start python script in separated terminal
-if [[ "$DEBUG" == "True" ]]; then
+if [[ "$LOG_LEVEL" == "DEBUG" ]]; then
   # Wait if something failed
-  echo "Starting zoomrec.py with DEBUG mode" 
+  echo -e "Starting zoomrec.py with DEBUG mode" 
   xfce4-terminal -H --geometry 85x7+0 --title=zoomrec --hide-toolbar --hide-menubar --hide-scrollbar --hide-borders --zoom=-3 -e "python3 -u ${HOME}/zoomrec.py" 2>&1 | tee ${HOME}/logs/starting_log.txt
   # allow for some time to see/copy error message in the xfce4-terminal
   sleep 120
 else
-  echo "Starting zoomrec.py with normal mode" 
+  echo -e "Starting zoomrec.py with normal mode" 
   # Exit container if something failed
   xfce4-terminal --geometry 85x7+0 --title=zoomrec --hide-toolbar --hide-menubar --hide-scrollbar --hide-borders --zoom=-3 -e "python3 -u ${HOME}/zoomrec.py" 2>&1 | tee ${HOME}/logs/starting.log.txt
 fi
 # docker container restars
-echo -e "\nEnd of starting script - restarting container"
+echo -e "End of starting script - restarting container"

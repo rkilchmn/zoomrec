@@ -16,8 +16,8 @@ from telegram import ForceReply, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from datetime import datetime
 import os
-import events_api  # Import the events_api module
-import users_api  # Import the users_api module
+from events_api import EventAPI
+from users_api import UserAPI
 from events import Events, EventField, EventStatus
 from users import MessengerAttribute, Users, UserField, UserRole
 from constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT, LOG_TELEGRAM_BOT_FILENAME, DEBUG_MODULE_TELEGRAM_BOT   
@@ -47,12 +47,12 @@ PAGE_USERS = 5
 CMD_ADD_EVENT = "add_event"
 CMD_LIST_EVENT = "list_event"
 CMD_MODIFY_EVENT = "modify_event"
-CMD_DELETE_EVENT = "delete_event"
+CMD_DELETE_EVENT = "delete"
 
 # Constants for user commands
 CMD_ADD_USER = "add_user"
 CMD_MODIFY_USER = "modify_user"
-CMD_DELETE_USER = "delete_user"
+CMD_DELETE_USER = "delete"
 CMD_LIST_USER = "list_user"
 
 # Constants for other commands
@@ -149,8 +149,8 @@ async def list_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
 
     try:
-        filter_not_deleted = [[EventField.STATUS.value,"!=",EventStatus.DELETED.value]]
-        events_list = events_api.get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=filter_not_deleted)
+        with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
+            events_list = event_api.get()
         if not events_list:
             await update.message.reply_text(f"No events found.")
             return
@@ -206,7 +206,8 @@ async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Retrieve user by login
     try:
-        user = users_api.get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=[[[UserField.LOGIN.value,"=",args[1]]]])[0] # single user expected
+        with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+            user = user_api.get(filters=[[UserField.LOGIN.value,"=",args[1]]])[0] # single user expected
         if not user:
             await update.message.reply_text(f"User with login '{args[1]}' not found.")
             return
@@ -248,7 +249,8 @@ async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         event[EventField.INSTRUCTION.value] = args[instructionArgNo]
 
     try:
-        created_event = events_api.create_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
+        with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
+            created_event = event_api.create(event)
         await update.message.reply_text(f"Created {Events.nameStr(created_event)}")
     except Exception as error:
         await update.message.reply_text(f"Error adding event: {error}")
@@ -261,8 +263,8 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             return
 
         try:
-            filter_not_deleted = [[EventField.STATUS.value,"!=",EventStatus.DELETED.value]]
-            events_list = events_api.get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=filter_not_deleted)
+            with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
+                events_list = event_api.get()
             if not events_list:
                 await update.message.reply_text(f"No events found.")
                 return
@@ -337,7 +339,8 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 return
 
         try:
-            events_api.update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, target_event)
+            with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
+                event_api.update(target_event)
             await update.message.reply_text(f"Attributes successfully modified for {Events.nameStr(target_event)} with index {target_index + 1}")
         except Exception as error:
             await update.message.reply_text(f"Error updating event: {error}")
@@ -345,7 +348,7 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")
 
-async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def delete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         args = parse_quoted_args(context.args)
         if not args:
@@ -353,8 +356,8 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             return
 
         try:
-            filter_not_deleted = [[EventField.STATUS.value,"!=",EventStatus.DELETED.value]]
-            events_list = events_api.get_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=filter_not_deleted)
+            with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
+                events_list = event_api.get()
             if not events_list:
                 await update.message.reply_text(f"No events found.")
                 return
@@ -385,7 +388,8 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         try:
             target_event = events_list[target_index]
-            events_api.delete_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, target_event[EventField.KEY.value])
+            with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
+                event_api.delete(target_event[EventField.KEY.value])
             await update.message.reply_text(f"Deleted {Events.nameStr(target_event)} successfully")
         except Exception as error:
             await update.message.reply_text(f"Error deleting event: {error}")
@@ -412,7 +416,8 @@ async def add_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         # add telegram client id 
         Users.set_messenger_attribute( messenger_attribute=MessengerAttribute.TELEGRAM_CHAT_ID, user=user, value=update.message.from_user.id)
     
-        created_user = users_api.create_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, user)
+        with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+            created_user = user_api.create(user)
         await update.message.reply_text(f"Created {Users.nameStr(created_user)}")
     except Exception as error:
         await update.message.reply_text(f"Error adding user: {error}")
@@ -425,7 +430,8 @@ async def modify_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             return
 
         try:
-            user_list = users_api.get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+            with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+                user_list = user_api.get()
             if not user_list:
                 await update.message.reply_text(f"No users found.")
                 return        
@@ -467,7 +473,8 @@ async def modify_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             target_user[attribute_name] = new_attribute_value
 
         try:
-            users_api.update_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, target_user)
+            with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+                user_api.update(target_user)
             await update.message.reply_text(f"Attributes successfully modified for {Users.nameStr(target_user)} with index {target_index + 1}")
         except Exception as error:
             await update.message.reply_text(f"Error updating user: {error}")
@@ -475,7 +482,7 @@ async def modify_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")
 
-async def delete_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def delete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         args = parse_quoted_args(context.args)
         if len(args) != 1:
@@ -483,7 +490,8 @@ async def delete_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             return
 
         try:
-            user_list = users_api.get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+            with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+                user_list = user_api.get()
             if not user_list:
                 await update.message.reply_text(f"No users found.")
                 return        
@@ -517,7 +525,8 @@ async def delete_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
         target_user = user_list[target_index]
         try:
-            users_api.delete_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, target_user[UserField.KEY.value])
+            with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+                user_api.delete(target_user[UserField.KEY.value])
             await update.message.reply_text(f"Deleted {Users.nameStr(target_user)} with index {target_index + 1}.")
         except Exception as error:
             await update.message.reply_text(f"Error deleting user: {error}")
@@ -532,10 +541,11 @@ async def list_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     try:
         # get all users
-        users = users_api.get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
-        if not users:
-            await update.message.reply_text(f"No users found.")
-            return
+        with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+            users = user_api.get()
+            if not users:
+                await update.message.reply_text(f"No users found.")
+                return
             
         # Filter users based on user permissions
         users = filter_users_by_permission(update.effective_user.id, update.effective_chat.id, users)
@@ -625,7 +635,8 @@ def filter_events_by_permission(user_id, chat_id, events_list):
         try:
             # Get the user associated with this event
             user_filters = [[UserField.KEY.value, "=", event[EventField.USER_KEY.value]]]
-            user_list = users_api.get_user_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=user_filters)
+            with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+                user_list = user_api.get(filters=user_filters)
             
             if user_list and len(user_list) > 0:
                 user = user_list[0]
@@ -670,10 +681,10 @@ def start_bot() -> None:
     application.add_handler(CommandHandler(CMD_ADD_EVENT, add_event))
     application.add_handler(CommandHandler(CMD_LIST_EVENT, list_event))
     application.add_handler(CommandHandler(CMD_MODIFY_EVENT, modify_event))
-    application.add_handler(CommandHandler(CMD_DELETE_EVENT, delete_event))
+    application.add_handler(CommandHandler(CMD_DELETE_EVENT, delete))
     application.add_handler(CommandHandler(CMD_ADD_USER, add_user))
     application.add_handler(CommandHandler(CMD_MODIFY_USER, modify_user))
-    application.add_handler(CommandHandler(CMD_DELETE_USER, delete_user))
+    application.add_handler(CommandHandler(CMD_DELETE_USER, delete))
     application.add_handler(CommandHandler(CMD_LIST_USER, list_user))
     application.add_handler(CommandHandler(CMD_HELP, help_command))
     application.add_handler(CommandHandler(CMD_INFO, info_command))

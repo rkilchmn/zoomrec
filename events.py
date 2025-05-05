@@ -14,7 +14,7 @@ from enum import Enum
 import shortuuid
 import sqlite3
 from users import UserField
-from constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT
+from constants import DATETIME_FORMAT
 
 # Define constants
 INTERNAL_DELIMITER = ',' # don't use : as it is reserved in yaml files
@@ -32,7 +32,6 @@ class EventStatus(Enum):
     PROCESS = 2
     POSTPROCESS = 3
     ENDED = 4
-    DELETED = 99
 
     @classmethod
     def get_description(cls, status):
@@ -40,8 +39,7 @@ class EventStatus(Enum):
             cls.SCHEDULED.value: "Scheduled",
             cls.PROCESS.value: "Processing",
             cls.POSTPROCESS.value: "Postprocessing",
-            cls.ENDED.value: "Ended",
-            cls.DELETED.value: "Deleted"
+            cls.ENDED.value: "Ended"
         }.get(status, "Unknown Status")
 
 # IMPORTANT: ordering needs to align with table create
@@ -151,8 +149,9 @@ class Events(ABC):
             raise ValueError(f"Missing attribute {EventField.TIMEZONE.value}.")
 
         if event[EventField.DURATION.value]:
+            duration = event[EventField.DURATION.value]
             try:
-                duration = int(event[EventField.DURATION.value])
+                duration = int(duration)
                 if duration <= 0:
                     raise ValueError(f"Invalid duration '{duration}'. Duration must be a positive number of minutes.")
             except ValueError:
@@ -189,7 +188,7 @@ class Events(ABC):
                     for instruction_attribute in EventInstructionAttribute:
                         value = Events.get_instruction_attribute( instruction_attribute, event)
                 except Exception as e:
-                    raise ValueError(f"Invalid instruction format in '{EventField.INSTRUCTION.value}'. Parsing error for '{event[EventField.INSTRUCTION.value]}': {e.error.args[0]}")
+                    raise ValueError(f"Invalid instruction format in '{EventField.INSTRUCTION.value}'. Parsing error for '{event[EventField.INSTRUCTION.value]}': {e.args[0]}")
 
             else:
                 raise ValueError(f"Invalid instruction format in '{EventField.INSTRUCTION.value}'. It must be a string.")
@@ -198,7 +197,7 @@ class Events(ABC):
         if EventField.USER_KEY.value in event and event[EventField.USER_KEY.value] != '':
             pass  # User is valid
         else:
-            raise ValueError(f"Missing or empty mandatory attribute {EventField.USER.value} or it is empty.")
+            raise ValueError(f"Missing or empty mandatory attribute {EventField.USER_KEY.value} or it is empty.")
 
         if event.get(EventField.ASSIGNED.value) or event.get(EventField.ASSIGNED_TIMESTAMP.value):
             if  not (event.get(EventField.ASSIGNED.value) or event.get(EventField.ASSIGNED_TIMESTAMP.value)):
@@ -425,8 +424,8 @@ class SQLLiteEvents(Events):
         old_event = self.get(filters=[[EventField.KEY.value, "=", event_key]])[0]
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(f'UPDATE events SET status = ?, {EventField.LAST_UPDATED_TIMESTAMP.value} = ? WHERE {EventField.KEY.value} = ?', 
-                (EventStatus.DELETED.value, datetime.now(), event_key,))
+            cursor.execute(f'DELETE FROM events WHERE {EventField.KEY.value} = ?', 
+                (event_key,))
             conn.commit()
 
         # Check for changes and call the callback if necessary

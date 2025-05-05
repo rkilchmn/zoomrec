@@ -1,0 +1,88 @@
+x-common-client: &common-client
+  restart: unless-stopped
+  env_file:
+    - ~/.development.client.env
+  volumes:
+    - ${ZOOMREC_HOME}/recordings:/home/zoomrec/recordings
+    - ${ZOOMREC_HOME}/audio:/home/zoomrec/audio
+    - ${ZOOMREC_HOME}/logs:/home/zoomrec/logs
+    - ${SSH_IDENTITY_FILE:-/home/zoomrec/.ssh/id_rsa}:/home/zoomrec/.ssh/id_rsa:ro
+  ports:
+    - "5901:5901"
+    - "445:445"
+    - "137-138:137-138"
+    - "${DEBUG_PORT_CLIENT:-}"
+  security_opt:
+    - seccomp:unconfined
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+
+x-common-server: &common-server
+  restart: unless-stopped
+  env_file:
+    - ~/.development.server.env
+  volumes:
+    - ${ZOOMREC_HOME}/zoomrec_server_db:/home/zoomrec/zoomrec_server_db
+    - ${ZOOMREC_HOME}/email_types.yaml:/home/zoomrec/email_types.yaml:ro
+    - ${ZOOMREC_HOME}/logs:/home/zoomrec/logs
+    - ${ZOOMREC_HOME}/firmware:/home/zoomrec/firmware
+    - /root/sftp-data:/root/sftp-data
+  ports:
+    - "${SERVER_PORT}:${DOCKER_SERVER_PORT}"
+    - "${SSH_PORT}:${DOCKER_SSH_PORT}"
+    - "${DEBUG_PORT_SERVER:-}"
+
+services:
+  zoomrec_server:
+    <<: *common-server
+    image: rkilchmn/zoomrec_server:latest
+    container_name: zoomrec_server
+
+  zoomrec_client_vaapi_intel:
+    <<: *common-client
+    image: rkilchmn/zoomrec_client:latest
+    container_name: zoomrec_client_vaapi_intel
+    environment:
+      FFMPEG_INPUT_PARAMS: "-vaapi_device /dev/dri/renderD128"
+      FFMPEG_OUTPUT_PARAMS: "-acodec aac -b:a 128k -vf 'hwupload,scale_vaapi=format=nv12' -c:v hevc_vaapi -b:v 1M"
+    devices:
+      - "/dev/dri:/dev/dri"
+    group_add:
+      - "${VIDEO_GROUPID}"
+      - "${RENDER_GROUPID}"
+
+  zoomrec_client_nvidia:
+    <<: *common-client
+    image: rkilchmn/zoomrec_client:latest
+    container_name: zoomrec_client_nvidia
+    environment:
+      FFMPEG_INPUT_PARAMS: "-hwaccel cuvid"
+      FFMPEG_OUTPUT_PARAMS: "-c:v hevc_nvenc -b:v 1M -gpu 0 -preset slow -acodec aac -b:a 128k"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    runtime: nvidia
+
+  zoomrec_client_vaapi_wsl2:
+    <<: *common-client
+    image: rkilchmn/zoomrec_client:latest
+    container_name: zoomrec_client_vaapi_wsl2
+    environment:
+      FFMPEG_INPUT_PARAMS: "-vaapi_device /dev/dri/renderD128"
+      FFMPEG_OUTPUT_PARAMS: "-acodec aac -b:a 128k -vf 'hwupload,scale_vaapi=format=nv12' -c:v hevc_vaapi -b:v 1M"
+      LD_LIBRARY_PATH: /usr/lib/wsl/lib
+    volumes:
+      - ${ZOOMREC_HOME}/recordings:/home/zoomrec/recordings
+      - ${ZOOMREC_HOME}/audio:/home/zoomrec/audio
+      - ${ZOOMREC_HOME}/logs:/home/zoomrec/logs
+      - ${SSH_IDENTITY_FILE:-/home/zoomrec/.ssh/id_rsa}:/home/zoomrec/.ssh/id_rsa:ro
+      - /mnt/wslg:/mnt/wslg
+      - /usr/lib/wsl:/usr/lib/wsl
+    devices:
+      - "/dev/dri:/dev/dri"
+      - "/dev/dxg:/dev/dxg"
+    group_add:
+      - "${VIDEO_GROUPID}"
+      - "${RENDER_GROUPID}"

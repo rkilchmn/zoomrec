@@ -8,9 +8,9 @@ import logging
 from datetime import datetime
 from bs4 import BeautifulSoup
 from events import Events, EventField, DATETIME_FORMAT, EventStatus
-from events_api import create_event_api, get_event_api, update_event_api
+from events_api import EventAPI
 from users import UserField
-from users_api import get_user_api
+from users_api import UserAPI
 from constants import LOG_IMAP_BOT_FILENAME, DEBUG_MODULE_IMAP_BOT
 from utilities import start_logging
 from ics import Calendar
@@ -231,7 +231,8 @@ def start_bot():
                                     # lookup user by login
                                     user = None
                                     try:
-                                        user = get_user_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, filters=[[UserField.LOGIN.value, '=', type['user_login']]])[0]
+                                        with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+                                            user = user_api.get(filters=[[UserField.LOGIN.value, '=', type['user_login']]])[0]
                                     except Exception as error:
                                         logging.error( f"User {type['user_login']} not found.")
                                         continue
@@ -241,36 +242,36 @@ def start_bot():
                                     event = Events.validate( event)
                                 
                                     # lookup existing event 
-                                    filter_existing = None
-                                    existing_event = None
-                                    if event[EventField.ID.value]:
-                                        # Filter to get event by ID
-                                        filter_existing = [EventField.ID.value, "=", event[EventField.ID.value]]
-                                    elif event[EventField.URL.value]:
-                                         # Filter to get event by ID
-                                        filter_existing = [EventField.URL.value, "=", event[EventField.URL.value]]
-                                    
-                                    if filter_existing:
-                                        try:    
-                                            filter_not_deleted = [EventField.STATUS.value,"!=",EventStatus.DELETED.value]
-                                            existing_events = get_event_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, 
-                                                                            filters=[filter_existing, filter_not_deleted])
-                                            if len(existing_events) == 1:
-                                                existing_event = existing_events[0]
-                                            elif len(existing_events) == 0:
-                                                logging.info( f"Existing Event with filter {filter_existing} not found.")
-                                            else:
-                                                logging.warning( f"Multiple existing Events with filter {filter_existing} found: {len(existing_events)}. Not updating existing events.")
-                                        except Exception as error:
-                                            logging.error( f"Existing Event with filter {filter_existing} not found. {error}")
+                                    with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
+                                        filter_existing = None
+                                        existing_event = None
+                                        if event[EventField.ID.value]:
+                                            # Filter to get event by ID
+                                            filter_existing = [EventField.ID.value, "=", event[EventField.ID.value]]
+                                        elif event[EventField.URL.value]:
+                                            # Filter to get event by ID
+                                            filter_existing = [EventField.URL.value, "=", event[EventField.URL.value]]
+                                        
+                                        if filter_existing:
+                                            try:                                               
+                                                existing_events = event_api.get(filters=[filter_existing])
+                                                if len(existing_events) == 1:
+                                                    existing_event = existing_events[0]
+                                                elif len(existing_events) == 0:
+                                                    logging.info( f"Existing Event with filter {filter_existing} not found.")
+                                                else:
+                                                    logging.warning( f"Multiple existing Events with filter {filter_existing} found: {len(existing_events)}. Not updating existing events.")
+                                            except Exception as error:
+                                                logging.error( f"Existing Event with filter {filter_existing} not found. {error}", exc_info=True)
 
-                                    if existing_event:
-                                        event[EventField.KEY.value] = existing_event[EventField.KEY.value]
-                                        update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
-                                        logging.info( f"{eventStr} updated")
-                                    else:
-                                        create_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
-                                        logging.info( f"{eventStr} added")
+                                        
+                                            if existing_event:
+                                                event[EventField.KEY.value] = existing_event[EventField.KEY.value]
+                                                event_api.update(event)
+                                                logging.info( f"{eventStr} updated")
+                                            else:
+                                                event_api.create(event)
+                                                logging.info( f"{eventStr} added")
                                 
                                 except ValueError as error:
                                     logging.error( f"Validation error {eventStr}. {error.args[0]}")

@@ -9,8 +9,8 @@ import time
 import atexit
 from events import Events, EventType, EventField, EventStatus, EventInstructionAttribute
 from users import UserField
-from users_api import get_user_api
-from events_api import get_next_event_api, update_event_api
+from users_api import UserAPI
+from events_api import EventAPI
 from utilities import convert_to_safe_filename, create_unique_filename, start_logging
 from automation import Automation
 import pyautogui  
@@ -124,198 +124,200 @@ def start_recording(filename):
     
 def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_instance_trail):
     try:
-        if int(event[EventField.STATUS.value]) == int(EventStatus.SCHEDULED.value):
-            if not event[EventField.ASSIGNED.value]:
-                event[EventField.ASSIGNED.value] = CLIENT_ID
-            elif event[EventField.ASSIGNED.value] != CLIENT_ID:
-                logging.warning(f"{Events.nameStr(event)} already assigned to another client: '{event[EventField.ASSIGNED.value]}'")
-                return
-            else:
-                logging.info(f"{Events.nameStr(event)} already assigned to client: '{event[EventField.ASSIGNED.value]}'")
+        with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
+            if int(event[EventField.STATUS.value]) == int(EventStatus.SCHEDULED.value):
+                if not event[EventField.ASSIGNED.value]:
+                    event[EventField.ASSIGNED.value] = CLIENT_ID
+                elif event[EventField.ASSIGNED.value] != CLIENT_ID:
+                    logging.warning(f"{Events.nameStr(event)} already assigned to another client: '{event[EventField.ASSIGNED.value]}'")
+                    return
+                else:
+                    logging.info(f"{Events.nameStr(event)} already assigned to client: '{event[EventField.ASSIGNED.value]}'")
 
-            event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
-            try:
-                update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
-            except Exception as e:
-                logging.error(f"Error updating event: {e}", exc_info=True)
-                return
-
-        meet_id = event[EventField.ID.value]
-        meet_pw = event[EventField.PASSWORD.value]
-        meet_url = event[EventField.URL.value]
-        duration = int(event[EventField.DURATION.value]) * 60
-        description = event[EventField.TITLE.value]
-
-        info_str = f"Joining meeting event with title: '{description}'"
-        logging.info(info_str)
-        print_console(info_str)
-
-        if logging.getLogger().level == logging.DEBUG:
-            ffmpeg_recording_join_proc = start_recording( 
-                os.path.join(REC_PATH, 
-                    create_unique_filename(REC_PATH, 
-                        convert_to_safe_filename(f"{description}-JOIN-{dtstart_instance.strftime( constants.DATETIME_FORMAT)}"), 
-                        constants.VIDEO_EXTENSION
-                    )
-                )
-            )
-
-        # Exit Zoom if running
-        exit_process_by_name("zoom")
-
-        join_by_url = meet_url.startswith('https://') or meet_url.startswith('http://')
-
-        # Start Zoom
-        if join_by_url:
-            logging.info("Starting zoom with url")
-            zoom_proc = subprocess.Popen(f'zoom --url="{meet_url}"', stdout=subprocess.PIPE,
-                                    shell=True, preexec_fn=os.setsid)
-        else:
-            zoom_proc = subprocess.Popen("zoom", stdout=subprocess.PIPE,
-                                    shell=True, preexec_fn=os.setsid)
-
-        # Wait while zoom process is there
-        list_of_process_ids = find_process_id_by_name('zoom')   
-        while len(list_of_process_ids) <= 0:
-            logging.info("No Running Zoom Process found!")
-            list_of_process_ids = find_process_id_by_name('zoom')
-            time.sleep(1)
-
-        logging.info("Zoom started!")
-        
-        variables = {
-            "MEET_ID": meet_id,
-            "DISPLAY_NAME": DISPLAY_NAME,
-            "PASSWORD": meet_pw,
-            "HOST_ENDED_MEETING": False
-        }
-        
-        # Create global instance of Automation with proper configuration and load the YAML config
-        config_path = os.path.join(BASE_PATH, "zoom_auto.yaml")
-        auto_yaml = Automation(config_path=config_path, img_path=IMG_PATH, audio_path=AUDIO_PATH, debug_path=DEBUG_PATH)
-
-        # Join meeting executing automation by config
-        joined = auto_yaml.execute_instruction('join', variables)
-        
-        end_process(ffmpeg_recording_join_proc)
-        
-        if not joined:
-            logging.error("Failed to join meeting!")
-            end_process(zoom_proc)
-            return False
-        
-        meeting_joined = Events.now(event)
-        logging.info(f"Joined meeting at {meeting_joined.strftime(constants.DATETIME_FORMAT)}")
-
-        process = Events.get_instruction_attribute( EventInstructionAttribute.PROCESS, event)
-        basename = f"{description}-{dtstart_instance.strftime( constants.DATETIME_FORMAT)}"
-        basename = convert_to_safe_filename(basename)
-        filename_recording = os.path.join(REC_PATH, create_unique_filename(REC_PATH, basename, constants.VIDEO_EXTENSION))
-        if process == 'record':
-            ffmpeg_recording_proc = start_recording(filename_recording)
-
-        # update event
-        try:
-            event[EventField.STATUS.value] = EventStatus.PROCESS.value
-            event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
-            update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
-        except Exception as e:
-            logging.error(f"Error updating event: {e}", exc_info=True)
-
-        now_in_tz = None
-        meeting_ongoing = True
-        meeting_duration_exceeded = None
-        while meeting_ongoing:
-            meeting_ongoing = auto_yaml.execute_instruction('ongoing', variables)
-            now_in_tz = Events.now(event)
-            if (now_in_tz <= dtend_instance_trail):
-                time_remaining = dtend_instance_trail - now_in_tz
-                # console not visible
-                # print_console(f"Meeting ends in {time_remaining}")
-            else:
-                meeting_duration_exceeded = True
-                meeting_ongoing = False
-            
-            if meeting_ongoing:
-                time.sleep(5)
-
-        meeting_elapsed = now_in_tz - meeting_joined
-
-        # end zoom and ffmeg recording
-        end_process(zoom_proc)
-        end_process(ffmpeg_recording_proc)
-
-        if not (meeting_duration_exceeded or variables['HOST_ENDED_MEETING']):
-            logging.error(f"Meeting prematurely ended at {now_in_tz.strftime(constants.DATETIME_FORMAT)} after {str(meeting_elapsed).split(".")[0]}")
-            return False
-
-        logging.info(f"Meeting ended at {now_in_tz.strftime(constants.DATETIME_FORMAT)} after {str(meeting_elapsed).split(".")[0]}")
-
-        # consolidate videos if multiple recordings of same meeting
-        command = f"./concatenate_video.sh '{os.path.join(REC_PATH, basename)}' {constants.VIDEO_EXTENSION} yes"
-        logging.debug(f"Consolidate video command: {command}")
-        result = subprocess.run(command, shell=True, capture_output=True, text=True)
-        if result.returncode != 0:
-            logging.error(f"Error consolidating video: {result.stderr}")
-        else:
-            logging.debug(f"Consolidated video: {result.stdout}")
-            
-        # postprocessing
-        postprocess = Events.get_instruction_attribute( EventInstructionAttribute.POSTPROCESS, event)  
-        filename_postprocess = os.path.join(REC_PATH, f"{basename}.{constants.VIDEO_EXTENSION}")
-        if postprocess:
-            command = f"./postprocess.sh {postprocess} '{filename_postprocess}'"
-            logging.debug(f"Postprocess command: {command}")
-
-            postprocess_proc = subprocess.Popen(
-                command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-            
-            if postprocess_proc:
-                posprocessing_start = Events.now(event)
-                txt = f"Started postprocessing task '{postprocess}' at {posprocessing_start.strftime(constants.DATETIME_FORMAT)}"
-                logging.info(txt)
-                print_console(txt)
-                event[EventField.STATUS.value] = EventStatus.POSTPROCESS.value
-                event[EventField.ASSIGNED.value] = CLIENT_ID
                 event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
                 try:
-                    update_event_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
+                    event_api.update(event)
                 except Exception as e:
                     logging.error(f"Error updating event: {e}", exc_info=True)
+                    return
 
-                postprocess_proc.wait()
-                postprocess_proc = None
-                posprocessing_end = Events.now(event)
-                postprocessing_duration = posprocessing_end - posprocessing_start
-                logging.info(f"Postprocessing task '{postprocess}' completed at {posprocessing_end.strftime(constants.DATETIME_FORMAT)} after {str(postprocessing_duration).split(".")[0]}")
+            meet_id = event[EventField.ID.value]
+            meet_pw = event[EventField.PASSWORD.value]
+            meet_url = event[EventField.URL.value]
+            duration = int(event[EventField.DURATION.value]) * 60
+            description = event[EventField.TITLE.value]
+
+            info_str = f"Joining meeting event with title: '{description}'"
+            logging.info(info_str)
+            print_console(info_str)
+
+            if logging.getLogger().level == logging.DEBUG:
+                ffmpeg_recording_join_proc = start_recording( 
+                    os.path.join(REC_PATH, 
+                        create_unique_filename(REC_PATH, 
+                            convert_to_safe_filename(f"{description}-JOIN-{dtstart_instance.strftime( constants.DATETIME_FORMAT)}"), 
+                            constants.VIDEO_EXTENSION
+                        )
+                    )
+                )
+
+            # Exit Zoom if running
+            exit_process_by_name("zoom")
+
+            join_by_url = meet_url.startswith('https://') or meet_url.startswith('http://')
+
+            # Start Zoom
+            if join_by_url:
+                logging.info("Starting zoom with url")
+                zoom_proc = subprocess.Popen(f'zoom --url="{meet_url}"', stdout=subprocess.PIPE,
+                                        shell=True, preexec_fn=os.setsid)
             else:
-                logging.error("Postprocessing script not found or not specified.")
+                zoom_proc = subprocess.Popen("zoom", stdout=subprocess.PIPE,
+                                        shell=True, preexec_fn=os.setsid)
 
-        # transfer file(s) to server
-        if SSH_SERVER_URL:
-            user = get_user_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, [[UserField.KEY.value, "=", event[EventField.USER_KEY.value]]])[0]    
-            command = f"./sftp_transfer.sh '{os.path.join(REC_PATH, basename)}' \
-                '{constants.SFTP_ADMIN_USERNAME}@{SSH_SERVER_URL}' \
-                '{os.path.join(BASE_PATH,constants.SSH_IDENTITY_FILE)}' \
-                '{user[UserField.LOGIN.value]}/{constants.RECORDINGS_DIR}' yes"
-            logging.debug(f"SFTP transfer command: {command}")
+            # Wait while zoom process is there
+            list_of_process_ids = find_process_id_by_name('zoom')   
+            while len(list_of_process_ids) <= 0:
+                logging.info("No Running Zoom Process found!")
+                list_of_process_ids = find_process_id_by_name('zoom')
+                time.sleep(1)
+
+            logging.info("Zoom started!")
+            
+            variables = {
+                "MEET_ID": meet_id,
+                "DISPLAY_NAME": DISPLAY_NAME,
+                "PASSWORD": meet_pw,
+                "HOST_ENDED_MEETING": False
+            }
+            
+            # Create global instance of Automation with proper configuration and load the YAML config
+            config_path = os.path.join(BASE_PATH, "zoom_auto.yaml")
+            auto_yaml = Automation(config_path=config_path, img_path=IMG_PATH, audio_path=AUDIO_PATH, debug_path=DEBUG_PATH)
+
+            # Join meeting executing automation by config
+            joined = auto_yaml.execute_instruction('join', variables)
+            
+            end_process(ffmpeg_recording_join_proc)
+            
+            if not joined:
+                logging.error("Failed to join meeting!")
+                end_process(zoom_proc)
+                return False
+            
+            meeting_joined = Events.now(event)
+            logging.info(f"Joined meeting at {meeting_joined.strftime(constants.DATETIME_FORMAT)}")
+
+            process = Events.get_instruction_attribute( EventInstructionAttribute.PROCESS, event)
+            basename = f"{description}-{dtstart_instance.strftime( constants.DATETIME_FORMAT)}"
+            basename = convert_to_safe_filename(basename)
+            filename_recording = os.path.join(REC_PATH, create_unique_filename(REC_PATH, basename, constants.VIDEO_EXTENSION))
+            if process == 'record':
+                ffmpeg_recording_proc = start_recording(filename_recording)
+
+            # update event
+            try:
+                event[EventField.STATUS.value] = EventStatus.PROCESS.value
+                event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
+                event_api.update(event)
+            except Exception as e:
+                logging.error(f"Error updating event: {e}", exc_info=True)
+
+            now_in_tz = None
+            meeting_ongoing = True
+            meeting_duration_exceeded = None
+            while meeting_ongoing:
+                meeting_ongoing = auto_yaml.execute_instruction('ongoing', variables)
+                now_in_tz = Events.now(event)
+                if (now_in_tz <= dtend_instance_trail):
+                    time_remaining = dtend_instance_trail - now_in_tz
+                    # console not visible
+                    # print_console(f"Meeting ends in {time_remaining}")
+                else:
+                    meeting_duration_exceeded = True
+                    meeting_ongoing = False
+                
+                if meeting_ongoing:
+                    time.sleep(constants.INTERVAL_CHECK_MEETING_ONGOING)
+
+            meeting_elapsed = now_in_tz - meeting_joined
+
+            # end zoom and ffmeg recording
+            end_process(zoom_proc)
+            end_process(ffmpeg_recording_proc)
+
+            if not (meeting_duration_exceeded or variables['HOST_ENDED_MEETING']):
+                logging.error(f"Meeting prematurely ended at {now_in_tz.strftime(constants.DATETIME_FORMAT)} after {str(meeting_elapsed).split(".")[0]}")
+                return False
+
+            logging.info(f"Meeting ended at {now_in_tz.strftime(constants.DATETIME_FORMAT)} after {str(meeting_elapsed).split(".")[0]}")
+
+            # consolidate videos if multiple recordings of same meeting
+            command = f"./concatenate_video.sh '{os.path.join(REC_PATH, basename)}' {constants.VIDEO_EXTENSION} yes"
+            logging.debug(f"Consolidate video command: {command}")
             result = subprocess.run(command, shell=True, capture_output=True, text=True)
             if result.returncode != 0:
-                logging.error(f"Error transferring file(s) to server: {result.stderr}")
+                logging.error(f"Error consolidating video: {result.stderr}")
             else:
-                logging.debug(f"File(s) transferred to server: {result.stdout}")
-        else:
-            logging.error("SFT transfer to server cannot be initiated: SSH_SERVER_URL not specified.")
+                logging.debug(f"Consolidated video: {result.stdout}")
+            
+            # postprocessing
+            postprocess = Events.get_instruction_attribute( EventInstructionAttribute.POSTPROCESS, event)  
+            filename_postprocess = os.path.join(REC_PATH, f"{basename}.{constants.VIDEO_EXTENSION}")
+            if postprocess:
+                command = f"./postprocess.sh {postprocess} '{filename_postprocess}'"
+                logging.debug(f"Postprocess command: {command}")
 
-        try:
-            event[EventField.STATUS.value] = EventStatus.ENDED.value
-            event[EventField.ASSIGNED.value] = ''
-            event[EventField.ASSIGNED_TIMESTAMP.value] = ''
-            update_event_api(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, event)
-            return True
-        except Exception as e:
-            logging.error(f"Error updating event: {e}", exc_info=True)
-            return False
+                postprocess_proc = subprocess.Popen(
+                    command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+                
+                if postprocess_proc:
+                    posprocessing_start = Events.now(event)
+                    txt = f"Started postprocessing task '{postprocess}' at {posprocessing_start.strftime(constants.DATETIME_FORMAT)}"
+                    logging.info(txt)
+                    print_console(txt)
+                    event[EventField.STATUS.value] = EventStatus.POSTPROCESS.value
+                    event[EventField.ASSIGNED.value] = CLIENT_ID
+                    event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
+                    try:
+                        event_api.update(event)
+                    except Exception as e:
+                        logging.error(f"Error updating event: {e}", exc_info=True)
+
+                    postprocess_proc.wait()
+                    postprocess_proc = None
+                    posprocessing_end = Events.now(event)
+                    postprocessing_duration = posprocessing_end - posprocessing_start
+                    logging.info(f"Postprocessing task '{postprocess}' completed at {posprocessing_end.strftime(constants.DATETIME_FORMAT)} after {str(postprocessing_duration).split(".")[0]}")
+                else:
+                    logging.error("Postprocessing script not found or not specified.")
+
+            # transfer file(s) to server
+            if SSH_SERVER_URL:
+                with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+                    user = user_api.get(filters=[[UserField.KEY.value, "=", event[EventField.USER_KEY.value]]])[0]
+                command = f"./sftp_transfer.sh '{os.path.join(REC_PATH, basename)}' \
+                    '{constants.SFTP_ADMIN_USERNAME}@{SSH_SERVER_URL}' \
+                    '{os.path.join(BASE_PATH,constants.SSH_IDENTITY_FILE)}' \
+                    '{user[UserField.LOGIN.value]}/{constants.RECORDINGS_DIR}' yes"
+                logging.debug(f"SFTP transfer command: {command}")
+                result = subprocess.run(command, shell=True, capture_output=True, text=True)
+                if result.returncode != 0:
+                    logging.error(f"Error transferring file(s) to server: {result.stderr}")
+                else:
+                    logging.debug(f"File(s) transferred to server: {result.stdout}")
+            else:
+                logging.error("SFT transfer to server cannot be initiated: SSH_SERVER_URL not specified.")
+
+            try:
+                event[EventField.STATUS.value] = EventStatus.ENDED.value
+                event[EventField.ASSIGNED.value] = ''
+                event[EventField.ASSIGNED_TIMESTAMP.value] = ''
+                event_api.update(event)
+                return True
+            except Exception as e:
+                logging.error(f"Error updating event: {e}", exc_info=True)
+                return False
     except Exception as e:
         logging.error(f"Error joining event: {e}", exc_info=True)
         return False
@@ -360,27 +362,29 @@ def print_console(message, no_scroll=True):
 
 def main():
     # loop to retrive next event and wait for it to join
-    while True:
-        try:
-            next_event = get_next_event_api( SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD, CLIENT_ID, EventType.ZOOM.value, LEAD_TIME_SEC, TRAIL_TIME_SEC)
-                    
-            if next_event and next_event['dtstart_instance_lead'] <= next_event['dtnow'] and next_event['dtnow'] <= next_event['dtend_instance_trail']:
-                join(next_event, next_event['dtstart_instance'], next_event['dtend_instance'], next_event['dtstart_instance_lead'], next_event['dtend_instance_trail'])  
-            else:                  
-                for _ in range(60):
-                    if next_event:
-                        next_event['dtnow'] = Events.now( next_event)
-                        time_diff = next_event["dtstart_instance_lead"] - next_event["dtnow"]
-                        formatted_time = str(time_diff).split(".")[0]  # Removes microseconds
-                        print_console(f"Next event with title: '{next_event[EventField.TITLE.value]}' starts in {formatted_time}")
-                    else:
-                        print_console("No upcoming events")
-                    
-                    time.sleep(1)
-            
-        except Exception as e:
-            logging.error(f"Monitoring event error: {str(e)}", exc_info=True)
-            print_console(f"Monitoring event error: {e}")
+    with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
+        while True:
+            try:
+                
+                next_event = event_api.get_next(CLIENT_ID, EventType.ZOOM.value, LEAD_TIME_SEC, TRAIL_TIME_SEC)
+                        
+                if next_event and next_event['dtstart_instance_lead'] <= next_event['dtnow'] and next_event['dtnow'] <= next_event['dtend_instance_trail']:
+                    join(next_event, next_event['dtstart_instance'], next_event['dtend_instance'], next_event['dtstart_instance_lead'], next_event['dtend_instance_trail'])  
+                else:                  
+                    for _ in range(constants.INTERVAL_CHECK_NEXT_EVENT):
+                        if next_event:
+                            next_event['dtnow'] = Events.now( next_event)
+                            time_diff = next_event["dtstart_instance_lead"] - next_event["dtnow"]
+                            formatted_time = str(time_diff).split(".")[0]  # Removes microseconds
+                            print_console(f"Next event with title: '{next_event[EventField.TITLE.value]}' starts in {formatted_time}")
+                        else:
+                            print_console("No upcoming events")
+                        
+                        time.sleep(1)
+                
+            except Exception as e:
+                logging.error(f"Monitoring event error: {str(e)}", exc_info=True)
+                print_console(f"Monitoring event error: {e}")
 
 if __name__ == '__main__':
     version = get_zoom_version()

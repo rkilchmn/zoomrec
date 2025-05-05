@@ -9,8 +9,13 @@ def create_sftp_user( username):
         "sudo", "/home/zoomrec/create-sftp-user.sh",
         f"{username}:::1999:{constants.RECORDINGS_DIR}", constants.SFTP_DATA_PATH
     ]
-    if  subprocess.call(command):
-        syslog.syslog(syslog.LOG_AUTH | syslog.LOG_ERR, f"[{__name__}] Failed to create sftp user {username}")
+    try:
+        result = subprocess.run(command, timeout=5)
+        if result.returncode != 0:
+            syslog.syslog(syslog.LOG_AUTH | syslog.LOG_ERR, f"[{__name__}] Failed to create sftp user {username}")
+            return False
+        else:
+            return True
+    except subprocess.TimeoutExpired:
+        syslog.syslog(syslog.LOG_AUTH | syslog.LOG_ERR, f"[{__name__}] Timeout expired while creating sftp user {username}")
         return False
-    else:
-        return True
