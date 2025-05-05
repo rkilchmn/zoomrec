@@ -23,7 +23,7 @@ SERVER_PASSWORD  = os.getenv('SERVER_PASSWORD')
 
 def pam_sm_authenticate(pamh, flags, argv):
     try:
-        username = pamh.get(None)
+        username = pamh.get_user(None)
         password = pamh.conversation(pamh.Message(pamh.PAM_PROMPT_ECHO_OFF, 'SSH client is conversation handler and asking for password')).resp
 
         with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
