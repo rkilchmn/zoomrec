@@ -41,7 +41,7 @@ def pam_sm_authenticate(pamh, flags, argv):
 
 def pam_sm_open_session(pamh, flags, argv):
     # creating user is too late her - it is checked before calling PAM
-    username = pamh.get(None)
+    username = pamh.get_user(None)
     syslog.syslog(syslog.LOG_AUTH | syslog.LOG_INFO, f"PAM[{__name__}] Open session successful for {username}")
 
     return pamh.PAM_SUCCESS
@@ -53,7 +53,7 @@ def pam_sm_setcred(pamh, flags, argv):
     return pamh.PAM_SUCCESS
 
 def pam_sm_acct_mgmt(pamh, flags, argv):
-    username = pamh.get(None)
+    username = pamh.get_user(None)
     syslog.syslog(syslog.LOG_AUTH | syslog.LOG_INFO, f"PAM[{__name__}] Account management successful for {username}")
     return pamh.PAM_SUCCESS
 
