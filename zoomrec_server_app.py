@@ -268,8 +268,8 @@ def get_event_next():
         client_id = request.args.get('client_id')
         event_type = request.args.get('event_type')
 
-        if client_id is None or event_type is None:
-            return 'mandatory parameter client_id or event_type missing', 404
+        if client_id is None:
+            return 'mandatory parameter client_id missing', 404
     
         # Retrieve lead_time_sec and trail_time_sec from request parameters
         lead_time_sec = 0
