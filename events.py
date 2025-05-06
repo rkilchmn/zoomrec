@@ -436,12 +436,14 @@ class SQLLiteEvents(Events):
 
     def get_next(self, client_id, event_type = None, lead_time_sec=0, trail_time_sec=0):
 
-        filter_type = [EventField.TYPE.value, "=", event_type] if event_type is not None else []
-        events = self.get(filters=[filter_type,[EventField.STATUS.value, "=", EventStatus.SCHEDULED.value]])
-        # also get events in PROCESS - the client could have crashed and is restarting
-        events.extend(self.get(filters=[filter_type,[EventField.STATUS.value, "=", EventStatus.PROCESS.value]]))
-        # also get events in ENDED - it may be a recurring meeting and there may be a previous instance that has ended
-        events.extend(self.get(filters=[filter_type,[EventField.STATUS.value, "=", EventStatus.ENDED.value]]))
+        statuses = [EventStatus.SCHEDULED.value, EventStatus.PROCESS.value, EventStatus.ENDED.value]
+        events = []
+        for status in statuses:
+            filters = []
+            if event_type is not None:
+                filters.append([EventField.TYPE.value, "=", event_type])
+            filters.append([EventField.STATUS.value, "=", status])
+            events.extend(self.get(filters=filters))
 
         # Process events
         next_event = None
