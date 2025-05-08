@@ -375,8 +375,9 @@ def main():
                         if next_event:
                             next_event['dtnow'] = Events.now( next_event)
                             time_diff = next_event["dtstart_instance_lead"] - next_event["dtnow"]
-                            formatted_time = str(time_diff).split(".")[0]  # Removes microseconds
-                            print_console(f"Next event with title: '{next_event[EventField.TITLE.value]}' starts in {formatted_time}")
+                            if time_diff.total_seconds() > 0: # for short time when updating this becomes negative
+                                formatted_time = str(time_diff).split(".")[0]  # Removes microseconds
+                                print_console(f"Next event with title: '{next_event[EventField.TITLE.value]}' starts in {formatted_time}")
                         else:
                             print_console("No upcoming events")
                         
