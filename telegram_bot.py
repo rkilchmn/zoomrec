@@ -47,12 +47,12 @@ PAGE_USERS = 5
 CMD_ADD_EVENT = "add_event"
 CMD_LIST_EVENT = "list_event"
 CMD_MODIFY_EVENT = "modify_event"
-CMD_DELETE_EVENT = "delete"
+CMD_DELETE_EVENT = "delete_event"
 
 # Constants for user commands
 CMD_ADD_USER = "add_user"
 CMD_MODIFY_USER = "modify_user"
-CMD_DELETE_USER = "delete"
+CMD_DELETE_USER = "delete_user"
 CMD_LIST_USER = "list_user"
 
 # Constants for other commands
@@ -348,7 +348,7 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")
 
-async def delete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         args = parse_quoted_args(context.args)
         if not args:
@@ -482,7 +482,7 @@ async def modify_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     except Exception as e:
         await update.message.reply_text(f"Error: {str(e)}")
 
-async def delete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def delete_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         args = parse_quoted_args(context.args)
         if len(args) != 1:
@@ -681,10 +681,10 @@ def start_bot() -> None:
     application.add_handler(CommandHandler(CMD_ADD_EVENT, add_event))
     application.add_handler(CommandHandler(CMD_LIST_EVENT, list_event))
     application.add_handler(CommandHandler(CMD_MODIFY_EVENT, modify_event))
-    application.add_handler(CommandHandler(CMD_DELETE_EVENT, delete))
+    application.add_handler(CommandHandler(CMD_DELETE_EVENT, delete_event))
     application.add_handler(CommandHandler(CMD_ADD_USER, add_user))
     application.add_handler(CommandHandler(CMD_MODIFY_USER, modify_user))
-    application.add_handler(CommandHandler(CMD_DELETE_USER, delete))
+    application.add_handler(CommandHandler(CMD_DELETE_USER, delete_user))
     application.add_handler(CommandHandler(CMD_LIST_USER, list_user))
     application.add_handler(CommandHandler(CMD_HELP, help_command))
     application.add_handler(CommandHandler(CMD_INFO, info_command))
