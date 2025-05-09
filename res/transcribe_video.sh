@@ -79,7 +79,8 @@ elapsed_time=$((end_time - start_time))
 audio_length=$(ffmpeg -i "$audio_file" 2>&1 | grep "Duration" | cut -   ed s/,// | awk -F: '{print ($1 * 3600) + ($2 * 60) + $3}')
 
 # Calculate x factor
-x_factor=$(bc <<< "scale=2; $audio_length / $elapsed_time")
+x_factor=$(awk "BEGIN { printf \"%.2f\", $audio_length / $elapsed_time }")
+# x_factor=$(bc <<< "scale=2; $audio_length / $elapsed_time")
 
 # Call the write_stats function to print and write the stats
 write_stats "$elapsed_time" "$audio_length" "$x_factor" "$stats_file"
