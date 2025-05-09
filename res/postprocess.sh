@@ -15,7 +15,7 @@ FILENAME=$2
 # Example postprocessing command (modify as needed)
 case $POSTPROCESS_COMMAND in
     "transcribe")
-        transcribe_video.sh "$FILENAME"
+        ./transcribe_video.sh "$FILENAME"
         ;;
     "test")
         # just for testing
