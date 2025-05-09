@@ -33,7 +33,7 @@ if [ "$#" -eq 0 ]; then
 fi
 
 # Start time
-start_time=$(date +%s)
+# start_time=$(date +%s)
 
 # Extract input file name and directory
 input_file="$1"
@@ -53,7 +53,7 @@ audio_file="${input_file%.*}.wav"
 
 # Extract optional parameter for device (default is GPU)
 # for whisper.cpp OpenVino
-device="${2:-GPU}"
+# device="${2:-GPU}"
 
 # Extract audio using ffmpeg
 # ffmpeg -hide_banner -loglevel error -stats -y -i "$input_file" -vn -acodec copy "$audio_file"
@@ -69,18 +69,18 @@ whisper-ctranslate2-remote-api "$audio_file" --output_dir "$input_dir" --faster_
 # Delete source audio file
 rm "$audio_file"
 
-# End time
-end_time=$(date +%s)
+# # End time
+# end_time=$(date +%s)
 
-# Calculate elapsed time
-elapsed_time=$((end_time - start_time))
+# # Calculate elapsed time
+# elapsed_time=$((end_time - start_time))
 
-# Get audio length in seconds
-audio_length=$(ffmpeg -i "$audio_file" 2>&1 | grep "Duration" | cut -   ed s/,// | awk -F: '{print ($1 * 3600) + ($2 * 60) + $3}')
+# # Get audio length in seconds
+# audio_length=$(ffmpeg -i "$audio_file" 2>&1 | grep "Duration" | cut -   ed s/,// | awk -F: '{print ($1 * 3600) + ($2 * 60) + $3}')
 
-# Calculate x factor
-x_factor=$(awk "BEGIN { printf \"%.2f\", $audio_length / $elapsed_time }")
-# x_factor=$(bc <<< "scale=2; $audio_length / $elapsed_time")
+# # Calculate x factor
+# x_factor=$(awk "BEGIN { printf \"%.2f\", $audio_length / $elapsed_time }")
+# # x_factor=$(bc <<< "scale=2; $audio_length / $elapsed_time")
 
-# Call the write_stats function to print and write the stats
-write_stats "$elapsed_time" "$audio_length" "$x_factor" "$stats_file"
+# # Call the write_stats function to print and write the stats
+# write_stats "$elapsed_time" "$audio_length" "$x_factor" "$stats_file"   
