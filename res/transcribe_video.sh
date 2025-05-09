@@ -64,7 +64,7 @@ ffmpeg -hide_banner -loglevel error -stats -y -i "$input_file" -vn -acodec pcm_s
 # ./whisper.cpp/main -m whisper.cpp/models/ggml-small.bin -f "$audio_file" -oved "$device"
 # export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/python3.10/dist-packages/nvidia/cudnn/lib
 # whisper-ctranslate2 --model small "$audio_file"
-whisper-ctranslate2-remote-api "$audio_file" --output_dir "$input_dir" --faster_whisper_api_base_url http://broadwell-server.local:9876/api/v0
+whisper-ctranslate2-remote-api "$audio_file" --output_dir "$input_dir" --faster_whisper_api_base_url http://localhoshost.docker.internal:9876/api/v0
 
 
 # Delete source audio file
