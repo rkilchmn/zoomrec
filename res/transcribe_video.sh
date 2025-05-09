@@ -43,10 +43,10 @@ input_dir=$(dirname "$input_file")
 stats_file="${input_file%.*}.stats"
 
 # Check if a corresponding stats file already exists
-if [ -f "$stats_file" ]; then
-    echo "Stats file $stats_file already exists. Skipping processing."
-    exit 0
-fi
+# if [ -f "$stats_file" ]; then
+#     echo "Stats file $stats_file already exists. Skipping processing."
+#     exit 0
+# fi
 
 # Extract audio file name
 audio_file="${input_file%.*}.wav"
