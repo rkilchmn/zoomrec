@@ -136,6 +136,7 @@ def start_bot():
                         event = {}
                         event = Events.set_missing_defaults(event)
                         event['match'] = True # by default email is matched unless a match_regex fails end returns empty value
+                        event['cancelled'] = False
                         
                         # process sections
                         first = True
@@ -151,7 +152,14 @@ def start_bot():
                                     try:
                                         calendar_event = next(eventIter)
                                         if not first:
+                                            # save previous event
                                             events.append(event)
+                                            # init new event
+                                            event = {}
+                                            event = Events.set_missing_defaults(event)
+                                            event['cancelled'] = False
+                                        # cancellation
+                                        event['cancelled'] = content['body'].method == 'CANCEL'
                                     except StopIteration:
                                         # no more calendar events
                                         break
@@ -266,12 +274,19 @@ def start_bot():
 
                                         
                                             if existing_event:
-                                                event[EventField.KEY.value] = existing_event[EventField.KEY.value]
-                                                event_api.update(event)
-                                                logging.info( f"{eventStr} updated")
+                                                if event['cancelled']:
+                                                    event_api.delete(existing_event[EventField.KEY.value])
+                                                    logging.info( f"{eventStr} deleted due to cancellation")
+                                                else:
+                                                    event[EventField.KEY.value] = existing_event[EventField.KEY.value]
+                                                    event_api.update(event)
+                                                    logging.info( f"{eventStr} updated")
                                             else:
-                                                event_api.create(event)
-                                                logging.info( f"{eventStr} added")
+                                                if not event['cancelled']:
+                                                    event_api.create(event)
+                                                    logging.info( f"{eventStr} added")
+                                                else:
+                                                    logging.info( f"{eventStr} was cancelled and therefore not added")
                                 
                                 except ValueError as error:
                                     logging.error( f"Validation error {eventStr}. {error.args[0]}")
