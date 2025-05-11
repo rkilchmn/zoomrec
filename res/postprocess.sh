@@ -4,7 +4,8 @@
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 <command> <filename>"
     echo "Valid Command:"
-    echo "  transcribe - transcribe video"
+    echo "  transcribe[=<lang>] - transcribe video [to specific language optional]"
+    echo "  translate=<lang> - translate video to specific language"
 
     exit 1
 fi
@@ -14,8 +15,8 @@ FILENAME=$2
 
 # Example postprocessing command (modify as needed)
 case $POSTPROCESS_COMMAND in
-    "transcribe")
-        ./transcribe_video.sh "$FILENAME"
+    transcribe|translate|transcribe=*|translate=*)
+        ./transcribe_video.sh "$POSTPROCESS_COMMAND" "$FILENAME"
         ;;
     "test")
         # just for testing
