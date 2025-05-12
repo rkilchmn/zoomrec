@@ -107,18 +107,19 @@ def start_bot():
                     for part in msg.walk():
                         content_type = part.get_content_type()
                         try:
+                            charset = part.get_content_charset() or 'utf-8'
                             if part.get_content_type() == CONTENT_TYPE_PLAIN:
-                                body[CONTENT_TYPE_PLAIN] = part.get_payload(decode=True).decode('utf-8')
+                                body[CONTENT_TYPE_PLAIN] = part.get_payload(decode=True).decode(charset, errors='replace')
                             elif part.get_content_type() == CONTENT_TYPE_HTML:
                                 # unescape special HTML codes such as &amp; etc
-                                body[CONTENT_TYPE_HTML]  = html.unescape(part.get_payload(decode=True).decode('utf-8'))
+                                body[CONTENT_TYPE_HTML]  = html.unescape(part.get_payload(decode=True).decode(charset, errors='replace'))
                             elif part.get_content_type() == CONTENT_TYPE_CALENDAR:
-                                vcalendar = part.get_payload(decode=True).decode('utf-8')
-                            # Parse the vCalendar data
-                            calendar = Calendar(vcalendar)
-                            body[CONTENT_TYPE_CALENDAR] = calendar
-                        except:
-                            logging.error(f"Error decoding email {msg_id} - {subject} - {content_type}")
+                                vcalendar = part.get_payload(decode=True).decode(charset, errors='replace')
+                                # Parse the vCalendar data
+                                calendar = Calendar(vcalendar)
+                                body[CONTENT_TYPE_CALENDAR] = calendar
+                        except Exception as e:
+                            logging.error(f"Error decoding email {msg_id} - {subject} - {content_type}: {str(e)}")
 
                     # html can be converted to plain if required
                     if type['content_type'] == CONTENT_TYPE_PLAIN and CONTENT_TYPE_HTML in body:
