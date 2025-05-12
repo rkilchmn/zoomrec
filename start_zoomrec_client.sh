@@ -88,6 +88,7 @@ elif [ "$2" == "$NVIDIA" ]; then
     -p 445:445 \
     --security-opt seccomp:unconfined \
     --gpus all \
+    --add-host=host.docker.internal:host-gateway \
     rkilchmn/zoomrec_client:latest
 else
   docker run -d --restart unless-stopped --env-file $1 --name zoomrec_client \
@@ -100,6 +101,7 @@ else
     -p 137-139:137-139 \
     -p 445:445 \
     --security-opt seccomp:unconfined \
+    --add-host=host.docker.internal:host-gateway \
     rkilchmn/zoomrec_client:latest
 fi
 
