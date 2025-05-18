@@ -1,0 +1,372 @@
+from flask import Flask, request, jsonify, send_file
+from flask_basicauth import BasicAuth
+from datetime import datetime
+import os.path
+import yaml
+from events import FIELDNAMES, Events, EventStatus, EventField, SQLLiteEvents
+from urllib.parse import unquote
+from users import SQLLiteUser, Users, UserField
+import logging
+import constants
+from utilities import start_debug
+
+start_debug(constants.DEBUG_MODULE_ZOOMREC_SERVER_APP, os.getenv('DEBUG_PORT_SERVER'))
+
+app = Flask(__name__)
+
+# Get Gunicorn logger
+gunicorn_logger = logging.getLogger("gunicorn.error")
+app.logger.handlers = gunicorn_logger.handlers  # Use the same handlers
+app.logger.setLevel(logging.ERROR)  # Match Gunicorn's error level
+
+BASE_PATH = os.getenv('ZOOMREC_HOME')
+ZOOMREC_DB_PATH = os.path.join(BASE_PATH, constants.ZOOMREC_DB_FILENAME)
+
+# Load configuration from YAML file
+with open(constants.ZOOMREC_SERVER_APP_CONFIG_FILENAME, "r") as f:
+    config = yaml.safe_load(f)
+
+FIRMWARE_PATH = os.path.join(BASE_PATH, constants.FIRMWARE_DIR)
+LOG_PATH = os.path.join(BASE_PATH, constants.LOG_DIR)
+
+# Configure basic authentication
+app.config['BASIC_AUTH_USERNAME'] = os.getenv('SERVER_USERNAME')
+app.config['BASIC_AUTH_PASSWORD'] = os.getenv('SERVER_PASSWORD')
+basic_auth = BasicAuth(app)
+
+# Define the state_changed_callback function
+def event_state_changed_callback(old_event, new_event):
+    # Timestamp fields to exclude from change detection
+    timestamp_fields = [
+        EventField.CREATED_TIMESTAMP.value,
+        EventField.LAST_UPDATED_TIMESTAMP.value
+    ]
+
+    try:
+        message = None
+        message_users = []
+        if old_event is None:
+            message = f"Created {Events.nameStr(new_event)}\n"
+            message_users.append(users.get(filters=[[UserField.KEY.value, "=", new_event[EventField.USER_KEY.value]]])[0])
+        elif new_event is None:
+            message = f"Deleted {Events.nameStr(old_event)}\n"
+            message_users.append(users.get(filters=[[UserField.KEY.value, "=", old_event[EventField.USER_KEY.value]]])[0])
+        else:
+            new_user = users.get(filters=[[UserField.KEY.value, "=", new_event[EventField.USER_KEY.value]]])[0]
+            message_users.append(new_user)
+
+            changes = []
+            # Check for changes in all fields except timestamps
+            for field in EventField:
+                field_value = field.value
+                if field_value not in timestamp_fields and field_value in old_event and field_value in new_event:
+                    if old_event[field_value] != new_event[field_value]:
+                        # Special handling for user field
+                        if field_value == EventField.USER_KEY.value:
+                            old_user = users.get(filters=[[UserField.KEY.value, "=", old_event[EventField.USER_KEY.value]]])[0]
+                            changes.append(f"user changed from '{old_user[UserField.NAME.value]}' to '{new_user[UserField.NAME.value]}'\n")
+                            message_users.append(old_user)
+                        # Special handling for status field
+                        elif field_value == EventField.STATUS.value:
+                            new_status_description = EventStatus.get_description(new_event[field_value])
+                            old_status_description = EventStatus.get_description(old_event[field_value])
+                            changes.append(f"status changed from '{old_status_description}' to '{new_status_description}'\n")
+                        else:
+                            # Generic handling for other fields
+                            # For empty values, replace with "(empty)" for better readability
+                            old_value = old_event[field_value] if old_event[field_value] else "(empty)"
+                            new_value = new_event[field_value] if new_event[field_value] else "(empty)"
+                            changes.append(f"Field: '{field_value}' changed from '{old_value}' to '{new_value}'\n")
+            # Build the message
+            message = f"Updated {Events.nameStr(new_event)}:\n{', '.join(changes)}"
+        
+        # Send the message to users
+        if message:
+            for user in message_users:
+                Users.send_message(user, message)
+    except Exception as e:
+        print(f"Error in event_state_changed_callback: {str(e)}")
+
+# Initialize event storage with the callback
+# events = CSVEvents(CSV_PATH, delimiter=';', stateChanged=state_changed_callback)
+events = SQLLiteEvents(ZOOMREC_DB_PATH, stateChanged=event_state_changed_callback)
+
+# Initialize user manager
+users = SQLLiteUser(ZOOMREC_DB_PATH)
+
+# Create a new user
+@app.route(f"{config['ROUTE_USER']}", methods=['POST'])
+@basic_auth.required
+def create_user():
+    try:
+        user_data = request.json
+        user_data = users.clean(user_data)
+        created_user = users.create(user_data)
+        return jsonify(created_user), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Retrieve a user by key or all users if no key is provided
+# get all users: curl -u myuser:mypassword "http://localhost:8081/user"
+# get with key: curl -u myuser:mypassword "http://localhost:8081/user/SXThWeEpL3aiEWJ6tbytMA"
+# get by login: curl -u myuser:mypassword "http://localhost:8081/user?login=johndoe"
+
+@app.route(f"{config['ROUTE_USER']}", methods=['GET'])
+@app.route(config['ROUTE_USER'], methods=['GET'])
+@basic_auth.required
+def get_user():
+    filters = []
+
+    # Retrieve filter parameters from the request
+    for key, value in request.args.items():
+        if key.startswith("Filter."):
+            # Extract the filter index
+            parts = key.split('.')
+            if len(parts) == 3:  # Ensure we have the correct format
+                index = parts[1]
+                if len(filters) < int(index):  # Ensure the filters list is long enough
+                    filters.append([None, None, None])  # Initialize with None
+                if parts[2] == "Name":
+                    filters[int(index) - 1][0] = value  # Set attribute
+                elif parts[2] == "Operator":
+                    filters[int(index) - 1][1] = value  # Set operator
+                elif parts[2] == "Value":
+                    filters[int(index) - 1][2] = value  # Set value
+
+    try:
+        returned_users = users.get(filters=filters)  # Pass the filters to the get method
+
+        if returned_users:
+            return jsonify(returned_users), 200 # sucesss, returning content
+        else:
+            return jsonify({}), 204 # sucsess, but "204 No Content"
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Update a user by key
+@app.route(f"{config['ROUTE_USER']}/<key>", methods=['PUT'])
+@basic_auth.required
+def update_user(key):
+    try:
+        user = request.json
+        user[UserField.KEY.value] = key
+        users.update(user)
+        updated_user = users.get(filters=[[UserField.KEY.value, '=', key]])[0]
+        return jsonify(updated_user), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Delete a user by key
+@app.route(f"{config['ROUTE_USER']}/<key>", methods=['DELETE'])
+@basic_auth.required
+def delete_user(key):
+    try:
+        users.delete(key)
+        return jsonify({"message": "User with key: {key} deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# create event
+# curl -u myuser:mypassword \
+#      -X POST \
+#      -H "Content-Type: application/json" \
+#      -d '{
+#            "type": "1", 
+#            "title": "test", 
+#            "dtstart": "18/09/2025 21:45", 
+#            "timezone": "Australia/Sydney", 
+#            "duration": "30", 
+#            "rrule": "FREQ=DAILY;COUNT=2", 
+#            "id": "85703777235",
+#            "password": "password123",
+#            "url": "https://us05web.zoom.us/j/84548756066?pwd=35dp6HKKTU60LLOlShON9Kb8bMnNb4.1",
+#            "instruction": "record=true",
+#            "user": "telegram-chatid=12345678"
+#          }' \
+#      "http://localhost:8081/event"
+@app.route(f"{config['ROUTE_EVENT']}", methods=["POST"])
+def create_event():
+    try:
+        event = request.json
+        event = events.create( event)
+        return jsonify(event), 200 
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# curl -u myuser:mypassword -X PUT -H "Content-Type: application/json" \
+#   -d '{
+#         "description": "test",
+#         "weekday": "05/05/2024",
+#         "time": "15:30", 
+#         "timezone": "Australia/Sydney",
+#         "duration": "60",
+#         "record": "true",
+#         "id": "https://us05web.zoom.us/j/83776483885?pwd=xCzmF3kuxu2NbYSckGI28kErQrpXoC.1"
+#     }' \
+#     "http://localhost:8081/event/G4JbZYQN65Ba35jfbyiHsj"
+@app.route(f"{config['ROUTE_EVENT']}/<key>", methods=["PUT"])
+def update_event(key):
+    try:
+        event = request.json
+        event[EventField.KEY.value] = key
+        event = events.update(event)
+        return jsonify(event), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# curl -u myuser:mypassword -X DELETE "http://localhost:8081/event/G4JbZYQN65Ba35jfbyiHsj"
+@app.route(f"{config['ROUTE_EVENT']}/<key>", methods=["DELETE"])
+@basic_auth.required
+def delete_event(key):
+    try:
+        events.delete(key)
+        return jsonify({"message": f"Event with key: {key} deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# all events: curl -u myuser:mypassword "http://localhost:8080/event"
+# with key: curl -u myuser:mypassword "http://localhost:8080/event/G4JbZYQN65Ba35jfbyiHsj"
+@app.route(f"{config['ROUTE_EVENT']}", methods=['GET'])
+@app.route(config['ROUTE_EVENT'], methods=['GET'])
+@basic_auth.required
+def get_event():
+    filters = []
+
+    # Retrieve filter parameters from the request
+    for key, value in request.args.items():
+        if key.startswith("Filter."):
+            # Extract the filter index
+            parts = key.split('.')
+            if len(parts) == 3:  # Ensure we have the correct format
+                index = parts[1]
+                if len(filters) < int(index):  # Ensure the filters list is long enough
+                    filters.append([None, None, None])  # Initialize with None
+                if parts[2] == "Name":
+                    filters[int(index) - 1][0] = value  # Set attribute
+                elif parts[2] == "Operator":
+                    filters[int(index) - 1][1] = value  # Set operator
+                elif parts[2] == "Value":
+                    filters[int(index) - 1][2] = value  # Set value
+
+    try:
+        returned_events = events.get(filters=filters)  # Pass the filters to the get method
+            
+        if returned_events:
+            return jsonify(returned_events), 200 # sucesss, returning content
+        else:
+            return  jsonify({}), 204 # sucsess, but "204 No Content"
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# curl -u myuser:mypassword "http://localhost:8081/event/next?client_id=550e8400-e29b-41d4-a716-446655440000&event_type=1&lead_time_sec=60&trail_time_sec=300"
+@app.route(f"{config['ROUTE_EVENT']}/{config['ROUTE_EVENT_NEXT']}", methods=['GET'])
+@basic_auth.required
+def get_event_next():
+    try:
+        client_id = request.args.get('client_id')
+        event_type = request.args.get('event_type')
+
+        if client_id is None:
+            return 'mandatory parameter client_id missing', 404
+    
+        # Retrieve lead_time_sec and trail_time_sec from request parameters
+        lead_time_sec = 0
+        trail_time_sec = 0
+        try:
+            lead_time_sec = int(request.args.get('lead_time_sec'))
+            trail_time_sec = int(request.args.get('trail_time_sec'))
+        except ValueError:
+            return 'invalid paramter lead_time_sec and/or trail_time_sec', 404
+        except TypeError:
+            pass
+
+        response_data = events.get_next(client_id, event_type, lead_time_sec, trail_time_sec)
+        # return timestamp in ISO 8601 format 
+        if not response_data is None:
+            response_data['dtstart_instance'] = response_data['dtstart_instance'].isoformat()
+            response_data['dtend_instance'] = response_data['dtend_instance'].isoformat()
+            response_data['dtstart_instance_lead'] = response_data['dtstart_instance_lead'].isoformat()
+            response_data['dtend_instance_trail'] = response_data['dtend_instance_trail'].isoformat()
+            response_data['dtnow'] = response_data['dtnow'].isoformat()
+            return jsonify(response_data), 200
+        else:
+            return jsonify({}), 204 # sucsess, but "204 No Content"
+    except Exception as e:
+        app.logger.error(f"Error getting next event: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+def get_file_mtime(file_path):
+    mtime = os.path.getmtime(file_path)
+    timestamp = datetime.fromtimestamp(mtime)
+    timestamp = timestamp.replace(microsecond=0)
+    return timestamp
+
+def parse_version(version_string):
+    parts = version_string.split('-')
+    if len(parts) != 3:
+        raise ValueError('Invalid version string')
+    filename, date_str, time_str = parts
+    date_time_str = f"{date_str.strip()} {time_str.strip()}"
+    try:
+        timestamp = datetime.strptime(date_time_str, '%b %d %Y %H:%M:%S')
+        timestamp = timestamp.replace(microsecond=0)
+    except ValueError:
+        raise ValueError('Invalid version string')
+    return filename, timestamp
+
+# curl -H "x-ESP8266-version: ESP8266_Template.ino-May  7 2023-15:26:18" -u myuser:mypassword --output firmware.ino.bin http://localhost:8080/firmware
+@app.route(config['ROUTE_FIRMWARE'], methods=['GET'])
+@basic_auth.required
+def get_firmware():
+    firmware_version = request.headers.get('x-ESP8266-version')
+    if not firmware_version:
+        return 'Firmware version not specified', 400
+    try:
+        filename, firmware_version_mtime = parse_version(firmware_version)
+    except ValueError:
+        return 'Invalid firmware version', 400
+    filepath = os.path.join( FIRMWARE_PATH, filename + '.bin')
+    if not os.path.isfile(filepath):
+        return 'Firmware not found', 404
+    firmware_file_mtime = get_file_mtime(filepath)
+    # difference needs to be min 60s as there are some small time differences
+    if (firmware_file_mtime - firmware_version_mtime).total_seconds() >= 60:
+        return send_file(filepath, as_attachment=True, mimetype='application/octet-stream')
+    else:
+        return '', 304  # Not Modified
+    
+# curl -X POST -H "Content-Type: application/json" -u admin:myadminpw -d @log_entry.json http://localhost:8080/log
+@app.route('/log', methods=['POST'])
+@basic_auth.required
+def log_handler():
+    data = request.json
+    log_id = data.get(EventField.ID.value)
+    log_content = data.get('content')
+    if log_content:
+        log_content = unquote(log_content)
+
+    if log_id is None or log_content is None:
+        return jsonify({'error': 'id and content are required'}), 400
+
+    log_filename = f'{LOG_PATH}{log_id}.log'
+
+    try:
+        # Check if the log file exists
+        if os.path.exists(log_filename):
+            mode = 'a'
+        else:
+            mode = 'w'
+
+        # Open the log file in the determined mode
+        with open(log_filename, mode) as log_file:
+            log_file.write(log_content)
+
+    except Exception as e:  
+        return jsonify({'error': str(e)}), 500
+
+    return jsonify({'message': 'Log appended successfully'}), 200
+     
+if __name__ == '__main__':
+    app.run(debug=True,host='0.0.0.0',port=os.getenv("SERVER_PORT"))

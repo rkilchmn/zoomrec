@@ -1,0 +1,25 @@
+services:
+  zoomrec_client:
+    build:
+      args:
+        GPU_BUILD: NVIDIA
+    environment:
+      FFMPEG_INPUT_PARAMS: "-hwaccel cuvid"
+      FFMPEG_OUTPUT_PARAMS: "-c:v hevc_nvenc -b:v 1M -gpu 0 -preset slow -acodec aac -b:a 128k"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    runtime: nvidia
+    group_add:
+      - "${VIDEO_GROUPID}"
+      - "${RENDER_GROUPID}"
+
+  remote-faster-whisper:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    runtime: nvidia

@@ -23,6 +23,8 @@ Planned version 2 features: (note: features completed have only undergone basic 
 
 ## Quickstart
 
+docker compose --env-file ~/.env -f docker-compose.yml -f docker-compose.vaapi_intel-wsl2.yaml -f docker-compose.debug.yaml up --build
+
 1. Create local zoomrec home directory:
 
    ```

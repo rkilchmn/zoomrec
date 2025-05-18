@@ -1,0 +1,11 @@
+services:
+  zoomrec_client:
+    environment:
+      - DEBUG_PORT_CLIENT=${DEBUG_PORT_CLIENT:-}  
+    ports:
+      - "${DEBUG_PORT_CLIENT_EXPOSED:-}:${DEBUG_PORT_CLIENT:-}"
+  zoomrec_server:
+    environment:
+      - DEBUG_PORT_SERVER=${DEBUG_PORT_SERVER:-}
+    ports:
+      - "${DEBUG_PORT_SERVER_EXPOSED:-}:${DEBUG_PORT_SERVER:-}"

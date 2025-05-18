@@ -37,17 +37,36 @@ WORKDIR ${HOME}
 COPY server/requirements.txt ${HOME}/
 RUN pip install --no-cache-dir -r ${HOME}/requirements.txt
 
-# Copy application files
-COPY zoomrec_server.py zoomrec_server_app.py gunicorn_conf.py telegram_bot.py imap_bot.py \
-     events.py events_api.py users.py users_api.py msg_telegram.py constants.py password.py \
-     utilities.py ai_service.py sftp_user.py create_sftp_users.py zoomrec_server_app.yaml ${HOME}/
+# Copy server application files
+COPY server/zoomrec_server.py \
+    server/zoomrec_server_app.py \ 
+    server/gunicorn_conf.py \
+    server/telegram_bot.py \
+    server/imap_bot.py \
+    server/ai_service.py \ 
+    server/create_sftp_users.py \ 
+    ${HOME}/
 
-# Copy and set up the startup script
-COPY server/entrypoint.sh ${HOME}/
+# Copy shared application files
+COPY shared/events.py \
+    shared/events_api.py \
+    shared/users.py \
+    shared/users_api.py \
+    shared/msg_telegram.py \
+    shared/constants.py \
+    shared/password.py \
+    shared/utilities.py \
+    shared/sftp_user.py \
+    ${HOME}/
+
+# copy server resource file
+COPY server/res/zoomrec_server_app.yaml \
+    server/res/entrypoint.sh \
+    server/res/create-sftp-user.sh \
+    ${HOME}/
+
+# set permissions
 RUN chmod +x ${HOME}/entrypoint.sh
-
-# Copy and set up the startup script
-COPY server/create-sftp-user.sh ${HOME}/
 RUN chmod +x ${HOME}/create-sftp-user.sh
 
 # Create necessary directories for SSH and logs
@@ -84,8 +103,8 @@ RUN sed -i "s/#UsePAM no/UsePAM yes/" /etc/ssh/sshd_config && \
     echo "    X11Forwarding no" >> /etc/ssh/sshd_config
 
 # Expose SFTP and API ports
-EXPOSE $DOCKER_SSH_PORT
-EXPOSE $DOCKER_SERVER_PORT
+EXPOSE $SERVER_PORT
+EXPOSE $SSH_PORT
 
 # Set the entrypoint to run the startup script
 CMD ["/bin/sh", "-c", "${HOME}/entrypoint.sh"]

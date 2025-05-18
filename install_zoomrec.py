@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-
 import os
 import sys
 import pwd
-import grp
 import shutil
 import logging
 from pathlib import Path
-from constants import (
+from shared.constants import (
     SFTP_DATA_PATH,
     RECORDINGS_DIR,
     AUDIO_DIR,
@@ -25,12 +23,12 @@ def show_help():
     print(f"Usage: {sys.argv[0]} <ZOOMREC_HOME> <TYPE> [ACCELERATION]")
     print("")
     print("Parameters:")
-    print("  ZOOMREC_HOME   Path to install/setup zoomrec (e.g., /opt/zoomrec)")
+    print("  ZOOMREC_HOME   Path to install/setup zoomrec (e.g., /home/zoomrec)")
     print("  TYPE           CLIENT | SERVER | BOTH")
     print("  ACCELERATION   VAAPI | NVIDIA | (blank for none)")
     print("")
     print("Example:")
-    print(f"  {sys.argv[0]} /opt/zoomrec BOTH VAAPI")
+    print(f"  {sys.argv[0]} /home/zoomrec BOTH VAAPI")
     sys.exit(1)
 
 def validate_args():
@@ -78,8 +76,9 @@ def setup_client(zoomrec_home):
     # Copy example files
     shutil.copytree('example/audio', os.path.join(zoomrec_home, AUDIO_DIR), dirs_exist_ok=True)
     shutil.copytree('res/img', os.path.join(zoomrec_home, IMG_DIR), dirs_exist_ok=True)
-    shutil.copy('example/email_types_example.yaml', os.path.join(zoomrec_home, 'email_types.yaml'))
-    shutil.copy('example/example.client.env', os.path.join(zoomrec_home, 'example.client.env'))
+    shutil.copy('example/email_types.yaml', os.path.join(zoomrec_home, 'email_types.yaml'))
+    shutil.copy('example/.client.env', os.path.join(zoomrec_home, '.client.env'))
+    shutil.copy('example/.env', os.path.join(zoomrec_home, '.env'))
 
 def setup_server(zoomrec_home):
     """Set up server components."""
@@ -94,8 +93,8 @@ def setup_server(zoomrec_home):
     os.chmod(SFTP_DATA_PATH, 0o755)
 
     # Copy example files
-    shutil.copy('example/example.server.env', os.path.join(zoomrec_home, 'example.server.env'))
-    shutil.copy('example/email_types_example.yaml', os.path.join(zoomrec_home, 'email_types.yaml'))
+    shutil.copy('example/.server.env', os.path.join(zoomrec_home, '.server.env'))
+    shutil.copy('example/.env', os.path.join(zoomrec_home, '.env'))
 
     # Create empty database file if it doesn't exist
     db_path = os.path.join(zoomrec_home, ZOOMREC_DB_FILENAME)
@@ -103,7 +102,8 @@ def setup_server(zoomrec_home):
         Path(db_path).touch()
 
 def main():
-    zoomrec_home, install_type, acceleration = validate_args()
+    zoomrec_home, *_ = validate_args()  # Only use ZOOMREC_HOME from CLI, use interactive for rest
+    component, acceleration = get_user_setup_options()
     logging.info(f"Setting up zoomrec environment at {zoomrec_home}")
 
     # Create base directory
@@ -118,11 +118,11 @@ def main():
         os.system('usermod -aG video zoomrec')
         os.system('usermod -aG render zoomrec')
 
-    # Set up components based on installation type
-    if install_type in ["CLIENT", "BOTH"]:
+    # Set up components based on selected component type
+    if component in ["CLIENT", "BOTH"]:
         setup_client(zoomrec_home)
 
-    if install_type in ["SERVER", "BOTH"]:
+    if component in ["SERVER", "BOTH"]:
         setup_server(zoomrec_home)
 
     # Set final permissions
