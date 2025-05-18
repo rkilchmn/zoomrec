@@ -49,6 +49,8 @@ services:
       - "137-138:137-138"
     security_opt:
       - seccomp:unconfined
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - zoomrec-net
 
