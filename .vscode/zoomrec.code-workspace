@@ -1,0 +1,148 @@
+{
+    "folders": [
+		{
+			"path": ".."
+		}
+	],
+	"launch": {
+		"version": "0.2.0",
+		"debugOptions": [
+			"DebugStdLib",
+			"ShowReturnValue"
+		],
+		"multiThreaded": true,
+		"configurations": [
+			{
+				"name": "Python: telegram_bot",
+				"type": "debugpy",
+				"request": "launch",
+				"program": "${workspaceFolder}/server/telegram_bot.py",
+				"console": "integratedTerminal",
+				"justMyCode": true,
+				"envFile": "${userHome}/.server.env",
+				"env": {
+					"ZOOMREC_HOME": "${userHome}",
+					"SERVER_URL": "http://localhost:8081",
+					"DEBUG_MODULE": "", // turn off remote debugging (we are already debugging)
+				}
+			},
+			{
+				"name": "Python: imap_bot",
+				"type": "debugpy",
+				"request": "launch",
+				"program": "${workspaceFolder}/server/imap_bot.py",
+				"console": "integratedTerminal",
+				"justMyCode": false,
+				"envFile": "${userHome}/.server.env",
+				"env": {
+					"ZOOMREC_HOME": "${userHome}",
+					"SERVER_URL": "http://localhost:8081",
+					"DEBUG_MODULE": "", // turn off remote debugging (we are already debugging)
+				}
+			},
+			{
+				"name": "Python: zoomrec_server_app",
+				"type": "debugpy",
+				"request": "launch",
+				"program": "${workspaceFolder}/server/zoomrec_server_app.py",
+				"console": "integratedTerminal",
+				"justMyCode": true,
+				"envFile": "${userHome}/.server.env",
+				"env": {
+					"ZOOMREC_HOME": "${userHome}",
+					"SERVER_PORT": "8081", // this needs to be the external server port as there is no docker
+					"DEBUG_MODULE": "" // turn off remote debugging (we are already debugging)
+				},
+			},
+			{
+				"name": "Python: zoomrec_server",
+				"type": "debugpy",
+				"request": "launch",
+				"program": "${workspaceFolder}/server/zoomrec_server.py",
+				"console": "integratedTerminal",
+				"justMyCode": true,
+				"envFile": "${userHome}/.server.env",
+				"env": {
+					"ZOOMREC_HOME": "${userHome}",
+					"SERVER_URL": "http://localhost:8081",
+					"SERVER_PORT": "8081", // for gunicorn to start server 
+					"DEBUG_MODULE": "", // turn off remote debugging (we are already debugging)
+				}
+			},
+			{
+				"name": "Python: zoomrec_client",
+				"type": "debugpy",
+				"request": "launch",
+				"program": "${workspaceFolder}/client/zoomrec_client.py",
+				"console": "integratedTerminal",
+				"justMyCode": true,
+				"envFile": "${userHome}/.client.env",
+				"env": {
+					"ZOOMREC_HOME": "${userHome}",
+					"SERVER_URL": "http://localhost:8081",
+					"DEBUG_MODULE": "", // turn off remote debugging (we are already debugging)
+				}
+			},
+			{
+				"name": "Python: summarize_transcript",
+				"type": "debugpy",
+				"request": "launch",
+				"program": "${workspaceFolder}/client/summarize_transcript.py",
+				"console": "integratedTerminal",
+				"justMyCode": true,
+				"envFile": "${userHome}/.server.env",
+				"env": {
+					"ZOOMREC_HOME": "${userHome}",
+					"SERVER_URL": "http://localhost:8081",
+					"DEBUG_MODULE": "", // turn off remote debugging (we are already debugging)
+				},
+				"args": [
+					"--model", "google/gemini-2.0-flash-exp:free",
+					"--api-url", "https://openrouter.ai/api/v1",
+					"--api-key-env", "AI_API_KEY",
+					"${input:sourceFile}"
+				]	
+			},
+			{
+				"name": "Python: zoomrec_client (Docker)",
+				"type": "debugpy",
+				"request": "attach",
+				"connect": {
+					"host": "127.0.0.1",
+					"port": 5678
+				},
+				"pathMappings": [
+					{
+						"localRoot": "${workspaceFolder}",
+						"remoteRoot": "/home/zoomrec"
+					}
+				],
+				"justMyCode": false
+			},
+			{
+				"name": "Python: zoomrec_server (Docker)",
+				"type": "debugpy",
+				"request": "attach",
+				"connect": {
+					"host": "127.0.0.1",
+					"port": 5679
+				},
+				"pathMappings": [
+					{
+						"localRoot": "${workspaceFolder}/server",
+						"remoteRoot": "/home/zoomrec"
+					}
+				],
+				"justMyCode": false
+			},
+		],
+		"inputs": [
+			{
+				"id": "sourceFile",
+				"type": "promptString",
+				"description": "Enter source filename:",
+				"default": ""
+			}
+		]
+	}
+}

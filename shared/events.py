@@ -14,8 +14,8 @@ except ImportError:
 from enum import Enum
 import shortuuid
 import sqlite3
-from users import UserField
-from constants import DATETIME_FORMAT
+from .users import UserField
+from .constants import DATETIME_FORMAT
 
 # Define constants
 INTERNAL_DELIMITER = ',' # don't use : as it is reserved in yaml files

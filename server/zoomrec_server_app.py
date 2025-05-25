@@ -2,13 +2,12 @@ from flask import Flask, request, jsonify, send_file
 from flask_basicauth import BasicAuth
 from datetime import datetime
 import os.path
-import yaml
-from events import FIELDNAMES, Events, EventStatus, EventField, SQLLiteEvents
+from shared.events import Events, EventStatus, EventField, SQLLiteEvents
 from urllib.parse import unquote
-from users import SQLLiteUser, Users, UserField
+from shared.users import SQLLiteUser, Users, UserField
 import logging
-import constants
-from utilities import start_debug
+from shared import constants
+from shared.utilities import start_debug
 
 start_debug(constants.DEBUG_MODULE_ZOOMREC_SERVER_APP, os.getenv('DEBUG_PORT_SERVER'))
 
@@ -21,10 +20,6 @@ app.logger.setLevel(logging.ERROR)  # Match Gunicorn's error level
 
 BASE_PATH = os.getenv('ZOOMREC_HOME')
 ZOOMREC_DB_PATH = os.path.join(BASE_PATH, constants.ZOOMREC_DB_FILENAME)
-
-# Load configuration from YAML file
-with open(constants.ZOOMREC_SERVER_APP_CONFIG_FILENAME, "r") as f:
-    config = yaml.safe_load(f)
 
 FIRMWARE_PATH = os.path.join(BASE_PATH, constants.FIRMWARE_DIR)
 LOG_PATH = os.path.join(BASE_PATH, constants.LOG_DIR)
@@ -95,7 +90,7 @@ events = SQLLiteEvents(ZOOMREC_DB_PATH, stateChanged=event_state_changed_callbac
 users = SQLLiteUser(ZOOMREC_DB_PATH)
 
 # Create a new user
-@app.route(f"{config['ROUTE_USER']}", methods=['POST'])
+@app.route(f"{constants.ROUTE_USER}", methods=['POST'])
 @basic_auth.required
 def create_user():
     try:
@@ -111,8 +106,8 @@ def create_user():
 # get with key: curl -u myuser:mypassword "http://localhost:8081/user/SXThWeEpL3aiEWJ6tbytMA"
 # get by login: curl -u myuser:mypassword "http://localhost:8081/user?login=johndoe"
 
-@app.route(f"{config['ROUTE_USER']}", methods=['GET'])
-@app.route(config['ROUTE_USER'], methods=['GET'])
+
+@app.route(f"{constants.ROUTE_USER}", methods=['GET'])
 @basic_auth.required
 def get_user():
     filters = []
@@ -145,7 +140,7 @@ def get_user():
         return jsonify({"error": str(e)}), 500
 
 # Update a user by key
-@app.route(f"{config['ROUTE_USER']}/<key>", methods=['PUT'])
+@app.route(f"{constants.ROUTE_USER}/<key>", methods=['PUT'])
 @basic_auth.required
 def update_user(key):
     try:
@@ -158,7 +153,7 @@ def update_user(key):
         return jsonify({"error": str(e)}), 500
 
 # Delete a user by key
-@app.route(f"{config['ROUTE_USER']}/<key>", methods=['DELETE'])
+@app.route(f"{constants.ROUTE_USER}/<key>", methods=['DELETE'])
 @basic_auth.required
 def delete_user(key):
     try:
@@ -185,7 +180,7 @@ def delete_user(key):
 #            "user": "telegram-chatid=12345678"
 #          }' \
 #      "http://localhost:8081/event"
-@app.route(f"{config['ROUTE_EVENT']}", methods=["POST"])
+@app.route(f"{constants.ROUTE_EVENT}", methods=["POST"])
 def create_event():
     try:
         event = request.json
@@ -205,7 +200,7 @@ def create_event():
 #         "id": "https://us05web.zoom.us/j/83776483885?pwd=xCzmF3kuxu2NbYSckGI28kErQrpXoC.1"
 #     }' \
 #     "http://localhost:8081/event/G4JbZYQN65Ba35jfbyiHsj"
-@app.route(f"{config['ROUTE_EVENT']}/<key>", methods=["PUT"])
+@app.route(f"{constants.ROUTE_EVENT}/<key>", methods=["PUT"])
 def update_event(key):
     try:
         event = request.json
@@ -216,7 +211,7 @@ def update_event(key):
         return jsonify({"error": str(e)}), 500
 
 # curl -u myuser:mypassword -X DELETE "http://localhost:8081/event/G4JbZYQN65Ba35jfbyiHsj"
-@app.route(f"{config['ROUTE_EVENT']}/<key>", methods=["DELETE"])
+@app.route(f"{constants.ROUTE_EVENT}/<key>", methods=["DELETE"])
 @basic_auth.required
 def delete_event(key):
     try:
@@ -227,8 +222,7 @@ def delete_event(key):
 
 # all events: curl -u myuser:mypassword "http://localhost:8080/event"
 # with key: curl -u myuser:mypassword "http://localhost:8080/event/G4JbZYQN65Ba35jfbyiHsj"
-@app.route(f"{config['ROUTE_EVENT']}", methods=['GET'])
-@app.route(config['ROUTE_EVENT'], methods=['GET'])
+@app.route(f"{constants.ROUTE_EVENT}", methods=['GET'])
 @basic_auth.required
 def get_event():
     filters = []
@@ -261,7 +255,7 @@ def get_event():
         return jsonify({"error": str(e)}), 500
 
 # curl -u myuser:mypassword "http://localhost:8081/event/next?client_id=550e8400-e29b-41d4-a716-446655440000&event_type=1&lead_time_sec=60&trail_time_sec=300"
-@app.route(f"{config['ROUTE_EVENT']}/{config['ROUTE_EVENT_NEXT']}", methods=['GET'])
+@app.route(f"{constants.ROUTE_EVENT}/{constants.ROUTE_EVENT_NEXT}", methods=['GET'])
 @basic_auth.required
 def get_event_next():
     try:
@@ -317,7 +311,7 @@ def parse_version(version_string):
     return filename, timestamp
 
 # curl -H "x-ESP8266-version: ESP8266_Template.ino-May  7 2023-15:26:18" -u myuser:mypassword --output firmware.ino.bin http://localhost:8080/firmware
-@app.route(config['ROUTE_FIRMWARE'], methods=['GET'])
+@app.route(f"{constants.ROUTE_FIRMWARE}", methods=['GET'])
 @basic_auth.required
 def get_firmware():
     firmware_version = request.headers.get('x-ESP8266-version')
@@ -338,7 +332,7 @@ def get_firmware():
         return '', 304  # Not Modified
     
 # curl -X POST -H "Content-Type: application/json" -u admin:myadminpw -d @log_entry.json http://localhost:8080/log
-@app.route('/log', methods=['POST'])
+@app.route(f"{constants.ROUTE_LOG}", methods=['POST'])
 @basic_auth.required
 def log_handler():
     data = request.json

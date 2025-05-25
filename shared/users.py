@@ -2,11 +2,11 @@ import sqlite3
 import shortuuid
 from enum import Enum
 from abc import ABC, abstractmethod
-from msg_telegram import send_telegram_message
+from .msg_telegram import send_telegram_message
 from datetime import datetime
-import password
-from constants import SFTP_ADMIN_USERNAME
-from sftp_user import create_sftp_user
+from . import password
+from .constants import SFTP_ADMIN_USERNAME
+from .sftp_user import create_sftp_user
 
 # IMPORTANT: ordering needs to align with table create
 class UserField(Enum):

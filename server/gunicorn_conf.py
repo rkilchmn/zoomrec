@@ -1,5 +1,5 @@
 import os
-import constants
+from shared import constants
 
 #wsgi_app = 'zoomrec_server_app:app'
 bind = '0.0.0.0' + ':' + os.getenv("SERVER_PORT")

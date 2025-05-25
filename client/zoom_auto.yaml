@@ -203,6 +203,7 @@ check_meeting_ended: &check_meeting_ended
             on_success:
               locate_image: 
                 image: 'the_host_ended_this_meeting_close_popup.png'
+                click: "True"      # default is "False"
                 on_success: "False" # meeting has ended
                 on_error: "False" # meeting has ended
 

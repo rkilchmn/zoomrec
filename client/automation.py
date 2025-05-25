@@ -4,10 +4,10 @@ import logging
 import os
 import time
 import pyautogui  
-import constants
 import subprocess
 import random
-import constants
+
+import shared.constants as constants
 
 # Disable failsafe
 pyautogui.FAILSAFE = False

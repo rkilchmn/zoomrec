@@ -2,8 +2,6 @@
 
 # pylint: disable=unused-argument, wrong-import-position
 from telegram import __version__ as TG_VER
-
-import utilities
 try:
     from telegram import __version_info__
 except ImportError:
@@ -16,12 +14,13 @@ from telegram import ForceReply, Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 from datetime import datetime
 import os
-from events_api import EventAPI
-from users_api import UserAPI
-from events import Events, EventField, EventStatus
-from users import MessengerAttribute, Users, UserField, UserRole
-from constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT, LOG_TELEGRAM_BOT_FILENAME, DEBUG_MODULE_TELEGRAM_BOT   
-from utilities import start_logging, start_debug
+
+from shared.events_api import EventAPI
+from shared.users_api import UserAPI
+from shared.events import Events, EventField, EventStatus
+from shared.users import MessengerAttribute, Users, UserField, UserRole
+from shared.constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT, LOG_TELEGRAM_BOT_FILENAME, DEBUG_MODULE_TELEGRAM_BOT   
+from shared.utilities import start_logging, start_debug
 
 start_logging(LOG_TELEGRAM_BOT_FILENAME)
 start_debug(DEBUG_MODULE_TELEGRAM_BOT, os.getenv('DEBUG_PORT_SERVER'))

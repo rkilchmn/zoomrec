@@ -30,8 +30,11 @@ ARG GPU_BUILD_SUBTYPE=""
 # group id for the 'render' group (used for VAAPI)
 ARG RENDER_GROUPID="" 
 
+ARG ZOOMREC_USER_ID=""
+ARG ZOOMREC_USER_GID=""
+
 # Add user
-RUN useradd -ms /bin/bash -u 1999 zoomrec -d ${HOME}
+RUN useradd -ms /bin/bash -u ${ZOOMREC_USER_ID} zoomrec -d ${HOME}
 WORKDIR ${HOME}
 
 ADD client/res/requirements.txt ${HOME}/res/requirements.txt
@@ -270,37 +273,22 @@ ADD client/res/entrypoint.sh ${START_DIR}/entrypoint.sh
 ADD client/res/starting.sh ${START_DIR}/starting.sh
 ADD client/res/xfce.sh ${START_DIR}/xfce.sh
 
-# copy client application files
-COPY client/zoomrec_client.py \
-    client/automation.py \
-    ${HOME}/
+# Create client directory python and app scripts
+RUN mkdir -p ${HOME}/client
+COPY client/* ${HOME}/client/
+# RUN chmod +x ${HOME}/client/*.sh
 
-# copy shared application files
-COPY shared/events.py \
-    shared/events_api.py \
-    shared/users.py \
-    shared/users_api.py \
-    shared/msg_telegram.py \
-    shared/constants.py \
-    shared/utilities.py \
-    shared/password.py \
-    shared/utilities.py \
-    shared/sftp_user.py \
-    ${HOME}/
+# Create shared directory python and app scripts
+RUN mkdir -p ${HOME}/shared
+COPY shared/* ${HOME}/shared/
+# RUN chmod +x ${HOME}/shared/*.sh
 
-# copy client resource files
-COPY client/res/zoom_auto.yaml \
-    ${HOME}/
+# install as package for correct imports
+COPY setup.py ${HOME}/
+RUN pip install --break-system-packages --no-cache-dir -e .
     
 # img folder
 COPY client/res/img ${HOME}/img/
-
-# posprocessing scripts
-COPY client/res/postprocess_custom.sh \
-    client/res/transcribe_video.sh \
-    client/res/sftp_upload.sh \
-    client/res/concatenate_video.sh \
-    ${HOME}/
 
 # vaapi test scripts
 ADD client/res/test_vaapi_x265.sh ${HOME}/
@@ -331,7 +319,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN echo -ne "$SAMBA_PASSWORD\n$SAMBA_PASSWORD\n" | smbpasswd -a -s $SAMBA_USERNAME && \
     groupadd samba && \
     gpasswd -a $SAMBA_USERNAME samba && \
-    testparm -s 
+    testparm -s
 # samba ports
 EXPOSE 139 445 137 138
 EXPOSE ${VNC_PORT}

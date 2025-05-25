@@ -126,7 +126,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-.vscode/*
 token.json
 
 # AI IDEs

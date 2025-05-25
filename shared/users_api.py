@@ -1,7 +1,8 @@
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from users import Users, UserField
+from .users import Users, UserField
+from .constants import ROUTE_USER
 
 class UserAPI:
     def __init__(self, server_url, username, password, retries=3, backoff_factor=0.5, status_forcelist=None):
@@ -31,7 +32,7 @@ class UserAPI:
         Create a new user by calling the API.
         """
         user = Users.clean(user)
-        url = f"{self.server_url}/user"
+        url = f"{self.server_url}/{ROUTE_USER}"
         headers = {'Content-Type': 'application/json'}
         response = self.session.post(url, json=user, headers=headers, auth=(self.username, self.password))
         if response.status_code in range(200, 299):
@@ -45,7 +46,7 @@ class UserAPI:
         Each filter parameter should be an array where the first element is the attribute,
         the second is the operator, and the third is the value.
         """
-        url = f"{self.server_url}/user"
+        url = f"{self.server_url}/{ROUTE_USER}"
         params = {}
         if filters:
             for i, entry in enumerate(filters):
@@ -69,7 +70,7 @@ class UserAPI:
         """
         user = Users.clean(user)
         user_key = user[UserField.KEY.value]
-        url = f"{self.server_url}/user/{user_key}"
+        url = f"{self.server_url}/{ROUTE_USER}/{user_key}"
         headers = {'Content-Type': 'application/json'}
         response = self.session.put(url, json=user, headers=headers, auth=(self.username, self.password))
         if response.status_code in range(200, 299):
@@ -81,7 +82,7 @@ class UserAPI:
         """
         Delete a user by calling the API.
         """
-        url = f"{self.server_url}/user/{user_key}"
+        url = f"{self.server_url}/{ROUTE_USER}/{user_key}"
         response = self.session.delete(url, auth=(self.username, self.password))
         if response.status_code not in range(200, 299):
             raise Exception(f"Failed to delete user {user_key}. Response code: {response.status_code}, Response: {response.text}")

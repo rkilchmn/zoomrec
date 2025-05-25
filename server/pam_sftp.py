@@ -2,12 +2,12 @@
 import syslog
 import pam
 import os
-import sys
-# PAM module needs to be able to import users_api and password
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from users_api import UserAPI
-from password import verify_password
-from users import UserField
+# import sys
+# # PAM module needs to be able to import users_api and password
+# sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from shared.users_api import UserAPI
+from shared.password import verify_password
+from shared.users import UserField
 
 def load_env_variables():
     env_file = "/etc/environment"

@@ -1,6 +1,9 @@
 # Base Image
 FROM ubuntu:24.04
 
+ARG ZOOMREC_USER_ID=""
+ARG ZOOMREC_USER_GID=""
+
 ENV PYTHON_VENV_PATH="/python/venv"
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -26,63 +29,49 @@ RUN mkdir -p ${PYTHON_VENV_PATH} && \
 ENV PATH=${PYTHON_VENV_PATH}/bin:$PATH
 
 # Create zoomrec user and add to sudoers
-RUN useradd -ms /bin/bash -u 1999 zoomrec -d ${HOME} && \
-    echo "zoomrec ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/zoomrec && \
-    chmod 0440 /etc/sudoers.d/zoomrec
+RUN groupadd -g ${ZOOMREC_USER_GID} zoomrec
+RUN useradd -ms /bin/bash -u ${ZOOMREC_USER_ID} -g zoomrec -d ${HOME} zoomrec
+RUN echo "zoomrec ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/zoomrec
+RUN chmod 0440 /etc/sudoers.d/zoomrec
 
 # Set the working directory
 WORKDIR ${HOME}
 
 # Copy and install Python dependencies
-COPY server/requirements.txt ${HOME}/
+COPY server/res/requirements.txt ${HOME}/
 RUN pip install --no-cache-dir -r ${HOME}/requirements.txt
 
-# Copy server application files
-COPY server/zoomrec_server.py \
-    server/zoomrec_server_app.py \ 
-    server/gunicorn_conf.py \
-    server/telegram_bot.py \
-    server/imap_bot.py \
-    server/ai_service.py \ 
-    server/create_sftp_users.py \ 
-    ${HOME}/
+# Create server directory python and app scripts
+RUN mkdir -p ${HOME}/server
+COPY server/* ${HOME}/server/
+RUN chmod +x ${HOME}/server/*.sh
 
-# Copy shared application files
-COPY shared/events.py \
-    shared/events_api.py \
-    shared/users.py \
-    shared/users_api.py \
-    shared/msg_telegram.py \
-    shared/constants.py \
-    shared/password.py \
-    shared/utilities.py \
-    shared/sftp_user.py \
-    ${HOME}/
+# Create shared directory python and app scripts
+RUN mkdir -p ${HOME}/shared
+COPY shared/* ${HOME}/shared/
+RUN chmod +x ${HOME}/shared/*.sh
 
-# copy server resource file
-COPY server/res/zoomrec_server_app.yaml \
-    server/res/entrypoint.sh \
-    server/res/create-sftp-user.sh \
-    ${HOME}/
+# install as package for correct imports
+COPY setup.py ${HOME}/
+RUN pip install -e ${HOME}
 
-# set permissions
+# copy server entrypoint
+COPY server/res/entrypoint.sh ${HOME}/
 RUN chmod +x ${HOME}/entrypoint.sh
-RUN chmod +x ${HOME}/create-sftp-user.sh
 
 # Create necessary directories for SSH and logs
 RUN mkdir -p /var/run/sshd /usr/local/bin
 
-# Copy and set up the SFTP authentication script
-COPY server/pam_sftp.py ${HOME}/
-RUN chmod +x ${HOME}/pam_sftp.py
+# set up the SFTP authentication script
+RUN chmod +x ${HOME}/server/pam_sftp.py
 
 # Set ownership of the home directory
 RUN chown -R zoomrec:zoomrec ${HOME}
 
 # Configure PAM to use the custom authentication script
-RUN echo "auth sufficient  pam_python.so ${HOME}/pam_sftp.py" > /etc/pam.d/sshd && \
-    echo "account optional pam_python.so ${HOME}/pam_sftp.py" >> /etc/pam.d/sshd && \
-    echo "session optional pam_python.so ${HOME}/pam_sftp.py" >> /etc/pam.d/sshd
+RUN echo "auth sufficient  pam_python.so ${HOME}/server/pam_sftp.py" > /etc/pam.d/sshd && \
+    echo "account optional pam_python.so ${HOME}/server/pam_sftp.py" >> /etc/pam.d/sshd && \
+    echo "session optional pam_python.so ${HOME}/server/pam_sftp.py" >> /etc/pam.d/sshd
 
 # Configure SSH for SFTP-only access and PAM authentication
 RUN sed -i "s/#UsePAM no/UsePAM yes/" /etc/ssh/sshd_config && \

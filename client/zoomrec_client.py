@@ -7,17 +7,18 @@ import signal
 import subprocess
 import time
 import atexit
-from events import Events, EventType, EventField, EventStatus, EventInstructionAttribute, EventInstructionProcess, EventInstructionPostprocess  
-from users import UserField
-from users_api import UserAPI
-from events_api import EventAPI
-from utilities import convert_to_safe_filename, create_unique_filename, start_logging
-from automation import Automation
-import pyautogui  
-import constants
-from utilities import start_debug, end_process
 import shlex
 import threading
+import pyautogui
+from pathlib import Path
+
+from shared.events import Events, EventType, EventField, EventStatus, EventInstructionAttribute, EventInstructionProcess, EventInstructionPostprocess  
+from shared.users import UserField
+from shared.users_api import UserAPI
+from shared.events_api import EventAPI
+from shared.utilities import start_debug, end_process, convert_to_safe_filename, create_unique_filename, start_logging
+import shared.constants as constants
+from client.automation import Automation
 
 start_logging(constants.LOG_CLIENT_FILENAME)
 start_debug(constants.DEBUG_MODULE_ZOOMREC_CLIENT, os.getenv('DEBUG_PORT_CLIENT'))
@@ -43,6 +44,9 @@ zoom_proc = None
 ffmpeg_recording_proc = None
 ffmpeg_recording_join_proc = None
 postprocess_proc = None
+
+# Get the directory where this module is located
+SCRIPT_DIR = Path(__file__).parent.absolute()
 
 def cleanup():
     end_process(zoom_proc)
@@ -165,7 +169,7 @@ class PostprocessAndTransferThread:
             filename_postprocess = None
             if recording_basename:
                 # Consolidate videos if multiple recordings of same meeting
-                command = f"./concatenate_video.sh '{os.path.join(REC_PATH, recording_basename)}' {constants.VIDEO_EXTENSION} yes"
+                command = f"{SCRIPT_DIR}/concatenate_video.sh '{os.path.join(REC_PATH, recording_basename)}' {constants.VIDEO_EXTENSION} yes"
                 logging.debug(f"Consolidate video command: {command}")
                 result = subprocess.run(command, shell=True, capture_output=True, text=True)
                 if result.returncode != 0:
@@ -182,15 +186,15 @@ class PostprocessAndTransferThread:
                     for key, value in step.items():
                         match key:
                             case EventInstructionPostprocess.TRANSCRIBE.value:
-                                command = f"./transcribe_video.sh {key} {filename_postprocess}"
+                                command = f"{SCRIPT_DIR}/transcribe_video.sh {key} {filename_postprocess}"
                             case EventInstructionPostprocess.TRANSLATE.value:
-                                command = f"./transcribe_video.sh {key}={value['language'] if 'language' in value else 'en'} {filename_postprocess}"
+                                command = f"{SCRIPT_DIR}/transcribe_video.sh {key}={value['language'] if 'language' in value else 'en'} {filename_postprocess}"
                             case EventInstructionPostprocess.UPLOAD.value:
                                 if SSH_SERVER_URL:
                                     with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
                                         user = user_api.get(filters=[[UserField.KEY.value, "=", event[EventField.USER_KEY.value]]])[0]
                                     command = (
-                                        f"./sftp_upload.sh '{os.path.join(REC_PATH, recording_basename)}' "
+                                        f"{SCRIPT_DIR}/sftp_upload.sh '{os.path.join(REC_PATH, recording_basename)}' "
                                         f"'{constants.SFTP_ADMIN_USERNAME}@{SSH_SERVER_URL}' "
                                         f"'{os.path.join(BASE_PATH, constants.SSH_IDENTITY_FILE)}' "
                                         f"'{user[UserField.LOGIN.value]}/{constants.RECORDINGS_DIR}' {value['delete'] if 'delete' in value else 'true'}"
@@ -198,7 +202,7 @@ class PostprocessAndTransferThread:
                                 else:
                                     logging.error("SFTP transfer to server cannot be initiated: SSH_SERVER_URL not specified.")
                             case EventInstructionPostprocess.CUSTOM.value:
-                                command = f"./postprocess_custom.sh {filename_postprocess}"
+                                command = f"{SCRIPT_DIR}/postprocess_custom.sh {filename_postprocess}"
                                 for param, value in value.items():
                                     command += f" {key}={value}"
                             case _:
@@ -309,7 +313,7 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
             }
             
             # Create global instance of Automation with proper configuration and load the YAML config
-            config_path = os.path.join(BASE_PATH, "zoom_auto.yaml")
+            config_path = os.path.join( SCRIPT_DIR, "zoom_auto.yaml")
             auto_yaml = Automation(config_path=config_path, img_path=IMG_PATH, audio_path=AUDIO_PATH, debug_path=DEBUG_PATH)
 
             # Join meeting executing automation by config
@@ -326,7 +330,6 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
             logging.info(f"Joined meeting at {meeting_joined.strftime(constants.DATETIME_FORMAT)}")
 
             process = Events.get_instruction_attribute(EventInstructionAttribute.PROCESS, event)       
-            from events import EventInstructionProcess
             should_record = any(isinstance(step, dict) and EventInstructionProcess.RECORD.value in step for step in process) if isinstance(process, list) else False
             recording_basename = None
             if should_record:
@@ -387,7 +390,7 @@ def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_i
             # now other events can be joined while postprocessing is still ongoing
             return True
     except Exception as e:
-        logging.error(f"Error joining event: {e}")
+        logging.error(f"Error joining event: {e}", exc_info=True)
         return False
 
 def exit_process_by_name(name):

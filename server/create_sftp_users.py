@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 import os
-from users_api import UserAPI
-from users import UserField
-import constants
-from sftp_user import create_sftp_user
+from shared.users_api import UserAPI
+from shared.users import UserField
+from shared import constants
+from shared.sftp_user import create_sftp_user
 
 # Get this is run as a subprocess from zoomrec_server and ZOOMREC_HOME is set
 

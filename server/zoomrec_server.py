@@ -1,18 +1,24 @@
 import logging
 import os
+import sys
 import signal
 import subprocess
 import atexit
 import time
-from constants import LOG_SERVER_FILENAME, DEBUG_MODULE_ZOOMREC_SERVER      
-from utilities import start_logging,start_debug
+from pathlib import Path
+
+# Now import from the shared package
+from shared.constants import LOG_SERVER_FILENAME, DEBUG_MODULE_ZOOMREC_SERVER
+from shared.utilities import start_logging, start_debug
 
 start_logging(LOG_SERVER_FILENAME)
 start_debug(DEBUG_MODULE_ZOOMREC_SERVER, os.getenv('DEBUG_PORT'))
 
+SCRIPT_DIR = Path(__file__).parent.absolute()
+
 def start_telegram_bot():
     
-    command = ["python3", "telegram_bot.py"]
+    command = ["python3", f"{SCRIPT_DIR}/telegram_bot.py"]
     telegram_bot = subprocess.Popen(command, preexec_fn=os.setsid)
 
     atexit.register(os.killpg, os.getpgid(
@@ -22,7 +28,7 @@ def start_telegram_bot():
     
 def start_imap_bot():
 
-    command = ["python3", "imap_bot.py"]
+    command = ["python3", f"{SCRIPT_DIR}/imap_bot.py"]
     imap_bot = subprocess.Popen(command, preexec_fn=os.setsid)
 
     atexit.register(os.killpg, os.getpgid(
@@ -35,8 +41,8 @@ def start_api_server():
     gunicorn_command = [
         'gunicorn',
         '-c',
-        'gunicorn_conf.py',  # gunicorn config
-        'zoomrec_server_app:app'
+        f"{SCRIPT_DIR}/gunicorn_conf.py",  # gunicorn config
+        "server.zoomrec_server_app:app" # app module and app name
     ]
 
     # Start Gunicorn using the subprocess module
@@ -49,7 +55,7 @@ def start_api_server():
     logging.info("Gunicorn API server process started")
 
 def create_sftp_users():
-    command = ["python3", "create_sftp_users.py"]
+    command = ["python3", f"{SCRIPT_DIR}/create_sftp_users.py"]
     create_sftp_users = subprocess.Popen(command, preexec_fn=os.setsid)
 
     atexit.register(os.killpg, os.getpgid(
@@ -63,7 +69,7 @@ def main():
     start_imap_bot()
     start_telegram_bot()
 
-    # start flask API app / blocking - needs to be last
+    # start flask API app 
     start_api_server()
 
     # create sftp users

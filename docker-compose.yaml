@@ -4,12 +4,17 @@ services:
     image: rkilchmn/zoomrec_server:latest
     build:
       context: .
-      dockerfile: server/Dockerfile
+      dockerfile: server/res/Dockerfile
+      args:
+        ZOOMREC_USER_ID: ${ZOOMREC_USER_ID}
+        ZOOMREC_USER_GID: ${ZOOMREC_USER_GID}
     restart: unless-stopped
     env_file:
       - ${ZOOMREC_HOME}/.server.env
     environment:
       - $ZOOMREC_HOME=${ZOOMREC_HOME}
+      - ZOOMREC_USER_ID=${ZOOMREC_USER_ID}
+      - ZOOMREC_USER_GID=${ZOOMREC_USER_GID}
       - SERVER_PORT=${SERVER_PORT}
       - SSH_PORT=${SSH_PORT}
     volumes:
@@ -30,11 +35,16 @@ services:
     restart: unless-stopped
     build:
       context: .
-      dockerfile: client/Dockerfile
+      dockerfile: client/res/Dockerfile
+      args:
+        ZOOMREC_USER_ID: ${ZOOMREC_USER_ID}
+        ZOOMREC_USER_GID: ${ZOOMREC_USER_GID}
     env_file:
       - ${ZOOMREC_HOME}/.client.env
     environment:
       - $ZOOMREC_HOME=${ZOOMREC_HOME}
+      - ZOOMREC_USER_ID=${ZOOMREC_USER_ID}
+      - $ZOOMREC_USER_GID=${ZOOMREC_USER_GID}
       - SERVER_URL=${SERVER_URL}
       - SSH_SERVER_URL=${SSH_SERVER_URL}
       - WHISPER_API_URL=${WHISPER_API_URL}

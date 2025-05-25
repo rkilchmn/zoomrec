@@ -29,7 +29,6 @@ VIDEO_EXTENSION = 'mkv'
 
 # gunicorn api server
 ZOOMREC_DB_FILENAME = 'zoomrec_server_db'
-ZOOMREC_SERVER_APP_CONFIG_FILENAME = 'zoomrec_server_app.yaml'
 
 # debugging
 DEBUG_MODULE_ZOOMREC_SERVER_APP = 'zoomrec_server_app'
@@ -45,3 +44,10 @@ TERMINAL_HEIGHT = 7
 # intervals in seconds
 INTERVAL_CHECK_NEXT_EVENT = 15
 INTERVAL_CHECK_MEETING_ONGOING = 5
+
+# server routes
+ROUTE_EVENT = "/event"
+ROUTE_EVENT_NEXT = "next"
+ROUTE_USER = "/user"
+ROUTE_FIRMWARE = "/firmware"
+ROUTE_LOG = "/log"

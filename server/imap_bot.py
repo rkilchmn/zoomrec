@@ -7,12 +7,6 @@ import html
 import logging
 from datetime import datetime
 from bs4 import BeautifulSoup
-from events import Events, EventField, DATETIME_FORMAT, EventStatus
-from events_api import EventAPI
-from users import UserField
-from users_api import UserAPI
-from constants import LOG_IMAP_BOT_FILENAME, DEBUG_MODULE_IMAP_BOT
-from utilities import start_logging
 from ics import Calendar
 import os
 import math  # Define math module
@@ -21,9 +15,17 @@ try:
     from zoneinfo import ZoneInfo # >= 3.9
 except ImportError:
     from backports.zoneinfo import ZoneInfo # < 3.9
-from utilities import start_logging, start_debug
-from ai_service import LLMChat
 from typing import Optional
+
+from shared.utilities import start_logging, start_debug
+from shared.ai_service import LLMChat
+from shared.events import Events, EventField, DATETIME_FORMAT, EventStatus
+from shared.events_api import EventAPI
+from shared.users import UserField
+from shared.users_api import UserAPI
+from shared.utilities import start_logging, start_debug
+from shared import constants
+from shared.constants import LOG_IMAP_BOT_FILENAME, DEBUG_MODULE_IMAP_BOT
 
 start_logging( LOG_IMAP_BOT_FILENAME)
 start_debug(DEBUG_MODULE_IMAP_BOT, os.getenv('DEBUG_PORT_SERVER'))

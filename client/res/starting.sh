@@ -61,13 +61,13 @@ sleep 5
 if [[ "$LOG_LEVEL" == "DEBUG" ]]; then
   # Wait if something failed
   echo -e "Starting zoomrec.py with DEBUG mode" 
-  xfce4-terminal -H --geometry 85x7+0 --title=zoomrec --hide-toolbar --hide-menubar --hide-scrollbar --hide-borders --zoom=-3 -e "python3 -u ${HOME}/zoomrec_client.py" 2>&1 | tee ${HOME}/logs/starting_log.txt
+  xfce4-terminal -H --geometry 85x7+0 --title=zoomrec --hide-toolbar --hide-menubar --hide-scrollbar --hide-borders --zoom=-3 -e "python3 -u ${HOME}/client/zoomrec_client.py" 2>&1 | tee ${HOME}/logs/starting_log.txt
   # allow for some time to see/copy error message in the xfce4-terminal
   sleep 120
 else
   echo -e "Starting zoomrec.py with normal mode" 
   # Exit container if something failed
-  xfce4-terminal --geometry 85x7+0 --title=zoomrec --hide-toolbar --hide-menubar --hide-scrollbar --hide-borders --zoom=-3 -e "python3 -u ${HOME}/zoomrec_client.py" 2>&1 | tee ${HOME}/logs/starting.log.txt
+  xfce4-terminal --geometry 85x7+0 --title=zoomrec --hide-toolbar --hide-menubar --hide-scrollbar --hide-borders --zoom=-3 -e "python3 -u ${HOME}/client/zoomrec_client.py" 2>&1 | tee ${HOME}/logs/starting.log.txt
 fi
 # docker container restars
 echo -e "End of starting script - restarting container"

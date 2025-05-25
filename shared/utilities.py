@@ -1,10 +1,11 @@
 import logging
 import os
-import constants
 import traceback
 import sys
 import debugpy
 import signal
+
+from . import constants
 
 def convert_to_safe_filename(filename):
     invalid_chars = '\\/:*?"\'<>|'

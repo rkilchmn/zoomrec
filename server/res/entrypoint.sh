@@ -23,4 +23,4 @@ echo "SERVER_USERNAME=${SERVER_USERNAME}" >> /etc/environment
 echo "SERVER_PASSWORD=${SERVER_PASSWORD}" >> /etc/environment
 
 # Start the main application with the application as user "zoomrec"
-exec su zoomrec -p -c "source ${PYTHON_VENV_PATH}/bin/activate && python3 ${HOME}/zoomrec_server.py"
+exec su zoomrec -p -c "source ${PYTHON_VENV_PATH}/bin/activate && python3 ${HOME}/server/zoomrec_server.py"
