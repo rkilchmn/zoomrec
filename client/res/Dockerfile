@@ -254,6 +254,9 @@ RUN if [ "$GPU_BUILD" = "NVIDIA" ] ; then \
             nvidia-container-runtime ; \
     fi
 
+# Install VLC - optional
+RUN apt-get install --no-install-recommends -y vlc
+
 # Clean up
 RUN apt-get autoremove --purge -y && \
     apt-get autoclean -y && \
