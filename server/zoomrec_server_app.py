@@ -331,7 +331,10 @@ def get_firmware():
     else:
         return '', 304  # Not Modified
     
-# curl -X POST -H "Content-Type: application/json" -u admin:myadminpw -d @log_entry.json http://localhost:8080/log
+# curl -X POST http://localhost:8081/log \
+#     -H "Content-Type: application/json" \
+#     -u myuser:mypassword \
+#     -d '{"id":"ESP8266Zoomrec","content":"2025-06-01 14:29:12 DEBUG Entering deep sleep for 60 seconds..."}'
 @app.route(f"{constants.ROUTE_LOG}", methods=['POST'])
 @basic_auth.required
 def log_handler():
@@ -344,10 +347,10 @@ def log_handler():
     if log_id is None or log_content is None:
         return jsonify({'error': 'id and content are required'}), 400
 
-    log_filename = f'{LOG_PATH}{log_id}.log'
+    log_filename = os.path.join(LOG_PATH, f"{log_id}_log.txt")
 
     try:
-        # Check if the log file exists
+        # Check if the log file exists  
         if os.path.exists(log_filename):
             mode = 'a'
         else:
