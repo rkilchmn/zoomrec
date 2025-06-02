@@ -51,3 +51,8 @@ ROUTE_EVENT_NEXT = "next"
 ROUTE_USER = "/user"
 ROUTE_FIRMWARE = "/firmware"
 ROUTE_LOG = "/log"
+
+# stale event thresholds in seconds
+STALE_EVENT_THRESHOLD_SECS = 60 * 60 * 2 # 2h 
+
+

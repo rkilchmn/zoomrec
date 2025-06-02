@@ -15,7 +15,7 @@ from enum import Enum
 import shortuuid
 import sqlite3
 from .users import UserField
-from .constants import DATETIME_FORMAT
+from .constants import DATETIME_FORMAT, STALE_EVENT_THRESHOLD_SECS
 
 # Define constants
 INTERNAL_DELIMITER = ',' # don't use : as it is reserved in yaml files
@@ -445,7 +445,7 @@ class SQLLiteEvents(Events):
 
     def get_next(self, client_id, event_type = None, lead_time_sec=0, trail_time_sec=0):
 
-        statuses = [EventStatus.SCHEDULED.value, EventStatus.PROCESS.value, EventStatus.ENDED.value]
+        statuses = [EventStatus.SCHEDULED.value, EventStatus.PROCESS.value, EventStatus.POSTPROCESS.value, EventStatus.ENDED.value]
         events = []
         for status in statuses:
             filters = []
@@ -459,9 +459,28 @@ class SQLLiteEvents(Events):
         next_event_dtstart = Events.replaceTimezone( datetime.max) # initialize with max date
 
         for event in events:
+            # check stale events
+            if event[EventField.ASSIGNED.value] != '' and event[EventField.LAST_UPDATED_TIMESTAMP.value] != '':
+                last_updated = datetime.fromisoformat(event[EventField.LAST_UPDATED_TIMESTAMP.value])
+                last_updated = Events.replaceTimezone(last_updated, event[EventField.TIMEZONE.value])
+                diff = abs((last_updated - Events.now(event)).total_seconds())
+
+                if diff > STALE_EVENT_THRESHOLD_SECS:
+                    # reset stale event
+                    event[EventField.ASSIGNED.value] = ''
+                    event[EventField.ASSIGNED_TIMESTAMP.value] = ''
+                    event[EventField.STATUS.value] = EventStatus.SCHEDULED.value
+
+                    self.update( event)
+
+            # Skip postprocess events
+            if event[EventField.STATUS.value] == EventStatus.POSTPROCESS.value:
+                continue
+                
             # Skip assigned events
             if event[EventField.ASSIGNED.value] != '' and event[EventField.ASSIGNED.value] != client_id:
                 continue
+            
             dtnow = Events.now( event)
 
             max_dtend_instance = Events.replaceTimezone( datetime.min) # initialize with min date
@@ -471,9 +490,7 @@ class SQLLiteEvents(Events):
             # Check all event occurrences
             # choose dtfrom such that an instance that has started is included unless it already ended
             dtfrom = dtnow - timedelta(minutes=int(event[EventField.DURATION.value])) - timedelta(seconds=trail_time_sec)
-            instance_count = 0
             for dtstart in Events.get_dtstart_datetime_list(event, dtfrom):
-                instance_count += 1
                 dtstart_instance = dtstart
                 dtend_instance = dtstart_instance + timedelta(minutes=int(event[EventField.DURATION.value]))
                 dtstart_instance_lead = dtstart_instance - timedelta(seconds=lead_time_sec)
@@ -510,14 +527,13 @@ class SQLLiteEvents(Events):
                     next_event['dtend_instance_trail'] = dtend_instance_trail
                     next_event['dtnow'] = dtnow
 
-            if instance_count > 0:
-                if max_dtend_instance < dtnow:
-                    # all instances have expired
-                    self.delete( event_key=event[EventField.KEY.value])
-                elif event[EventField.STATUS.value] == EventStatus.ENDED.value and \
-                    min_dtstart_instance > dtnow and min_dtend_instance > dtnow:
-                    # a previous instance has ended, but there are future instances
-                    event[EventField.STATUS.value] = EventStatus.SCHEDULED.value
-                    self.update( event)
+            if max_dtend_instance < dtnow:
+                # all instances have expired
+                self.delete( event_key=event[EventField.KEY.value])
+            elif event[EventField.STATUS.value] == EventStatus.ENDED.value and \
+                min_dtstart_instance > dtnow and min_dtend_instance > dtnow:
+                # a previous instance has ended, but there are future instances
+                event[EventField.STATUS.value] = EventStatus.SCHEDULED.value
+                self.update( event)
 
         return next_event
