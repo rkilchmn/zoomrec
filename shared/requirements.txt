@@ -1,0 +1,6 @@
+# password.py
+bcrypt
+# ai_service.py
+langchain_community
+langchain-openai
+langchain-core

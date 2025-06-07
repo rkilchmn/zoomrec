@@ -37,14 +37,18 @@ RUN chmod 0440 /etc/sudoers.d/zoomrec
 # Set the working directory
 WORKDIR ${HOME}
 
-# Copy and install Python dependencies
-COPY server/res/requirements.txt ${HOME}/
-RUN pip install --no-cache-dir -r ${HOME}/requirements.txt
+# Copy and install Python dependencies for server
+COPY server/requirements.txt ${HOME}/server/requirements.txt
+RUN pip install --no-cache-dir -r ${HOME}/server/requirements.txt
 
 # Create server directory python and app scripts
 RUN mkdir -p ${HOME}/server
 COPY server/* ${HOME}/server/
 RUN chmod +x ${HOME}/server/*.sh
+
+# Copy and install Python dependencies for shared
+COPY shared/requirements.txt ${HOME}/shared/requirements.txt
+RUN pip install --no-cache-dir -r ${HOME}/shared/requirements.txt
 
 # Create shared directory python and app scripts
 RUN mkdir -p ${HOME}/shared

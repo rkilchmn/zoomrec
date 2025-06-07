@@ -73,20 +73,21 @@ def mapping_ai(attribute_name: str, attribute_value: str, ai_config: dict) -> Op
         logging.error(f"Error mapping attribute: {attribute_name} value: {attribute_value} using AI: {str(e)}", exc_info=True)
         return None
 
-def start_bot():   
-    # Load the YAML config file
-    with open( EMAIL_TYPE_PATH, 'r') as file:
-        config = yaml.safe_load(file)
+def run_bot():   
+    try:
+        # Load the YAML config file
+        with open( EMAIL_TYPE_PATH, 'r') as file:
+            config = yaml.safe_load(file)
 
-    # Configure the logging
-    logLevel = getattr(logging, os.getenv( "LOG_LEVEL", "INFO"), logging.INFO)
-    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logLevel)
+        # Configure the logging
+        logLevel = getattr(logging, os.getenv( "LOG_LEVEL", "INFO"), logging.INFO)
+        logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logLevel)
 
-    logging.info( f"Config file {EMAIL_TYPE_PATH} found") 
+        logging.info( f"Config file {EMAIL_TYPE_PATH} found") 
 
-    # Loop and evaluate every new message based on the configuration
-    while True:
-        try:
+        # Loop and evaluate every new message based on the configuration
+        while True:
+
             # Connect to IMAP server
             imap = imaplib.IMAP4(IMAP_SERVER, IMAP_PORT)
             resp, caps = imap.capability()
@@ -309,15 +310,15 @@ def start_bot():
             # Wait for 1 mins before checking again
             time.sleep(1*60)
             
-        except Exception as e:
-            if isinstance(e, KeyboardInterrupt):
-                # Exit the program if the exception is a KeyboardInterrupt
-                raise e
-            else:
-                logging.error(f"An error occurred: {e}", exc_info=True)  # Enhanced to include full stack trace
+    except Exception as e:
+        if isinstance(e, KeyboardInterrupt):
+            # Exit the program if the exception is a KeyboardInterrupt
+            raise e
+        else:
+            logging.error(f"An error occurred: {e}", exc_info=True)  # Enhanced to include full stack trace
             
 if __name__ == "__main__":
     if not (EMAIL_PASSWORD and IMAP_SERVER and IMAP_PORT and EMAIL_ADDRESS and SERVER_URL and SERVER_USERNAME and SERVER_PASSWORD):
         print("IMAP details missing or API server details missing. Starting IMAP email bot failed!")
     else:
-        start_bot()
+        run_bot()

@@ -144,8 +144,8 @@ class PostprocessAndTransferThread:
             EXECUTION_ORDER = [
                 EventInstructionPostprocess.TRANSCRIBE.value,
                 EventInstructionPostprocess.TRANSLATE.value,
-                EventInstructionPostprocess.UPLOAD.value,
-                EventInstructionPostprocess.CUSTOM.value
+                EventInstructionPostprocess.CUSTOM.value,
+                EventInstructionPostprocess.UPLOAD.value
             ]
 
             if not isinstance(step, dict):
@@ -202,9 +202,33 @@ class PostprocessAndTransferThread:
                                 else:
                                     logging.error("SFTP transfer to server cannot be initiated: SSH_SERVER_URL not specified.")
                             case EventInstructionPostprocess.CUSTOM.value:
-                                command = f"{SCRIPT_DIR}/postprocess_custom.sh {filename_postprocess}"
-                                for param, value in value.items():
-                                    command += f" {key}={value}"
+                                # Handle both single task (dict) and multiple tasks (list)
+                                tasks = value if isinstance(value, list) else [value]
+                                commands = []
+                                
+                                for task in tasks:
+                                    if not isinstance(task, dict) or 'task' not in task:
+                                        logging.error(f"Invalid custom task format: {task}")
+                                        continue
+                                    
+                                    # Build command for this task
+                                    script_name = task['task']
+                                    script_path = os.path.join(SCRIPT_DIR, f"{script_name}")
+                                    
+                                    # Check if script exists and is executable
+                                    if not os.path.isfile(script_path) or not os.access(script_path, os.X_OK):
+                                        logging.error(f"Script not found or not executable: {script_path}")
+                                        continue
+                                    
+                                    # Build the command with the script and its arguments
+                                    cmd = f"{script_path} {filename_postprocess}"
+                                    for param, param_value in task.items():
+                                        if param != 'task':  # Skip task as it's used as script name
+                                            cmd += f" --{param} '{param_value}'"  # Quote the parameter value
+                                    commands.append(cmd)
+                                
+                                # Join commands with && to run them sequentially
+                                command = " && ".join(commands) if commands else ""
                             case _:
                                 logging.error(f"Unknown postprocessing step: {key}")
                                 continue
@@ -224,10 +248,12 @@ class PostprocessAndTransferThread:
                             if postprocess_proc.returncode == 0:
                                 postprocessing_step_end = Events.now(event)
                                 postprocessing_step_duration = postprocessing_step_end - postprocessing_step_start
-                                logging.debug(f"Postprocessing task '{key}' output: {stdout.decode().strip()}")
                                 logging.info(f"Postprocessing task '{key}' completed successfully at {postprocessing_step_end.strftime(constants.DATETIME_FORMAT)} after {str(postprocessing_step_duration).split('.')[0]}")
                             else:
-                                logging.error(f"Postprocessing task '{key}' failed: {stderr.decode().strip()}")
+                                logging.error(f"Postprocessing task '{key}' failed with return code: {postprocess_proc.returncode} and error: {stderr.decode().strip()}")
+                            # debug output
+                            logging.debug(f"Postprocessing task '{key}' stdout: {stdout.decode().strip()}")
+                            logging.debug(f"Postprocessing task '{key}' stderr: {stderr.decode().strip()}")
                             postprocess_proc = None
                         else:
                             logging.error(f"Postprocessing task '{key}' failed to start.")

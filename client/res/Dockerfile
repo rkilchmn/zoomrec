@@ -37,8 +37,6 @@ ARG ZOOMREC_USER_GID=""
 RUN useradd -ms /bin/bash -u ${ZOOMREC_USER_ID} zoomrec -d ${HOME}
 WORKDIR ${HOME}
 
-ADD client/res/requirements.txt ${HOME}/res/requirements.txt
-
 # Install basic dependencies
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
@@ -138,14 +136,6 @@ RUN apt-get install --no-install-recommends -y \
         python3-setuptools \
         scrot \
         gnome-screenshot 
-
-# required python module
-RUN pip3 install --upgrade  --break-system-packages --no-cache-dir -r ${HOME}/res/requirements.txt --default-timeout=300
-#    pip3 uninstall --yes opencv-python && \
-#    pip3 install opencv-python-headless
-
-# work around error in Python 3.7: AttributeError: type object 'Callable' has no attribute '_abc_registry'
-RUN if pip3 show typing > /dev/null 2>&1; then pip3 uninstall -y --break-system-packages typing; fi
 
 # samba server
 RUN apt-get install --no-install-recommends -y \
@@ -275,6 +265,19 @@ ADD client/res/home/ ${HOME}/
 ADD client/res/entrypoint.sh ${START_DIR}/entrypoint.sh
 ADD client/res/starting.sh ${START_DIR}/starting.sh
 ADD client/res/xfce.sh ${START_DIR}/xfce.sh
+
+# required python module for client
+ADD client/requirements.txt ${HOME}/client/requirements.txt
+RUN pip3 install --upgrade  --break-system-packages --no-cache-dir -r ${HOME}/client/requirements.txt --default-timeout=300
+#    pip3 uninstall --yes opencv-python && \
+#    pip3 install opencv-python-headless
+
+# required python module for shared
+ADD shared/requirements.txt ${HOME}/shared/requirements.txt
+RUN pip3 install --upgrade  --break-system-packages --no-cache-dir -r ${HOME}/shared/requirements.txt --default-timeout=300
+
+# work around error in Python 3.7: AttributeError: type object 'Callable' has no attribute '_abc_registry'
+RUN if pip3 show typing > /dev/null 2>&1; then pip3 uninstall -y --break-system-packages typing; fi
 
 # Create client directory python and app scripts
 RUN mkdir -p ${HOME}/client

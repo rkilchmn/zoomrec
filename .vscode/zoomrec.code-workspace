@@ -94,14 +94,18 @@
 				"env": {
 					"ZOOMREC_HOME": "${userHome}",
 					"SERVER_URL": "http://localhost:8081",
-					"DEBUG_MODULE": "", // turn off remote debugging (we are already debugging)
+					"DEBUG_MODULE": ""
 				},
 				"args": [
+					"${input:sourceFile}",	
 					"--model", "google/gemini-2.0-flash-exp:free",
 					"--api-url", "https://openrouter.ai/api/v1",
 					"--api-key-env", "AI_API_KEY",
-					"${input:sourceFile}"
-				]	
+					"--prompt", "You are a helpful assistant. Analyze the following transcript and create a html:\\n1. Identify all major topic changes.\\n2. Summarize each topic with:\\n   - Title and timestamp range \\n   - Very Detailed Summary\\n   - highlight actionable trades with ticker symbol (if option strike/expire),limit and buy conditions (if/then)\\n - Link to recording file (example): <a href=\"vlc://{recording-link}?start-time=<replace with start timestamp in seconds>\">Open in VLC</a>)\\n   - Include chart qith size 900x340 (example TSLA): <iframe src=\"https://finviz.com/chart.ashx?t=TSLA&ty=c&ta=1&p=d&s=l\"></iframe>\\n\\nTranscript (as VTT file with timestamp format Minutes:Seconds:Milliseconds)\\n{content} \\n Use these ticker symbols if mentioned (Gold:GC1!,Crude Oil:CL1!,Silver:SI1!)",
+					"--content-filename-regex", "\\.mkv$|||.vtt",
+					"--recording-link-regex", "^/mnt/([a-zA-Z])/([^?]+)\\.\\w+$|||\\1:/\\2.mkv",
+					"--output-extension", ".html"
+				]
 			},
 			{
 				"name": "Python: zoomrec_client (Docker)",
@@ -113,8 +117,8 @@
 				},
 				"pathMappings": [
 					{
-						"localRoot": "${workspaceFolder}",
-						"remoteRoot": "/home/zoomrec"
+						"localRoot": "${workspaceFolder}/client",
+						"remoteRoot": "/home/zoomrec/client"
 					}
 				],
 				"justMyCode": false
@@ -130,7 +134,7 @@
 				"pathMappings": [
 					{
 						"localRoot": "${workspaceFolder}/server",
-						"remoteRoot": "/home/zoomrec"
+						"remoteRoot": "/home/zoomrec/server"
 					}
 				],
 				"justMyCode": false

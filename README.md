@@ -51,6 +51,16 @@ docker compose --env-file ~/.env -f docker-compose.yml -f docker-compose.vaapi_i
     # LIBVA_DRIVER_NAME=i965 # older ivy bridge intel iGPU supports x264 
    ```
 
+## Possible issues 
+
+### VAAPI on WSL2
+
+Error response from daemon: error gathering device information while adding custom device "/dev/dri": no such file or directory
+see https://github.com/microsoft/WSL/issues/11837  
+```
+sudo modprobe vgem
+```
+
 ## Architecture
 
 ## Principles and Guidelines

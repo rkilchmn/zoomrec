@@ -1,1 +1,7 @@
-# Server package initialization
+"""
+Server package for the ZoomRec application.
+
+This package contains the server-side code for the ZoomRec application.
+"""
+
+__version__ = "0.1.0"
