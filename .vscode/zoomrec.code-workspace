@@ -18,7 +18,7 @@
 				"request": "launch",
 				"program": "${workspaceFolder}/server/telegram_bot.py",
 				"console": "integratedTerminal",
-				"justMyCode": true,
+				"justMyCode": false,
 				"envFile": "${userHome}/.server.env",
 				"env": {
 					"ZOOMREC_HOME": "${userHome}",
@@ -46,7 +46,7 @@
 				"request": "launch",
 				"program": "${workspaceFolder}/server/zoomrec_server_app.py",
 				"console": "integratedTerminal",
-				"justMyCode": true,
+				"justMyCode": false,
 				"envFile": "${userHome}/.server.env",
 				"env": {
 					"ZOOMREC_HOME": "${userHome}",
@@ -60,7 +60,7 @@
 				"request": "launch",
 				"program": "${workspaceFolder}/server/zoomrec_server.py",
 				"console": "integratedTerminal",
-				"justMyCode": true,
+				"justMyCode": false,
 				"envFile": "${userHome}/.server.env",
 				"env": {
 					"ZOOMREC_HOME": "${userHome}",
@@ -75,7 +75,7 @@
 				"request": "launch",
 				"program": "${workspaceFolder}/client/zoomrec_client.py",
 				"console": "integratedTerminal",
-				"justMyCode": true,
+				"justMyCode": false,
 				"envFile": "${userHome}/.client.env",
 				"env": {
 					"ZOOMREC_HOME": "${userHome}",
@@ -89,7 +89,7 @@
 				"request": "launch",
 				"program": "${workspaceFolder}/client/summarize_transcript.py",
 				"console": "integratedTerminal",
-				"justMyCode": true,
+				"justMyCode": false,
 				"envFile": "${userHome}/.server.env",
 				"env": {
 					"ZOOMREC_HOME": "${userHome}",
