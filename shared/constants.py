@@ -12,6 +12,7 @@ IMG_DIR = 'img'
 LOG_DIR = 'logs'
 DEBUG_DIR = 'screenshots'
 FIRMWARE_DIR = 'firmware'
+CONFIG_DIR = 'config'
 
 # log file names
 LOG_CLIENT_FILENAME = 'client_log.txt'
@@ -51,6 +52,7 @@ ROUTE_EVENT_NEXT = "next"
 ROUTE_USER = "/user"
 ROUTE_FIRMWARE = "/firmware"
 ROUTE_LOG = "/log"
+ROUTE_CONFIG = "/config"
 
 # stale event thresholds in seconds
 STALE_EVENT_THRESHOLD_SECS = 60 * 60 * 2 # 2h 

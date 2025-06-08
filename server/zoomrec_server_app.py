@@ -23,6 +23,7 @@ ZOOMREC_DB_PATH = os.path.join(BASE_PATH, constants.ZOOMREC_DB_FILENAME)
 
 FIRMWARE_PATH = os.path.join(BASE_PATH, constants.FIRMWARE_DIR)
 LOG_PATH = os.path.join(BASE_PATH, constants.LOG_DIR)
+CONFIG_PATH = os.path.join(BASE_PATH, constants.CONFIG_DIR)
 
 # Configure basic authentication
 app.config['BASIC_AUTH_USERNAME'] = os.getenv('SERVER_USERNAME')
@@ -220,8 +221,8 @@ def delete_event(key):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# all events: curl -u myuser:mypassword "http://localhost:8080/event"
-# with key: curl -u myuser:mypassword "http://localhost:8080/event/G4JbZYQN65Ba35jfbyiHsj"
+# all events: curl -u myuser:mypassword "http://localhost:8081/event"
+# with key: curl -u myuser:mypassword "http://localhost:8081/event/G4JbZYQN65Ba35jfbyiHsj"
 @app.route(f"{constants.ROUTE_EVENT}", methods=['GET'])
 @basic_auth.required
 def get_event():
@@ -310,7 +311,7 @@ def parse_version(version_string):
         raise ValueError('Invalid version string')
     return filename, timestamp
 
-# curl -H "x-ESP8266-version: ESP8266_Template.ino-May  7 2023-15:26:18" -u myuser:mypassword --output firmware.ino.bin http://localhost:8080/firmware
+# curl -H "x-ESP8266-version: ESP8266_Template.ino-May  7 2023-15:26:18" -u myuser:mypassword --output firmware.ino.bin http://localhost:8081/firmware
 @app.route(f"{constants.ROUTE_FIRMWARE}", methods=['GET'])
 @basic_auth.required
 def get_firmware():
@@ -365,5 +366,43 @@ def log_handler():
 
     return jsonify({'message': 'Log appended successfully'}), 200
      
+# curl -H "x-ESP8266-version: ESP8266_Template.ino-May  7 2023-15:26:18" -u myuser:mypassword --output config.json http://localhost:8081/config
+@app.route(f"{constants.ROUTE_CONFIG}", methods=['GET'])
+@basic_auth.required
+def get_config():
+    """
+    Serve the configuration file.
+    Example: GET /config with header 'x-ESP8266-version: config_name-{date}'
+    """
+    try:
+        config_version = request.headers.get('x-ESP8266-version')
+        if not config_version:
+            return 'Config version not specified', 400
+            
+        try:
+            config_name, config_mtime = parse_version(config_version)
+        except ValueError:
+            return 'Invalid config version format', 400
+            
+        filepath = os.path.join(CONFIG_PATH, f"{config_name}.json")
+        if not os.path.isfile(filepath):
+            return f'Config {config_name}.json not found', 404
+            
+        # Check if the file has been modified
+        file_mtime = get_file_mtime(filepath)
+        # difference needs to be min 60s as there are some small time differences
+        if (file_mtime - config_mtime).total_seconds() < 60:
+            return '', 304  # Not Modified
+                
+        return send_file(
+            filepath,
+            mimetype='application/json',
+            as_attachment=False,
+            download_name=f"{config_name}.json"
+        )
+    except Exception as e:
+        app.logger.error(f"Error serving config file: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0',port=os.getenv("SERVER_PORT"))
