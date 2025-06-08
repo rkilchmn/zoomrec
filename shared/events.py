@@ -230,6 +230,7 @@ class Events(ABC):
     def get_dtstart_datetime_list(event, dtfrom=None) -> list:
         dtstart = datetime.strptime(event[EventField.DTSTART.value], DATETIME_FORMAT)
         dtstart = Events.replaceTimezone(dtstart, event[EventField.TIMEZONE.value])
+        dtstart_list = []
         if EventField.RRULE.value in event and event[EventField.RRULE.value]:
             rrule_string = event[EventField.RRULE.value]
             dtfrom = dtfrom if dtfrom else dtstart
