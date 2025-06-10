@@ -6,7 +6,9 @@ from shared.events import Events, EventStatus, EventField, SQLLiteEvents
 from urllib.parse import unquote
 from shared.users import SQLLiteUser, Users, UserField
 import logging
+import json
 from shared import constants
+from shared.constants import ESP8266_CONFIG_FILENAME
 from shared.utilities import start_debug
 
 start_debug(constants.DEBUG_MODULE_ZOOMREC_SERVER_APP, os.getenv('DEBUG_PORT_SERVER'))
@@ -367,39 +369,185 @@ def log_handler():
     return jsonify({'message': 'Log appended successfully'}), 200
      
 # curl -H "x-ESP8266-version: ESP8266_Template.ino-May  7 2023-15:26:18" -u myuser:mypassword --output config.json http://localhost:8081/config
+def parse_firmware_version(version_str):
+    """
+    Parse firmware version string like 'ESP8266_zoomrec.ino-May 7 2023-15:26:18' into datetime.
+    Supports the format: 'ESP8266_zoomrec.ino-<month> <day> <year>-<hour>:<minute>:<second>'
+    Returns (config_name, datetime) or raises ValueError.
+    """
+    print(f"\n=== Parsing version string: '{version_str}'")
+    try:
+        # First split into name and date parts
+        parts = version_str.split('-', 1)
+        if len(parts) < 2:
+            raise ValueError("Version string must contain a '-'")
+            
+        name_part = parts[0]
+        date_part = parts[1].strip()
+        
+        print(f"Name part: '{name_part}'")
+        print(f"Date part: '{date_part}'")
+        
+        # Clean up the name (remove '.ino' if present)
+        config_name = name_part.split('.')[0]
+        print(f"Config name: '{config_name}'")
+        
+        # Parse the date part (format: 'May 7 2023-15:26:18')
+        try:
+            # Normalize spaces in the date part (replace multiple spaces with single space)
+            date_part = ' '.join(date_part.split())
+            print(f"Normalized date part: '{date_part}'")
+            
+            dt = datetime.strptime(date_part, '%b %d %Y-%H:%M:%S')
+            print(f"Successfully parsed datetime: {dt}")
+            return config_name, dt
+            
+        except ValueError as e:
+            print(f"Failed to parse date: {str(e)}")
+            raise ValueError(f"Invalid date format. Expected 'Month Day Year-HH:MM:SS', got: {date_part}") from e
+        
+    except (ValueError, IndexError) as e:
+        print(f"Error parsing version string: {str(e)}")
+        raise ValueError(f"Invalid firmware version format: {version_str}") from e
+
+def get_config_file_path(config_name, min_version_str=None):
+    """
+    Get the path to the most recent config file for the given config name.
+    
+    Args:
+        config_name: The base name of the config (e.g., 'ESP8266_zoomrec')
+        min_version_str: The minimum version string from the header (e.g., 'May 7 2022-15:26:18')
+        
+    Returns:
+        Path to the config file if found, None otherwise.
+    """
+    if not os.path.isdir(CONFIG_PATH):
+        return None, "unknown"
+        
+    # Find all directories that start with the config name
+    matching_dirs = [
+        d for d in os.listdir(CONFIG_PATH)
+        if d.startswith(config_name) and os.path.isdir(os.path.join(CONFIG_PATH, d))
+    ]
+    
+    if not matching_dirs:
+        return None, "unknown"
+    
+    # If min_version_str is provided, find the newest config where the header version >= directory version
+    if min_version_str:
+        try:
+            # Parse the version from the header (this is the client's version)
+            _, header_version = parse_firmware_version(f"{config_name}.ino-{min_version_str}")
+            print(f"Client version from header: {header_version} (from {min_version_str})")
+            
+            # Find all directory versions that are <= the header version
+            compatible_dirs = []
+            for d in matching_dirs:
+                try:
+                    # Parse the version from the directory name (this is the minimum required version)
+                    dir_version_str = d.replace(f"{config_name}.ino-", "", 1)
+                    _, dir_version = parse_firmware_version(f"{config_name}.ino-{dir_version_str}")
+                    
+                    print(f"Checking if client version {header_version} >= directory version {dir_version}? {header_version >= dir_version}")
+                    
+                    # The client's version must be >= the directory version
+                    if header_version >= dir_version:
+                        compatible_dirs.append((d, dir_version))
+                except ValueError as e:
+                    print(f"Error parsing version from dir {d}: {str(e)}")
+                    continue
+            
+            if not compatible_dirs:
+                # Get the oldest directory version to show as minimum required version
+                try:
+                    oldest_dir = min(matching_dirs, key=lambda d: parse_firmware_version(f"{config_name}.ino-{d.replace(f'{config_name}.ino-', '')}")[1])
+                    _, min_required_version = parse_firmware_version(f"{config_name}.ino-{oldest_dir.replace(f'{config_name}.ino-', '')}")
+                    min_required_str = min_required_version.strftime('%b %d %Y-%H:%M:%S')
+                    print(f"Client version too old. Minimum required version: {min_required_str}")
+                    return None, min_required_str
+                except Exception as e:
+                    print(f"Error determining minimum required version: {str(e)}")
+                    return None, "unknown"
+                
+            # Sort compatible directories by version (newest first) and return the newest one
+            compatible_dirs.sort(key=lambda x: x[1], reverse=True)
+            best_match_dir = compatible_dirs[0][0]
+            config_file = os.path.join(CONFIG_PATH, best_match_dir, ESP8266_CONFIG_FILENAME)
+            print(f"Selected best matching config file: {config_file}")
+            return (config_file, None) if os.path.isfile(config_file) else (None, "unknown")
+            
+        except ValueError as e:
+            print(f"Error parsing version: {str(e)}")
+            return None, "unknown"
+    
+    # If no version check needed, just return the newest config
+    latest_dir = max(matching_dirs)
+    config_file = os.path.join(CONFIG_PATH, latest_dir, ESP8266_CONFIG_FILENAME)
+    return (config_file, None) if os.path.isfile(config_file) else (None, "unknown")
+
 @app.route(f"{constants.ROUTE_CONFIG}", methods=['GET'])
 @basic_auth.required
 def get_config():
     """
     Serve the configuration file.
-    Example: GET /config with header 'x-ESP8266-version: config_name-{date}'
+    Headers:
+        x-ESP8266-version: config_name-{date} (required)
+        If-Modified-Since: HTTP date (optional) - Only return config if it's newer than this timestamp
     """
     try:
-        config_version = request.headers.get('x-ESP8266-version')
-        if not config_version:
-            return 'Config version not specified', 400
+        # Get the config version from the header
+        full_version = request.headers.get('x-ESP8266-version')
+        if not full_version:
+            return 'Missing x-ESP8266-version header', 400
             
+        # Get If-Modified-Since header if present
+        if_modified_since = request.headers.get('If-Modified-Since')
+        last_updated = None
+        if if_modified_since:
+            try:
+                # Parse HTTP date format (e.g., 'Wed, 21 Oct 2015 07:28:00 GMT')
+                last_updated = datetime.strptime(
+                    if_modified_since, 
+                    '%a, %d %b %Y %H:%M:%S GMT'
+                )
+            except ValueError as e:
+                return f'Invalid If-Modified-Since header. Use HTTP date format (e.g., Wed, 21 Oct 2015 07:28:00 GMT). Error: {str(e)}', 400
+        
         try:
-            config_name, config_mtime = parse_version(config_version)
-        except ValueError:
-            return 'Invalid config version format', 400
+            # Parse the full version string to get config name and version parts
+            config_name, config_mtime = parse_firmware_version(full_version)
             
-        filepath = os.path.join(CONFIG_PATH, f"{config_name}.json")
-        if not os.path.isfile(filepath):
-            return f'Config {config_name}.json not found', 404
+            # Extract just the version part (e.g., 'May 7 2023-15:26:18')
+            version_part = full_version.split('-', 1)[1] if '-' in full_version else ''
             
-        # Check if the file has been modified
-        file_mtime = get_file_mtime(filepath)
-        # difference needs to be min 60s as there are some small time differences
-        if (file_mtime - config_mtime).total_seconds() < 60:
-            return '', 304  # Not Modified
+            # Get the config file path, ensuring it's >= the requested version
+            filepath, min_required = get_config_file_path(config_name, version_part)
+            if not filepath:
+                if min_required == "unknown":
+                    return f'No compatible config found for {config_name}', 404
+                else:
+                    return f'No compatible config found for {config_name} (minimum required version: {min_required})', 404
                 
-        return send_file(
-            filepath,
-            mimetype='application/json',
-            as_attachment=False,
-            download_name=f"{config_name}.json"
-        )
+        except ValueError as e:
+            return f'Invalid config version format: {str(e)}', 400
+        
+        # Get the config file's modification time
+        file_mtime = get_file_mtime(filepath)
+        
+        # Check if client has a cached version that's up to date
+        if last_updated is not None and file_mtime <= last_updated:
+            return '', 304  # Not Modified
+            
+        # If the config is from a versioned directory, skip the firmware version check
+        # as we've already found the most recent compatible version
+        if not filepath.startswith(os.path.join(CONFIG_PATH, config_name)):
+            # difference needs to be min 60s as there are some small time differences
+            if (file_mtime - config_mtime).total_seconds() < 60:
+                return '', 304  # Not Modified
+                
+        with open(filepath, 'r') as f:
+            config_data = json.load(f)
+        return jsonify(config_data)
     except Exception as e:
         app.logger.error(f"Error serving config file: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500

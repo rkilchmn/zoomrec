@@ -50,7 +50,7 @@ if [ -n "$LANGUAGE" ]; then
 fi
 
 echo "whisper-ctranslate2-remote-api ${API_ARGS[@]}"
-whisper-ctranslate2-remote-api "${API_ARGS[@]}"
+python3 -m src.whisper_ctranslate2.whisper_ctranslate2 "${API_ARGS[@]}"
 
 # Delete source audio file
 rm "$audio_file"
