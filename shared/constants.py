@@ -60,4 +60,7 @@ ROUTE_CONFIG = "/config"
 # stale event thresholds in seconds
 STALE_EVENT_THRESHOLD_SECS = 60 * 60 * 2 # 2h 
 
+# environment variables to suppress sftp user creation for debugging in non docker environment
+SKIP_SFTP_USER_CREATION = 'SKIP_SFTP_USER_CREATION'
+
 

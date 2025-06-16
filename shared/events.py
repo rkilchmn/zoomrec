@@ -344,8 +344,8 @@ class SQLLiteEvents(Events):
                         {EventField.STATUS.value} INTEGER,
                         {EventField.ASSIGNED.value} TEXT,
                         {EventField.ASSIGNED_TIMESTAMP.value} TEXT,
-                        {EventField.CREATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        {EventField.LAST_UPDATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        {EventField.CREATED_TIMESTAMP.value} TEXT,
+                        {EventField.LAST_UPDATED_TIMESTAMP.value} TEXT,
                         FOREIGN KEY ({EventField.USER_KEY.value}) REFERENCES users({UserField.KEY.value})
                         ON DELETE RESTRICT
                     );
@@ -357,7 +357,7 @@ class SQLLiteEvents(Events):
         event = Events.set_missing_defaults(event)
         event = Events.validate(event)
         event[EventField.KEY.value] = shortuuid.uuid()  # Generate a unique key for the event
-        event[EventField.CREATED_TIMESTAMP.value] = datetime.now()  # Set created timestamp
+        event[EventField.CREATED_TIMESTAMP.value] = Events.now( event).isoformat()
         event[EventField.LAST_UPDATED_TIMESTAMP.value] = event[EventField.CREATED_TIMESTAMP.value]  # Set last updated timestamp
 
         with self._get_connection() as conn:
@@ -414,8 +414,14 @@ class SQLLiteEvents(Events):
     def update(self, event):
         event = Events.clean(event)
         event = Events.validate(event)
-        event[EventField.LAST_UPDATED_TIMESTAMP.value] = datetime.now()  # Update last updated timestamp
-        old_event = self.get(filters=[[EventField.KEY.value, "=", event[EventField.KEY.value]]])[0]
+        event[EventField.LAST_UPDATED_TIMESTAMP.value] = Events.now(event).isoformat()
+
+        # retrive previous event state before update
+        pre_event = self.get(filters=[[EventField.KEY.value, "=", event[EventField.KEY.value]]])
+        if len(pre_event) == 0:
+            raise ValueError(f"Event with key '{event[EventField.KEY.value]}' not found")
+        pre_event = pre_event[0]
+
         with self._get_connection() as conn:
             cursor = conn.cursor()         
             set_clause = ", ".join(f"{field} = ?" for field in event.keys())
@@ -425,13 +431,18 @@ class SQLLiteEvents(Events):
             conn.commit()
 
         # Check for changes and call the callback if necessary
-        if self.stateChanged and old_event != event:
-            self.stateChanged(old_event, event)
+        if self.stateChanged and pre_event != event:
+            self.stateChanged(pre_event, event)
 
         return event
     
     def delete(self, event_key):
-        old_event = self.get(filters=[[EventField.KEY.value, "=", event_key]])[0]
+        # retrive previous event state before delete
+        pre_event = self.get(filters=[[EventField.KEY.value, "=", event_key]])
+        if len(pre_event) == 0:
+            raise ValueError(f"Event with key '{event_key}' not found")
+        pre_event = pre_event[0]
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(f'DELETE FROM events WHERE {EventField.KEY.value} = ?', 
@@ -439,8 +450,8 @@ class SQLLiteEvents(Events):
             conn.commit()
 
         # Check for changes and call the callback if necessary
-        if self.stateChanged and old_event:
-            self.stateChanged(old_event, None)
+        if self.stateChanged and pre_event:
+            self.stateChanged(pre_event, None)
 
         return True
 
@@ -463,7 +474,7 @@ class SQLLiteEvents(Events):
             # check stale events
             if event[EventField.ASSIGNED.value] != '' and event[EventField.LAST_UPDATED_TIMESTAMP.value] != '':
                 last_updated = datetime.fromisoformat(event[EventField.LAST_UPDATED_TIMESTAMP.value])
-                last_updated = Events.replaceTimezone(last_updated, event[EventField.TIMEZONE.value])
+                # last_updated = Events.replaceTimezone(last_updated, event[EventField.TIMEZONE.value])
                 diff = abs((last_updated - Events.now(event)).total_seconds())
 
                 if diff > STALE_EVENT_THRESHOLD_SECS:

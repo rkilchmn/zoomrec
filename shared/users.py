@@ -1,11 +1,16 @@
 import sqlite3
 import shortuuid
+import os
 from enum import Enum
 from abc import ABC, abstractmethod
 from .msg_telegram import send_telegram_message
 from datetime import datetime
+try:
+    from zoneinfo import ZoneInfo  # >= 3.9
+except ImportError:
+    from backports.zoneinfo import ZoneInfo  # < 3.9
 from . import password
-from .constants import SFTP_ADMIN_USERNAME
+from .constants import SFTP_ADMIN_USERNAME, SKIP_SFTP_USER_CREATION
 from .sftp_user import create_sftp_user
 
 # IMPORTANT: ordering needs to align with table create
@@ -20,6 +25,7 @@ class UserField(Enum):
     MOBILE_NUMBER = 'mobile_number'
     SFTP_USERNAME = 'sftp_username'
     ROLE = 'role'
+    TIMEZONE = 'timezone'
     CREATED_TIMESTAMP = 'created_timestamp'
     LAST_UPDATED_TIMESTAMP = 'last_updated_timestamp'
 
@@ -34,6 +40,7 @@ USER_DEFAULT_VALUES = {
     UserField.MOBILE_NUMBER.value: '',
     UserField.TWO_FA_KEY.value: '',
     UserField.SFTP_USERNAME.value: '',
+    UserField.TIMEZONE.value: 'UTC',
 }
 
 class MessengerAttribute(Enum):
@@ -53,6 +60,20 @@ class Users(ABC):
     @abstractmethod
     def update(self, user):
         pass
+
+    @staticmethod
+    def now(user):
+        """
+        Get current datetime in the user's timezone.
+        
+        Args:
+            user: User dictionary containing TIMEZONE field
+            
+        Returns:
+            datetime: Current datetime in user's timezone
+        """
+        tz = ZoneInfo(user[UserField.TIMEZONE.value] if user.get(UserField.TIMEZONE.value) else 'UTC')
+        return datetime.now(tz)
 
     @abstractmethod
     def delete(self, user_key):
@@ -178,6 +199,7 @@ class SQLLiteUser(Users):
                     {UserField.MOBILE_NUMBER.value} TEXT,
                     {UserField.SFTP_USERNAME.value} TEXT,
                     {UserField.ROLE.value} INTEGER NOT NULL,
+                    {UserField.TIMEZONE.value} TEXT DEFAULT 'UTC',
                     {UserField.CREATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     {UserField.LAST_UPDATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
@@ -195,7 +217,7 @@ class SQLLiteUser(Users):
             user[UserField.SFTP_USERNAME.value] = user[UserField.LOGIN.value]
 
         user[UserField.KEY.value] = shortuuid.uuid()
-        user[UserField.CREATED_TIMESTAMP.value] = datetime.now()
+        user[UserField.CREATED_TIMESTAMP.value] = Users.now(user).isoformat()
         user[UserField.LAST_UPDATED_TIMESTAMP.value] = user[UserField.CREATED_TIMESTAMP.value]
 
         # Validate user data
@@ -210,13 +232,14 @@ class SQLLiteUser(Users):
             ''', list(user.values()))
             conn.commit()
 
-        if user[UserField.SFTP_USERNAME.value] != '':
-            create_sftp_user(user[UserField.SFTP_USERNAME.value])
+        if os.getenv( SKIP_SFTP_USER_CREATION, "false") == "false":
+            if user[UserField.SFTP_USERNAME.value] != '':
+                create_sftp_user(user[UserField.SFTP_USERNAME.value])
 
         # Check for changes and call the callback if necessary
-        old_user = {}
-        if self.stateChanged and old_user != user:
-            self.stateChanged(old_user, user)
+        pre_user = {}
+        if self.stateChanged and pre_user != user:
+            self.stateChanged(pre_user, user)
 
         return user
 
@@ -251,12 +274,17 @@ class SQLLiteUser(Users):
 
     def update(self, user):
         user = Users.clean(user)
-        user[UserField.LAST_UPDATED_TIMESTAMP.value] = datetime.now()
+        user[UserField.LAST_UPDATED_TIMESTAMP.value] = Users.now(user).isoformat()
         user = Users.validate(user)
-        old_user = self.get(filters=[[UserField.KEY.value, "=", user[UserField.KEY.value]]])[0]
+
+        # retrive previous user state before update
+        pre_user = self.get(filters=[[UserField.KEY.value, "=", user[UserField.KEY.value]]])
+        if len(pre_user) == 0:
+            raise ValueError(f"User with key '{user[UserField.KEY.value]}' not found")
+        pre_user = pre_user[0]
 
         # hash password only if password is different and therefore provided in cleartext
-        if user[UserField.PASSWORD.value] != old_user[UserField.PASSWORD.value]:
+        if user[UserField.PASSWORD.value] != pre_user[UserField.PASSWORD.value]:
             user[UserField.PASSWORD.value] = password.hash_password(user[UserField.PASSWORD.value])
 
         with self._get_connection() as conn:
@@ -267,21 +295,24 @@ class SQLLiteUser(Users):
             ''', list(user.values()) + [user[UserField.KEY.value]])
             conn.commit()
 
-        if user[UserField.SFTP_USERNAME.value] != old_user[UserField.SFTP_USERNAME.value] and \
+        if user[UserField.SFTP_USERNAME.value] != pre_user[UserField.SFTP_USERNAME.value] and \
             user[UserField.SFTP_USERNAME.value] != '':
             create_sftp_user(user[UserField.SFTP_USERNAME.value])
             
         # Check for changes and call the callback if necessary
-        if self.stateChanged and old_user != user:
-            self.stateChanged(old_user, user)
+        if self.stateChanged and pre_user != user:
+            self.stateChanged(pre_user, user)
 
         return user
 
 
     def delete(self, user_key):
-        old_user = self.get(filters=[[UserField.KEY.value, "=", user_key]])
-        if old_user:
-            old_user = old_user[0]
+        # retrive previous user state before delete
+        pre_user = self.get(filters=[[UserField.KEY.value, "=", user_key]])
+        if len(pre_user) == 0:
+            raise ValueError(f"User with key '{user_key}' not found")
+        pre_user = pre_user[0]
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(f'DELETE FROM users WHERE {UserField.KEY.value} = ?', (user_key,))
@@ -289,8 +320,8 @@ class SQLLiteUser(Users):
 
         # Check for changes and call the callback if necessary
         user = {}
-        if self.stateChanged and old_user != user:
-            self.stateChanged(old_user, user)
+        if self.stateChanged and pre_user != user:
+            self.stateChanged(pre_user, user)
         
         return True
 
