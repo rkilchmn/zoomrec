@@ -1,7 +1,7 @@
-from events_api import EventAPI
-from events import EventField, EventType, Events
-from users_api import UserAPI
-from users import UserField, Users
+from shared.events_api import EventAPI
+from shared.events import EventField, EventType, Events
+from shared.users_api import UserAPI
+from shared.users import UserField, Users
 
 # Configuration
 SERVER_URL = "http://localhost:8081"
@@ -17,6 +17,7 @@ def main():
             UserField.LOGIN.value: "johndoe",
             UserField.PASSWORD.value: "securepassword",
             UserField.EMAIL.value: "john@doe.net",
+            UserField.TIMEZONE.value: "America/New_York",
         }    
         created_user = user = updated_user = None
 
@@ -68,14 +69,13 @@ def main():
     new_event = {
         EventField.TYPE.value: "1",
         EventField.TITLE.value: "Recuring Test Event Sydney",
-        EventField.DTSTART.value: "15/05/2025 11:00",
+        EventField.DTSTART.value: "15/07/2025 11:00",
         EventField.TIMEZONE.value: "Australia/Sydney",
         EventField.DURATION.value: "30",
         EventField.RRULE.value: "FREQ=DAILY;COUNT=2",
         EventField.ID.value: "85703777235",
         EventField.PASSWORD.value: "passcode123",
         EventField.URL.value: "",
-        EventField.INSTRUCTION.value: "record=true",
         EventField.USER_KEY.value: updated_user[UserField.KEY.value]
     }
 
@@ -118,14 +118,13 @@ def main():
         new_event2 = {
             EventField.TYPE.value: "1",
             EventField.TITLE.value: "Recuring Test Event New York",
-            EventField.DTSTART.value: "16/05/2025 22:00",
+            EventField.DTSTART.value: "16/07/2025 22:00",
             EventField.TIMEZONE.value: "America/New_York",
             EventField.DURATION.value: "45",
             EventField.RRULE.value: "FREQ=DAILY;COUNT=2",
             EventField.ID.value: "",
             EventField.PASSWORD.value: "",
             EventField.URL.value: "https://zoom.us/j/84548756066?pwd=35dp6HKKTU60LLOlShON9Kb8bMnNb4.1",
-            EventField.INSTRUCTION.value: "record=true",
             EventField.USER_KEY.value: updated_user[UserField.KEY.value]
         }
 
