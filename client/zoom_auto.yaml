@@ -233,7 +233,7 @@ join:
   - *view_option_fullscreen
   - *minimize_video_panel
   - *check_toolbar
-  - *play_hello_audio
+  # - *play_hello_audio
   # - *close_message_info_is_here
   
 ongoing:
