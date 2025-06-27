@@ -532,7 +532,16 @@ class SQLLiteEvents(Events):
                       event[EventField.STATUS.value] == EventStatus.ENDED.value) and \
                     not exclude_ended_instance and \
                     (next_event is None or dtend_instance_trail < next_event['dtend_instance_trail']):
-                    next_event = event
+
+                    next_event = {}
+                    # copy basic event fields
+                    next_event[EventField.KEY.value] = event[EventField.KEY.value]
+                    next_event[EventField.TITLE.value] = event[EventField.TITLE.value]
+                    next_event[EventField.TIMEZONE.value] = event[EventField.TIMEZONE.value]
+                    next_event[EventField.TYPE.value] = event[EventField.TYPE.value]
+                    next_event[EventField.STATUS.value] = event[EventField.STATUS.value]
+
+                    # copy instance fields
                     next_event['dtstart_instance'] = dtstart_instance
                     next_event['dtend_instance'] = dtend_instance
                     next_event['dtstart_instance_lead'] = dtstart_instance_lead

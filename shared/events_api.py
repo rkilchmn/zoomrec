@@ -2,7 +2,6 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 import logging
-from datetime import datetime
 from .events import EventField, Events
 from .constants import ROUTE_EVENT, ROUTE_EVENT_NEXT
 class EventAPI:
@@ -111,19 +110,7 @@ class EventAPI:
         try:
             response = self.session.get(url, params=params, headers=headers, auth=(self.username, self.password))
             if response.status_code == 200:
-                response_data = response.json()
-                # restore datetime including timezone
-                response_data['dtstart_instance'] = datetime.fromisoformat(response_data['dtstart_instance'])
-                response_data['dtstart_instance'] = Events.replaceTimezone(response_data['dtstart_instance'], response_data['timezone'])
-                response_data['dtend_instance'] = datetime.fromisoformat(response_data['dtend_instance'])
-                response_data['dtend_instance'] = Events.replaceTimezone(response_data['dtend_instance'], response_data['timezone'])
-                response_data['dtstart_instance_lead'] = datetime.fromisoformat(response_data['dtstart_instance_lead'])
-                response_data['dtstart_instance_lead'] = Events.replaceTimezone(response_data['dtstart_instance_lead'], response_data['timezone'])
-                response_data['dtend_instance_trail'] = datetime.fromisoformat(response_data['dtend_instance_trail'])
-                response_data['dtend_instance_trail'] = Events.replaceTimezone(response_data['dtend_instance_trail'], response_data['timezone'])
-                response_data['dtnow'] = datetime.fromisoformat(response_data['dtnow'])
-                response_data['dtnow'] = Events.replaceTimezone(response_data['dtnow'], response_data['timezone'])
-                return response_data
+                return response.json()
             elif response.status_code == 204:
                 return None
             else:

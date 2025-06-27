@@ -11,6 +11,7 @@ import shlex
 import threading
 import pyautogui
 from pathlib import Path
+from datetime import datetime
 
 from shared.events import Events, EventType, EventField, EventStatus, EventInstructionAttribute, EventInstructionProcess, EventInstructionPostprocess  
 from shared.users import UserField
@@ -269,9 +270,10 @@ class PostprocessAndTransferThread:
         except Exception as e:
             logging.error(f"Error in postprocess_and_transfer thread: {e}")
     
-def join(event, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_instance_trail):
+def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_instance_trail):
     try:
         with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
+            event = event_api.get(filters=[[EventField.KEY.value, "=", event_key]])[0]
             if int(event[EventField.STATUS.value]) == int(EventStatus.SCHEDULED.value):
                 if not event[EventField.ASSIGNED.value]:
                     event[EventField.ASSIGNED.value] = CLIENT_ID
@@ -461,12 +463,18 @@ def main():
     # loop to retrive next event and wait for it to join
     with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
         while True:
-            try:
-                
+            try:      
                 next_event = event_api.get_next(CLIENT_ID, EventType.ZOOM.value, LEAD_TIME_SEC, TRAIL_TIME_SEC)
-                        
+                if next_event:  
+                    #  convert from iso and apply timezone
+                    next_event['dtstart_instance'] = Events.replaceTimezone(datetime.fromisoformat(next_event['dtstart_instance']), next_event['timezone'])
+                    next_event['dtend_instance'] = Events.replaceTimezone(datetime.fromisoformat(next_event['dtend_instance']), next_event['timezone'])
+                    next_event['dtstart_instance_lead'] = Events.replaceTimezone(datetime.fromisoformat(next_event['dtstart_instance_lead']), next_event['timezone'])
+                    next_event['dtend_instance_trail'] = Events.replaceTimezone(datetime.fromisoformat(next_event['dtend_instance_trail']), next_event['timezone'])
+                    next_event['dtnow'] = Events.replaceTimezone(datetime.fromisoformat(next_event['dtnow']), next_event['timezone'])
+                            
                 if next_event and next_event['dtstart_instance_lead'] <= next_event['dtnow'] and next_event['dtnow'] <= next_event['dtend_instance_trail']:
-                    join(next_event, next_event['dtstart_instance'], next_event['dtend_instance'], next_event['dtstart_instance_lead'], next_event['dtend_instance_trail'])  
+                    join( next_event[EventField.KEY.value], next_event['dtstart_instance'], next_event['dtend_instance'], next_event['dtstart_instance_lead'], next_event['dtend_instance_trail'])  
                 else:                  
                     for _ in range(constants.INTERVAL_CHECK_NEXT_EVENT):
                         if next_event:
