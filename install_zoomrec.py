@@ -12,7 +12,8 @@ from shared.constants import (
     IMG_DIR,
     LOG_DIR,
     DEBUG_DIR,
-    FIRMWARE_DIR,
+    ARDUINO_FIRMWARE_DIR,
+    ARDUINO_CONFIG_DIR,
     ZOOMREC_DB_FILENAME,
 )
 
@@ -85,7 +86,8 @@ def setup_server(zoomrec_home):
     logging.info("Setting up SERVER components")
     
     # Create required directories
-    os.makedirs(os.path.join(zoomrec_home, FIRMWARE_DIR), exist_ok=True)
+    os.makedirs(os.path.join(zoomrec_home, ARDUINO_FIRMWARE_DIR), exist_ok=True)
+    os.makedirs(os.path.join(zoomrec_home, ARDUINO_CONFIG_DIR), exist_ok=True)
     os.makedirs(SFTP_DATA_PATH, exist_ok=True)
 
     # Set SFTP directory permissions

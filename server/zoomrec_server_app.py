@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_file
 from flask_basicauth import BasicAuth
-from datetime import datetime
+from datetime import datetime, timezone
 import os.path
 from shared.events import Events, EventStatus, EventField, SQLLiteEvents
 from urllib.parse import unquote
@@ -8,8 +8,14 @@ from shared.users import SQLLiteUser, Users, UserField
 import logging
 import json
 from shared import constants
-from shared.constants import ESP8266_CONFIG_FILENAME
 from shared.utilities import start_debug
+from arduino_utils import (
+    parse_version_string, get_config_file_path, find_compatible_firmware,
+    ERROR_CONFIG_DIR_NOT_FOUND, ERROR_CONFIG_DIR_READ, ERROR_NO_COMPATIBLE_CONFIG,
+    ERROR_NO_CONFIG_FILES, ERROR_NO_VALID_CONFIG_FILES, ERROR_CONFIG_READ,
+    ERROR_NO_NEWER_CONFIG, ERROR_FIRMWARE_DIR_NOT_FOUND,
+    ERROR_NO_COMPATIBLE_FIRMWARE, ERROR_UNEXPECTED
+)
 
 start_debug(constants.DEBUG_MODULE_ZOOMREC_SERVER_APP, os.getenv('DEBUG_PORT_SERVER'))
 
@@ -23,9 +29,9 @@ app.logger.setLevel(logging.ERROR)  # Match Gunicorn's error level
 BASE_PATH = os.getenv('ZOOMREC_HOME')
 ZOOMREC_DB_PATH = os.path.join(BASE_PATH, constants.ZOOMREC_DB_FILENAME)
 
-FIRMWARE_PATH = os.path.join(BASE_PATH, constants.FIRMWARE_DIR)
+FIRMWARE_PATH = os.path.join(BASE_PATH, constants.ARDUINO_FIRMWARE_DIR)
 LOG_PATH = os.path.join(BASE_PATH, constants.LOG_DIR)
-CONFIG_PATH = os.path.join(BASE_PATH, constants.CONFIG_DIR)
+CONFIG_PATH = os.path.join(BASE_PATH, constants.ARDUINO_CONFIG_DIR)
 
 # Configure basic authentication
 app.config['BASIC_AUTH_USERNAME'] = os.getenv('SERVER_USERNAME')
@@ -86,7 +92,6 @@ def event_state_changed_callback(old_event, new_event):
         print(f"Error in event_state_changed_callback: {str(e)}")
 
 # Initialize event storage with the callback
-# events = CSVEvents(CSV_PATH, delimiter=';', stateChanged=state_changed_callback)
 events = SQLLiteEvents(ZOOMREC_DB_PATH, stateChanged=event_state_changed_callback)
 
 # Initialize user manager
@@ -105,11 +110,9 @@ def create_user():
         return jsonify({"error": str(e)}), 500
 
 # Retrieve a user by key or all users if no key is provided
-# get all users: curl -u myuser:mypassword "http://localhost:8081/user"
-# get with key: curl -u myuser:mypassword "http://localhost:8081/user/SXThWeEpL3aiEWJ6tbytMA"
-# get by login: curl -u myuser:mypassword "http://localhost:8081/user?login=johndoe"
-
-
+# Get all users:
+# curl -u myuser:mypassword \
+#   "http://localhost:8081/user"
 @app.route(f"{constants.ROUTE_USER}", methods=['GET'])
 @basic_auth.required
 def get_user():
@@ -167,22 +170,22 @@ def delete_user(key):
 
 # create event
 # curl -u myuser:mypassword \
-#      -X POST \
-#      -H "Content-Type: application/json" \
-#      -d '{
-#            "type": "1", 
-#            "title": "test", 
-#            "dtstart": "18/09/2025 21:45", 
-#            "timezone": "Australia/Sydney", 
-#            "duration": "30", 
-#            "rrule": "FREQ=DAILY;COUNT=2", 
-#            "id": "85703777235",
-#            "password": "password123",
-#            "url": "https://us05web.zoom.us/j/84548756066?pwd=35dp6HKKTU60LLOlShON9Kb8bMnNb4.1",
-#            "instruction": "record=true",
-#            "user": "telegram-chatid=12345678"
-#          }' \
-#      "http://localhost:8081/event"
+#   -X POST \
+#   -H "Content-Type: application/json" \
+#   -d '{
+#     "type": "1", 
+#     "title": "test", 
+#     "dtstart": "18/09/2025 21:45", 
+#     "timezone": "Australia/Sydney", 
+#     "duration": "30", 
+#     "rrule": "FREQ=DAILY;COUNT=2", 
+#     "id": "85703777235",
+#     "password": "password123",
+#     "url": "https://us05web.zoom.us/j/84548756066?pwd=35dp6HKKTU60LLOlShON9Kb8bMnNb4.1",
+#     "instruction": "record=true",
+#     "user": "telegram-chatid=12345678"
+#   }' \
+#   "http://localhost:8081/event"
 @app.route(f"{constants.ROUTE_EVENT}", methods=["POST"])
 def create_event():
     try:
@@ -213,7 +216,9 @@ def update_event(key):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# curl -u myuser:mypassword -X DELETE "http://localhost:8081/event/G4JbZYQN65Ba35jfbyiHsj"
+# curl -u myuser:mypassword \
+#   -X DELETE \
+#   "http://localhost:8081/event/G4JbZYQN65Ba35jfbyiHsj"
 @app.route(f"{constants.ROUTE_EVENT}/<key>", methods=["DELETE"])
 @basic_auth.required
 def delete_event(key):
@@ -223,8 +228,13 @@ def delete_event(key):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# all events: curl -u myuser:mypassword "http://localhost:8081/event"
-# with key: curl -u myuser:mypassword "http://localhost:8081/event/G4JbZYQN65Ba35jfbyiHsj"
+# Get all events:
+# curl -u myuser:mypassword \
+#   "http://localhost:8081/event"
+
+# Get event with key:
+# curl -u myuser:mypassword \
+#   "http://localhost:8081/event/G4JbZYQN65Ba35jfbyiHsj"
 @app.route(f"{constants.ROUTE_EVENT}", methods=['GET'])
 @basic_auth.required
 def get_event():
@@ -257,7 +267,12 @@ def get_event():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# curl -u myuser:mypassword "http://localhost:8081/event/next?client_id=550e8400-e29b-41d4-a716-446655440000&event_type=1&lead_time_sec=60&trail_time_sec=300"
+# curl -u myuser:mypassword \
+#   "http://localhost:8081/event/next?\
+#     client_id=550e8400-e29b-41d4-a716-446655440000&\
+#     event_type=1&\
+#     lead_time_sec=60&\
+#     trail_time_sec=300"
 @app.route(f"{constants.ROUTE_EVENT}/{constants.ROUTE_EVENT_NEXT}", methods=['GET'])
 @basic_auth.required
 def get_event_next():
@@ -294,46 +309,6 @@ def get_event_next():
         app.logger.error(f"Error getting next event: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
-def get_file_mtime(file_path):
-    mtime = os.path.getmtime(file_path)
-    timestamp = datetime.fromtimestamp(mtime)
-    timestamp = timestamp.replace(microsecond=0)
-    return timestamp
-
-def parse_version(version_string):
-    parts = version_string.split('-')
-    if len(parts) != 3:
-        raise ValueError('Invalid version string')
-    filename, date_str, time_str = parts
-    date_time_str = f"{date_str.strip()} {time_str.strip()}"
-    try:
-        timestamp = datetime.strptime(date_time_str, '%b %d %Y %H:%M:%S')
-        timestamp = timestamp.replace(microsecond=0)
-    except ValueError:
-        raise ValueError('Invalid version string')
-    return filename, timestamp
-
-# curl -H "x-ESP8266-version: ESP8266_Template.ino-May  7 2023-15:26:18" -u myuser:mypassword --output firmware.ino.bin http://localhost:8081/firmware
-@app.route(f"{constants.ROUTE_FIRMWARE}", methods=['GET'])
-@basic_auth.required
-def get_firmware():
-    firmware_version = request.headers.get('x-ESP8266-version')
-    if not firmware_version:
-        return 'Firmware version not specified', 400
-    try:
-        filename, firmware_version_mtime = parse_version(firmware_version)
-    except ValueError:
-        return 'Invalid firmware version', 400
-    filepath = os.path.join( FIRMWARE_PATH, filename + '.bin')
-    if not os.path.isfile(filepath):
-        return 'Firmware not found', 404
-    firmware_file_mtime = get_file_mtime(filepath)
-    # difference needs to be min 60s as there are some small time differences
-    if (firmware_file_mtime - firmware_version_mtime).total_seconds() >= 60:
-        return send_file(filepath, as_attachment=True, mimetype='application/octet-stream')
-    else:
-        return '', 304  # Not Modified
-    
 # curl -X POST http://localhost:8081/log \
 #     -H "Content-Type: application/json" \
 #     -u myuser:mypassword \
@@ -367,124 +342,74 @@ def log_handler():
         return jsonify({'error': str(e)}), 500
 
     return jsonify({'message': 'Log appended successfully'}), 200
-     
-# curl -H "x-ESP8266-version: ESP8266_Template.ino-May  7 2023-15:26:18" -u myuser:mypassword --output config.json http://localhost:8081/config
-def parse_firmware_version(version_str):
+
+# curl -H "x-ESP8266-version: ESP8266_zoomrec.ino-May  7 2023-15:26:18" \
+#   -u myuser:mypassword \
+#   --output firmware.ino.bin \
+#   http://localhost:8081/firmware
+@app.route(f"{constants.ROUTE_FIRMWARE}", methods=['GET'])
+@basic_auth.required
+def get_firmware():
     """
-    Parse firmware version string like 'ESP8266_zoomrec.ino-May 7 2023-15:26:18' into datetime.
-    Supports the format: 'ESP8266_zoomrec.ino-<month> <day> <year>-<hour>:<minute>:<second>'
-    Returns (config_name, datetime) or raises ValueError.
+    Handle firmware update requests from Arduino devices.
+    
+    The device sends its current firmware version in the x-ESP8266-version header.
+    The server will return a newer firmware if available, or a 304 Not Modified response
+    if the device already has the latest version.
     """
-    print(f"\n=== Parsing version string: '{version_str}'")
     try:
-        # First split into name and date parts
-        parts = version_str.split('-', 1)
-        if len(parts) < 2:
-            raise ValueError("Version string must contain a '-'")
-            
-        name_part = parts[0]
-        date_part = parts[1].strip()
+        firmware_version = request.headers.get('x-ESP8266-version')
+        if not firmware_version:
+            app.logger.error(f"{request.endpoint}: No firmware version specified in request headers")
+            return jsonify({"message": "Firmware version not specified"}), 400
         
-        print(f"Name part: '{name_part}'")
-        print(f"Date part: '{date_part}'")
-        
-        # Clean up the name (remove '.ino' if present)
-        config_name = name_part.split('.')[0]
-        print(f"Config name: '{config_name}'")
-        
-        # Parse the date part (format: 'May 7 2023-15:26:18')
-        try:
-            # Normalize spaces in the date part (replace multiple spaces with single space)
-            date_part = ' '.join(date_part.split())
-            print(f"Normalized date part: '{date_part}'")
-            
-            dt = datetime.strptime(date_part, '%b %d %Y-%H:%M:%S')
-            print(f"Successfully parsed datetime: {dt}")
-            return config_name, dt
-            
-        except ValueError as e:
-            print(f"Failed to parse date: {str(e)}")
-            raise ValueError(f"Invalid date format. Expected 'Month Day Year-HH:MM:SS', got: {date_part}") from e
-        
-    except (ValueError, IndexError) as e:
-        print(f"Error parsing version string: {str(e)}")
-        raise ValueError(f"Invalid firmware version format: {version_str}") from e
+        app.logger.debug(f"{request.endpoint}: Firmware update requested for {firmware_version}")
 
-def get_config_file_path(config_name, min_version_str=None):
-    """
-    Get the path to the most recent config file for the given config name.
-    
-    Args:
-        config_name: The base name of the config (e.g., 'ESP8266_zoomrec')
-        min_version_str: The minimum version string from the header (e.g., 'May 7 2022-15:26:18')
-        
-    Returns:
-        Path to the config file if found, None otherwise.
-    """
-    if not os.path.isdir(CONFIG_PATH):
-        return None, "unknown"
-        
-    # Find all directories that start with the config name
-    matching_dirs = [
-        d for d in os.listdir(CONFIG_PATH)
-        if d.startswith(config_name) and os.path.isdir(os.path.join(CONFIG_PATH, d))
-    ]
-    
-    if not matching_dirs:
-        return None, "unknown"
-    
-    # If min_version_str is provided, find the newest config where the header version >= directory version
-    if min_version_str:
         try:
-            # Parse the version from the header (this is the client's version)
-            _, header_version = parse_firmware_version(f"{config_name}.ino-{min_version_str}")
-            print(f"Client version from header: {header_version} (from {min_version_str})")
-            
-            # Find all directory versions that are <= the header version
-            compatible_dirs = []
-            for d in matching_dirs:
-                try:
-                    # Parse the version from the directory name (this is the minimum required version)
-                    dir_version_str = d.replace(f"{config_name}.ino-", "", 1)
-                    _, dir_version = parse_firmware_version(f"{config_name}.ino-{dir_version_str}")
-                    
-                    print(f"Checking if client version {header_version} >= directory version {dir_version}? {header_version >= dir_version}")
-                    
-                    # The client's version must be >= the directory version
-                    if header_version >= dir_version:
-                        compatible_dirs.append((d, dir_version))
-                except ValueError as e:
-                    print(f"Error parsing version from dir {d}: {str(e)}")
-                    continue
-            
-            if not compatible_dirs:
-                # Get the oldest directory version to show as minimum required version
-                try:
-                    oldest_dir = min(matching_dirs, key=lambda d: parse_firmware_version(f"{config_name}.ino-{d.replace(f'{config_name}.ino-', '')}")[1])
-                    _, min_required_version = parse_firmware_version(f"{config_name}.ino-{oldest_dir.replace(f'{config_name}.ino-', '')}")
-                    min_required_str = min_required_version.strftime('%b %d %Y-%H:%M:%S')
-                    print(f"Client version too old. Minimum required version: {min_required_str}")
-                    return None, min_required_str
-                except Exception as e:
-                    print(f"Error determining minimum required version: {str(e)}")
-                    return None, "unknown"
-                
-            # Sort compatible directories by version (newest first) and return the newest one
-            compatible_dirs.sort(key=lambda x: x[1], reverse=True)
-            best_match_dir = compatible_dirs[0][0]
-            config_file = os.path.join(CONFIG_PATH, best_match_dir, ESP8266_CONFIG_FILENAME)
-            print(f"Selected best matching config file: {config_file}")
-            return (config_file, None) if os.path.isfile(config_file) else (None, "unknown")
-            
+            # Parse the firmware name and version from the header
+            firmware_name, firmware_version_time = parse_version_string(firmware_version)
         except ValueError as e:
-            print(f"Error parsing version: {str(e)}")
-            return None, "unknown"
-    
-    # If no version check needed, just return the newest config
-    latest_dir = max(matching_dirs)
-    config_file = os.path.join(CONFIG_PATH, latest_dir, ESP8266_CONFIG_FILENAME)
-    return (config_file, None) if os.path.isfile(config_file) else (None, "unknown")
+            return jsonify({"message": "Invalid firmware version format"}), 400
+                    
+        # Find the most recent compatible firmware that's newer than the current version
+        firmware_file, error_dict = find_compatible_firmware(
+            FIRMWARE_PATH, 
+            firmware_name, 
+            firmware_version_time
+        )
+        
+        if not firmware_file and error_dict is not None:
+            error_code = error_dict.get('error_code')
+            error_msg = error_dict.get('error_msg', 'Unknown error')
 
+            # Map error codes to appropriate HTTP status codes
+            status_codes = {
+                ERROR_NO_COMPATIBLE_FIRMWARE: 304,  # Not Modified
+                ERROR_FIRMWARE_DIR_NOT_FOUND: 500,
+                ERROR_UNEXPECTED: 500
+            }
+
+            status_code = status_codes.get(error_code, 500)
+            app.logger.debug(error_msg)
+            return jsonify({"message": error_msg}), status_code
+        else:  
+            # Send the firmware file
+            return send_file(
+                firmware_file[0] if isinstance(firmware_file, tuple) else firmware_file,
+                as_attachment=True,
+                mimetype='application/octet-stream',
+                download_name=os.path.basename(firmware_file[0] if isinstance(firmware_file, tuple) else firmware_file)
+            )
+    except Exception as e:
+        message = "Error processing firmware update request"
+        app.logger.error(f"{request.endpoint}: {message}: {str(e)}", exc_info=True)
+        return jsonify({"message": message}), 500
+    
+# curl -v \
+#   -H "x-ESP8266-version: ESP8266_zoomrec.ino-May  7 2024-15:26:20" \
+#   -H "x-ESP8266-config-version: ESP8266_zoomrec.ino-May  7 2024-15:26:20" \
+#   -u myuser:mypassword \
+#   "http://localhost:8081/config"
 @app.route(f"{constants.ROUTE_CONFIG}", methods=['GET'])
 @basic_auth.required
 def get_config():
@@ -492,65 +417,72 @@ def get_config():
     Serve the configuration file.
     Headers:
         x-ESP8266-version: config_name-{date} (required)
-        If-Modified-Since: HTTP date (optional) - Only return config if it's newer than this timestamp
+        x-ESP8266-config-version: config-{date} (required) - Current config version on device
     """
     try:
-        # Get the config version from the header
-        full_version = request.headers.get('x-ESP8266-version')
-        if not full_version:
-            return 'Missing x-ESP8266-version header', 400
+        # Get the firmware version from the header
+        firmware_header = request.headers.get('x-ESP8266-version')
+        if not firmware_header:
+            app.logger.error(f"{request.endpoint}: Missing x-ESP8266-version header")
+            return jsonify({"message": "Missing x-ESP8266-version header"}), 400
             
-        # Get If-Modified-Since header if present
-        if_modified_since = request.headers.get('If-Modified-Since')
-        last_updated = None
-        if if_modified_since:
-            try:
-                # Parse HTTP date format (e.g., 'Wed, 21 Oct 2015 07:28:00 GMT')
-                last_updated = datetime.strptime(
-                    if_modified_since, 
-                    '%a, %d %b %Y %H:%M:%S GMT'
-                )
-            except ValueError as e:
-                return f'Invalid If-Modified-Since header. Use HTTP date format (e.g., Wed, 21 Oct 2015 07:28:00 GMT). Error: {str(e)}', 400
+        # Get the current config version from the device
+        config_header = request.headers.get('x-ESP8266-config-version')
+        if not config_header:
+            app.logger.error(f"{request.endpoint}: Missing x-ESP8266-config-version header")
+            return jsonify({"message": "Missing x-ESP8266-config-version header"}), 400
+
+        app.logger.debug(f"{request.endpoint}: Config update requested for {firmware_header} with version {config_header}")
         
         try:
-            # Parse the full version string to get config name and version parts
-            config_name, config_mtime = parse_firmware_version(full_version)
-            
-            # Extract just the version part (e.g., 'May 7 2023-15:26:18')
-            version_part = full_version.split('-', 1)[1] if '-' in full_version else ''
-            
-            # Get the config file path, ensuring it's >= the requested version
-            filepath, min_required = get_config_file_path(config_name, version_part)
-            if not filepath:
-                if min_required == "unknown":
-                    return f'No compatible config found for {config_name}', 404
-                else:
-                    return f'No compatible config found for {config_name} (minimum required version: {min_required})', 404
-                
+            # Parse the firmware version (format: name-{date})
+            firmware_name, firmware_version = parse_version_string(firmware_header)
+        except ValueError:
+            return jsonify({"message": "Invalid firmware version format"}), 400
+
+        try:
+            # Parse the current config version (format: name-{date})
+            _, current_config_version = parse_version_string(config_header)
         except ValueError as e:
-            return f'Invalid config version format: {str(e)}', 400
-        
-        # Get the config file's modification time
-        file_mtime = get_file_mtime(filepath)
-        
-        # Check if client has a cached version that's up to date
-        if last_updated is not None and file_mtime <= last_updated:
-            return '', 304  # Not Modified
+            return jsonify({"message": "Invalid config version format"}), 400
             
-        # If the config is from a versioned directory, skip the firmware version check
-        # as we've already found the most recent compatible version
-        if not filepath.startswith(os.path.join(CONFIG_PATH, config_name)):
-            # difference needs to be min 60s as there are some small time differences
-            if (file_mtime - config_mtime).total_seconds() < 60:
-                return '', 304  # Not Modified
-                
-        with open(filepath, 'r') as f:
-            config_data = json.load(f)
-        return jsonify(config_data)
+        # Get the config file path, ensuring it's compatible with the firmware and newer than current config
+        filepath, error_dict = get_config_file_path(
+            CONFIG_PATH,
+            firmware_name,
+            firmware_version,
+            current_config_version
+        )
+        
+        if not filepath and error_dict is not None:
+            error_code = error_dict.get('error_code', 'unknown_error')
+            error_msg = error_dict.get('error_msg', 'An unknown error occurred')
+            
+            # Map error codes to appropriate HTTP status codes
+            status_codes = {
+                ERROR_NO_NEWER_CONFIG: 304,  # Not Modified
+                ERROR_CONFIG_DIR_NOT_FOUND: 500,
+                ERROR_CONFIG_DIR_READ: 500,
+                ERROR_NO_COMPATIBLE_CONFIG: 404,
+                ERROR_NO_CONFIG_FILES: 204,
+                ERROR_NO_VALID_CONFIG_FILES: 204,
+                ERROR_CONFIG_READ: 500,
+                ERROR_UNEXPECTED: 500
+            }
+            
+            status_code = status_codes.get(error_code, 500)
+            app.logger.debug(error_msg)
+            return jsonify({"message": error_msg}), status_code
+        else:
+            # Send the config file
+            with open(filepath, 'r') as f:
+                config_data = json.load(f)
+                return jsonify(config_data), 200     
+
     except Exception as e:
-        app.logger.error(f"Error serving config file: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        error_msg = f"Error serving config file: {str(e)}"
+        app.logger.error(f"{request.endpoint}: {error_msg}", exc_info=True)
+        return jsonify({"message": "Error serving config file"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0',port=os.getenv("SERVER_PORT"))

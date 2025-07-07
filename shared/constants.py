@@ -11,8 +11,8 @@ AUDIO_DIR = 'audio'
 IMG_DIR = 'img'
 LOG_DIR = 'logs'
 DEBUG_DIR = 'screenshots'
-FIRMWARE_DIR = 'firmware'
-CONFIG_DIR = 'config'
+ARDUINO_FIRMWARE_DIR = 'arduino/firmware'
+ARDUINO_CONFIG_DIR = 'arduino/config'
 
 # log file names
 LOG_CLIENT_FILENAME = 'client_log.txt'
@@ -46,8 +46,9 @@ TERMINAL_HEIGHT = 7
 INTERVAL_CHECK_NEXT_EVENT = 15
 INTERVAL_CHECK_MEETING_ONGOING = 5
 
-# Config
-ESP8266_CONFIG_FILENAME = 'config.json'
+# arduino 
+ARDUINO_CONFIG_EXTENSION = '.json'
+ARDUINO_FIRMWARE_EXTENSION = '.ino.bin'
 
 # server routes
 ROUTE_EVENT = "/event"

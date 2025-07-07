@@ -4,7 +4,7 @@ from shared import constants
 #wsgi_app = 'zoomrec_server_app:app'
 bind = '0.0.0.0' + ':' + os.getenv("SERVER_PORT")
 worker_class = 'sync'
-loglevel = 'debug'
+loglevel = os.getenv("LOG_LEVEL", "INFO").lower()
 keepalive = 30  # seconds
 timeout = 120 # seconds - give ESP enough time to download new firmware
 
