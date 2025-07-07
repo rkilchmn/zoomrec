@@ -9,7 +9,7 @@ import logging
 import json
 from shared import constants
 from shared.utilities import start_debug
-from arduino_utils import (
+from server.arduino_utils import (
     parse_version_string, get_config_file_path, find_compatible_firmware,
     ERROR_CONFIG_DIR_NOT_FOUND, ERROR_CONFIG_DIR_READ, ERROR_NO_COMPATIBLE_CONFIG,
     ERROR_NO_CONFIG_FILES, ERROR_NO_VALID_CONFIG_FILES, ERROR_CONFIG_READ,
