@@ -445,7 +445,9 @@ def get_config():
             _, current_config_version = parse_version_string(config_header)
         except ValueError as e:
             return jsonify({"message": "Invalid config version format"}), 400
-            
+
+        app.logger.debug(f"config path: {CONFIG_PATH}")
+
         # Get the config file path, ensuring it's compatible with the firmware and newer than current config
         filepath, error_dict = get_config_file_path(
             CONFIG_PATH,
