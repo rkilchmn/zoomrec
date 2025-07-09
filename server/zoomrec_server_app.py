@@ -432,7 +432,7 @@ def get_config():
             app.logger.error(f"{request.endpoint}: Missing x-ESP8266-config-version header")
             return jsonify({"message": "Missing x-ESP8266-config-version header"}), 400
 
-        app.logger.debug(f"{request.endpoint}: Config update requested for {firmware_header} with version {config_header}")
+        app.logger.error(f"{request.endpoint}: Config update requested for {firmware_header} with version {config_header}")
         
         try:
             # Parse the firmware version (format: name-{date})
