@@ -24,7 +24,7 @@ app = Flask(__name__)
 # Get Gunicorn logger
 gunicorn_logger = logging.getLogger("gunicorn.error")
 app.logger.handlers = gunicorn_logger.handlers  # Use the same handlers
-app.logger.setLevel(logging.getLogger().level)
+app.logger.setLevel(os.getenv("LOG_LEVEL", "INFO"))
 
 BASE_PATH = os.getenv('ZOOMREC_HOME')
 ZOOMREC_DB_PATH = os.path.join(BASE_PATH, constants.ZOOMREC_DB_FILENAME)
