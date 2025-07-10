@@ -9,7 +9,7 @@ import logging
 import json
 from shared import constants
 from shared.utilities import start_debug
-from server.arduino_utils import (
+from shared.arduino_utils import (
     parse_version_string, get_config_file_path, find_compatible_firmware,
     ERROR_CONFIG_DIR_NOT_FOUND, ERROR_CONFIG_DIR_READ, ERROR_NO_COMPATIBLE_CONFIG,
     ERROR_NO_CONFIG_FILES, ERROR_NO_VALID_CONFIG_FILES, ERROR_CONFIG_READ,
@@ -21,10 +21,23 @@ start_debug(constants.DEBUG_MODULE_ZOOMREC_SERVER_APP, os.getenv('DEBUG_PORT_SER
 
 app = Flask(__name__)
 
-# Get Gunicorn logger
-gunicorn_logger = logging.getLogger("gunicorn.error")
-app.logger.handlers = gunicorn_logger.handlers  # Use the same handlers
-app.logger.setLevel(os.getenv("LOG_LEVEL", "INFO"))
+# Configure logging
+if __name__ != '__main__':
+    # When running with Gunicorn
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+    if gunicorn_logger.handlers:
+        app.logger.handlers = gunicorn_logger.handlers
+        app.logger.setLevel(gunicorn_logger.level)
+else:
+    # When running standalone
+    logging.basicConfig(
+        level=os.getenv("LOG_LEVEL", "INFO"),
+        format='%(asctime)s %(levelname)s %(message)s',
+        handlers=[
+            logging.StreamHandler()
+        ]
+    )
+    app.logger = logging.getLogger(__name__)
 
 BASE_PATH = os.getenv('ZOOMREC_HOME')
 ZOOMREC_DB_PATH = os.path.join(BASE_PATH, constants.ZOOMREC_DB_FILENAME)
@@ -445,8 +458,6 @@ def get_config():
             _, current_config_version = parse_version_string(config_header)
         except ValueError as e:
             return jsonify({"message": "Invalid config version format"}), 400
-
-        app.logger.debug(f"config path: {CONFIG_PATH}")
 
         # Get the config file path, ensuring it's compatible with the firmware and newer than current config
         filepath, error_dict = get_config_file_path(
