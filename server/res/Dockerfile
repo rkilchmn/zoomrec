@@ -19,6 +19,7 @@ RUN apt update && apt install -y \
     openssh-server \
     libpam-python \
     inetutils-syslogd \
+    curl \
     sudo \
     && rm -rf /var/lib/apt/lists/*
 

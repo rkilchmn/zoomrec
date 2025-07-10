@@ -21,7 +21,7 @@ services:
       - ${ZOOMREC_HOME}/zoomrec_server_db:/home/zoomrec/zoomrec_server_db
       - ${ZOOMREC_HOME}/email_types.yaml:/home/zoomrec/email_types.yaml:ro
       - ${ZOOMREC_HOME}/logs:/home/zoomrec/logs
-      - ${ZOOMREC_HOME}/firmware:/home/zoomrec/firmware
+      - ${ZOOMREC_HOME}/arduino:/home/zoomrec/arduino
       - /root/sftp-data:/root/sftp-data
     ports:
       - "${SERVER_PORT_EXPOSED}:${SERVER_PORT}"
