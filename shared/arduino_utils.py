@@ -18,12 +18,6 @@ ERROR_FIRMWARE_DIR_NOT_FOUND = "firmware_dir_not_found"
 ERROR_NO_COMPATIBLE_FIRMWARE = "no_compatible_firmware"
 ERROR_UNEXPECTED = "unexpected_error"
 
-# Version string pattern: 'name.ino-Mon DD YYYY-HH:MM:SS' or 'name-Mon DD YYYY-HH:MM:SS'
-VERSION_PATTERN = re.compile(
-    r'^(.+?)(?:\.\w+)?-'  # Name part (with optional .ext)
-    r'(\w{3}  \d{1,2} \d{4}-\d{1,2}:\d{2}:\d{2})'  # Date part
-)
-
 def parse_version_string(version_str: str) -> Tuple[str, datetime]:
     """
     Parse a version string into its components.
@@ -37,19 +31,15 @@ def parse_version_string(version_str: str) -> Tuple[str, datetime]:
     Raises:
         ValueError: If the version string is not in the expected format
     """
-    match = VERSION_PATTERN.match(version_str.strip())
-    if not match:
-        raise ValueError(f"Invalid version format. Expected 'name[-.ext]-Mon DD YYYY-HH:MM:SS'")
-    
-    name_part, date_part = match.groups()
-    base_name = name_part.split('.')[0]  # Remove any extension
+    # Split into parts using '.ino' as separator
+    (base_name, date_str) = version_str.strip().split('.ino-', 1)
     
     try:
-        # Parse the date part (format: 'Mon DD YYYY-HH:MM:SS')
-        version_time = datetime.strptime(date_part, '%b %d %Y-%H:%M:%S')
+        # Parse the date part (format: 'Mon DD YYYY-HH:MM:SS' with space-padded day)
+        version_time = datetime.strptime(date_str, '%b %d %Y-%H:%M:%S')
         return base_name, version_time.replace(microsecond=0)
     except ValueError as e:
-        raise ValueError(f"Invalid date format in version string: {date_part}") from e
+        raise ValueError(f"Invalid date format in version string: {date_str}") from e
 
 # Alias for backward compatibility
 parse_firmware_version = parse_version_string
