@@ -18,10 +18,8 @@ services:
       - SERVER_PORT=${SERVER_PORT}
       - SSH_PORT=${SSH_PORT}
     volumes:
-      - ${ZOOMREC_HOME}/zoomrec_server_db:/home/zoomrec/zoomrec_server_db
-      - ${ZOOMREC_HOME}/email_types.yaml:/home/zoomrec/email_types.yaml:ro
-      - ${ZOOMREC_HOME}/logs:/home/zoomrec/logs
-      - ${ZOOMREC_HOME}/arduino:/home/zoomrec/arduino
+      - ${ZOOMREC_HOME}/data:/home/zoomrec/data
+      - ${ZOOMREC_HOME}/config:/home/zoomrec/config
       - /root/sftp-data:/root/sftp-data
     ports:
       - "${SERVER_PORT_EXPOSED}:${SERVER_PORT}"
@@ -49,9 +47,8 @@ services:
       - SSH_SERVER_URL=${SSH_SERVER_URL}
       - WHISPER_API_URL=${WHISPER_API_URL}
     volumes:
-      - ${ZOOMREC_HOME}/recordings:/home/zoomrec/recordings
-      - ${ZOOMREC_HOME}/audio:/home/zoomrec/audio
-      - ${ZOOMREC_HOME}/logs:/home/zoomrec/logs
+      - ${ZOOMREC_HOME}/data:/home/zoomrec/data
+      - ${ZOOMREC_HOME}/config:/home/zoomrec/config
       - ${SSH_IDENTITY_FILE:-/home/zoomrec/.ssh/id_rsa}:/home/zoomrec/.ssh/id_rsa:ro
     ports:
       - "5901:5901"

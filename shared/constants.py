@@ -5,14 +5,22 @@ DURATION_FORMAT = '%H:%M:%S'
 TIME_FORMAT_LOG = "%Y-%m-%d_%H-%M-%S"
 
 # directories 
-SFTP_DATA_PATH = '/root/sftp-data'
-RECORDINGS_DIR = 'recordings'
-AUDIO_DIR = 'audio'
-IMG_DIR = 'img'
-LOG_DIR = 'logs'
-DEBUG_DIR = 'screenshots'
-ARDUINO_FIRMWARE_DIR = 'arduino/firmware'
-ARDUINO_CONFIG_DIR = 'arduino/config'
+SFTP_DATA_PATH = '/root/sftp-data' # mounted sftp data directory from host 
+RECORDINGS_DIR = 'data/recordings' # mounted recordings directory from host 
+AUDIO_DIR = 'config/audio' # mounted audio directory from host 
+IMG_DIR = 'img' # main image directory from docker image 
+CONFIG_IMG_DIR = 'config/img' # mounted image directory from host 
+LOG_DIR = 'data/logs' # mounted log directory from host 
+DEBUG_DIR = 'data/logs/screenshots' # mounted debug directory from host 
+ARDUINO_FIRMWARE_DIR = 'config/arduino/firmware' # mounted arduino firmware directory from host 
+ARDUINO_CONFIG_DIR = 'config/arduino/config' # mounted arduino config directory from host 
+
+# imap bot config
+EMAIL_CONFIG_FILE = 'config/email_types.yaml'
+
+# client automation config
+CLIENT_AUTOMATION_CONFIG_DIR = 'config'
+CLIENT_AUTOMATION_CONFIG_FILENAME = 'zoom_auto.yaml'
 
 # log file names
 LOG_CLIENT_FILENAME = 'client_log.txt'
@@ -29,7 +37,7 @@ SSH_IDENTITY_FILE = '.ssh/id_rsa'
 VIDEO_EXTENSION = 'mkv'
 
 # gunicorn api server
-ZOOMREC_DB_FILENAME = 'zoomrec_server_db'
+ZOOMREC_DB_FILENAME = 'data/zoomrec_server_db'
 
 # debugging
 DEBUG_MODULE_ZOOMREC_SERVER_APP = 'zoomrec_server_app'

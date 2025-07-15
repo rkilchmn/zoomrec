@@ -21,11 +21,52 @@ from shared.utilities import start_logging, start_debug
 from shared.ai_service import LLMChat
 from shared.events import Events, EventField, DATETIME_FORMAT, EventStatus
 from shared.events_api import EventAPI
-from shared.users import UserField
+from shared.users import UserField, Users
 from shared.users_api import UserAPI
 from shared.utilities import start_logging, start_debug
 from shared import constants
-from shared.constants import LOG_IMAP_BOT_FILENAME, DEBUG_MODULE_IMAP_BOT
+from shared.constants import LOG_IMAP_BOT_FILENAME, DEBUG_MODULE_IMAP_BOT, DATE_FORMAT, TIME_FORMAT
+from server.telegram_bot import CMD_ADD_EVENT
+
+def format_event_command(event: dict, user_login: str) -> str:
+    """
+    Format an event into a command string matching the Telegram bot's format.
+    
+    Args:
+        event: Dictionary containing event data with EventField keys
+        user_login: Login name of the user associated with the event
+        
+    Returns:
+        str: Formatted command string
+    """
+    try:
+        dt = datetime.strptime(event[EventField.DTSTART.value], DATETIME_FORMAT)
+        cmd_parts = [
+            f'/{CMD_ADD_EVENT}',
+            f'"{event[EventField.TITLE.value]}"',
+            f'"{user_login}"',
+            dt.strftime(DATE_FORMAT),
+            dt.strftime(TIME_FORMAT),
+            event[EventField.TIMEZONE.value],
+            str(event[EventField.DURATION.value]),
+        ]
+        
+        # Add ID/URL and password if available
+        if event.get(EventField.URL.value):
+            cmd_parts.append(f'"{event[EventField.URL.value]}"')
+        elif event.get(EventField.ID.value):
+            cmd_parts.append(event[EventField.ID.value])
+            if event.get(EventField.PASSWORD.value):
+                cmd_parts.append(event[EventField.PASSWORD.value])
+        
+        # Add instructions if available
+        if event.get(EventField.INSTRUCTION.value):
+            cmd_parts.append(f'"{event[EventField.INSTRUCTION.value]}"')
+        
+        return ' '.join(cmd_parts)
+    except Exception as e:
+        logging.error(f"Error formatting event command: {e}")
+        raise
 
 start_logging( LOG_IMAP_BOT_FILENAME)
 start_debug(DEBUG_MODULE_IMAP_BOT, os.getenv('DEBUG_PORT_SERVER'))
@@ -37,7 +78,7 @@ CONTENT_TYPE_CALENDAR = "text/calendar"
 # Get varsh
 BASE_PATH = os.getenv('ZOOMREC_HOME')
 
-EMAIL_TYPE_PATH = os.path.join(BASE_PATH, "email_types.yaml")
+EMAIL_TYPE_PATH = os.path.join(BASE_PATH, constants.EMAIL_CONFIG_FILE)
 IMAP_SERVER = os.getenv('IMAP_SERVER')
 IMAP_PORT = os.getenv('IMAP_PORT')
 EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS')
@@ -233,71 +274,84 @@ def run_bot():
                         # event should be stored 
                         for event in events:
                             if event['match']:
-                                dtstart = event[EventField.DTSTART.value]
-                                # if no date was provided, use todays date in events local timezone
-                                if dtstart.year == 1900 and dtstart.month == 1 and dtstart.day == 1:
-                                    today_local = datetime.now(ZoneInfo(event[EventField.TIMEZONE.value])).date()
-                                    dtstart = dtstart.replace(year=today_local.year, month=today_local.month, day=today_local.day)
-                                # add local timezone of event
-                                dtstart_local = dtstart.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
-                                event[EventField.DTSTART.value] = dtstart_local.strftime(DATETIME_FORMAT)
-
                                 eventStr = f"Event {event[EventField.TITLE.value]} {event[EventField.DTSTART.value]} {event[EventField.TIMEZONE.value]}"
-                                try:
-                                    # lookup user by login
-                                    user = None
-                                    try:
-                                        with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
-                                            user = user_api.get(filters=[[UserField.LOGIN.value, '=', type['user_login']]])[0]
-                                    except Exception as error:
-                                        logging.error( f"User {type['user_login']} not found.")
-                                        continue
-                                
-                                    event[EventField.USER_KEY.value] = user[UserField.KEY.value]
-                                    # validate event
-                                    event = Events.validate( event)
-                                
-                                    # lookup existing event 
-                                    with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
-                                        filter_existing = None
-                                        existing_event = None
-                                        if event[EventField.ID.value]:
-                                            # Filter to get event by ID
-                                            filter_existing = [EventField.ID.value, "=", event[EventField.ID.value]]
-                                        elif event[EventField.URL.value]:
-                                            # Filter to get event by ID
-                                            filter_existing = [EventField.URL.value, "=", event[EventField.URL.value]]
-                                        
-                                        if filter_existing:
-                                            try:                                               
-                                                existing_events = event_api.get(filters=[filter_existing])
-                                                if len(existing_events) == 1:
-                                                    existing_event = existing_events[0]
-                                                elif len(existing_events) == 0:
-                                                    logging.info( f"Existing Event with filter {filter_existing} not found.")
-                                                else:
-                                                    logging.warning( f"Multiple existing Events with filter {filter_existing} found: {len(existing_events)}. Not updating existing events.")
-                                            except Exception as error:
-                                                logging.error( f"Existing Event with filter {filter_existing} not found. {error}", exc_info=True)
 
-                                        
-                                            if existing_event:
-                                                if event['cancelled']:
-                                                    event_api.delete(existing_event[EventField.KEY.value])
-                                                    logging.info( f"{eventStr} deleted due to cancellation")
-                                                else:
-                                                    event[EventField.KEY.value] = existing_event[EventField.KEY.value]
-                                                    event_api.update(event)
-                                                    logging.info( f"{eventStr} updated")
-                                            else:
-                                                if not event['cancelled']:
-                                                    event_api.create(event)
-                                                    logging.info( f"{eventStr} added")
-                                                else:
-                                                    logging.info( f"{eventStr} was cancelled and therefore not added")
-                                
+                                # lookup user by login
+                                user = None
+                                try:
+                                    with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+                                        user = user_api.get(filters=[[UserField.LOGIN.value, '=', type['user_login']]])[0]
+                                except Exception as error:
+                                    logging.error( f"User {type['user_login']} not found.")
+                                    continue
+                            
+                                event[EventField.USER_KEY.value] = user[UserField.KEY.value]
+
+                                # if no date was provided, use todays date in events local timezone
+                                if event[EventField.TIMEZONE.value] is None:
+                                    dtstart = event[EventField.DTSTART.value]
+                                    if dtstart.year == 1900 and dtstart.month == 1 and dtstart.day == 1:
+                                        today_local = datetime.now(ZoneInfo(event[EventField.TIMEZONE.value])).date()
+                                        dtstart = dtstart.replace(year=today_local.year, month=today_local.month, day=today_local.day)
+
+                                    # add local timezone of event
+                                    dtstart_local = dtstart.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
+                                    event[EventField.DTSTART.value] = dtstart_local.strftime(DATETIME_FORMAT)
+
+                                # validate event
+                                try:
+                                    event = Events.validate( event)
                                 except ValueError as error:
-                                    logging.error( f"Validation error {eventStr}. {error.args[0]}")
+                                    # Format the event as a command string before continuing
+                                    try:
+                                        logging.error(f"Event '{eventStr}' failed validation: '{error}'")
+                                        Users.send_message(user, f"Event '{eventStr}' not valid. {error}")
+                                        # format add event command to help user create the event manually
+                                        add_event_msg = format_event_command(event, type['user_login'])
+                                        Users.send_message(user, f"{add_event_msg}")
+                                    except Exception as format_error:
+                                        logging.error(f"Error formatting event: {format_error}")
+                                        
+                                    continue
+                            
+                                # lookup existing event 
+                                with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
+                                    filter_existing = None
+                                    existing_event = None
+                                    if event[EventField.ID.value]:
+                                        # Filter to get event by ID
+                                        filter_existing = [EventField.ID.value, "=", event[EventField.ID.value]]
+                                    elif event[EventField.URL.value]:
+                                        # Filter to get event by ID
+                                        filter_existing = [EventField.URL.value, "=", event[EventField.URL.value]]
+                                    
+                                    if filter_existing:
+                                        try:                                               
+                                            existing_events = event_api.get(filters=[filter_existing])
+                                            if len(existing_events) == 1:
+                                                existing_event = existing_events[0]
+                                            elif len(existing_events) == 0:
+                                                logging.info( f"Existing Event with filter {filter_existing} not found.")
+                                            else:
+                                                logging.warning( f"Multiple existing Events with filter {filter_existing} found: {len(existing_events)}. Not updating existing events.")
+                                        except Exception as error:
+                                            logging.error( f"Existing Event with filter {filter_existing} not found. {error}", exc_info=True)
+
+                                    
+                                        if existing_event:
+                                            if event['cancelled']:
+                                                event_api.delete(existing_event[EventField.KEY.value])
+                                                logging.info( f"{eventStr} deleted due to cancellation")
+                                            else:
+                                                event[EventField.KEY.value] = existing_event[EventField.KEY.value]
+                                                event_api.update(event)
+                                                logging.info( f"{eventStr} updated")
+                                        else:
+                                            if not event['cancelled']:
+                                                event_api.create(event)
+                                                logging.info( f"{eventStr} added")
+                                            else:
+                                                logging.info( f"{eventStr} was cancelled and therefore not added")
             
                         # Mark the message as read
                         imap.store(msg_id, '+FLAGS', '\\Seen')

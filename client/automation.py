@@ -17,24 +17,35 @@ class Automation:
     Class for handling YAML configuration operations automation.
     """
     
-    def __init__(self, config_path=None, img_path=None, audio_path=None, debug_path=None):
+    def __init__(self, base_path):
         """
         Initialize the Automation class
         
         Args:
-            img_path: Path to the image directory
-            debug_path: Path to the debug directory
-            config_path: Path to the YAML configuration file (optional)
-            audio_path: Path to the audio directory (optional)
+            base_path: Base directory path where all other paths will be relative to
         """
         self.config = None
-        self.img_path = img_path
-        self.debug_path = debug_path
-        self.audio_path = audio_path
+        self.base_path = base_path
         
-        # Load configuration if config_path is provided
-        if config_path:
-            self.load_config(config_path)
+        # Import constants
+        from shared import constants
+        
+        # Set up paths using constants
+        self.config_img_path = os.path.join(base_path, constants.CONFIG_IMG_DIR)
+        self.img_path = os.path.join(base_path, constants.IMG_DIR)
+        self.debug_path = os.path.join(base_path, constants.DEBUG_DIR)
+        self.audio_path = os.path.join(base_path, constants.AUDIO_DIR)
+        self.config_path = os.path.join(base_path, constants.CLIENT_AUTOMATION_CONFIG_DIR, constants.CLIENT_AUTOMATION_CONFIG_FILENAME)
+        
+        # Load configuration if it exists
+        if os.path.exists(self.config_path):
+            self.load_config(self.config_path)
+        else:
+            # Fallback to config file in the same directory as the script
+            fallback_config = os.path.join(os.path.dirname(__file__), constants.CLIENT_AUTOMATION_CONFIG_FILENAME)
+            if os.path.exists(fallback_config):
+                self.config_path = fallback_config
+                self.load_config(self.config_path)
     
     def load_config(self, file_path):
         """
@@ -47,7 +58,12 @@ class Automation:
             The parsed YAML content as a dictionary
         """
         self.config = self.read_config(file_path)
-        return self.config
+        if self.config is None:
+            logging.error(f"Error reading Automation YAML configuration file: {file_path}")
+            return None
+        else:
+            logging.info(f"Loaded Automation YAML configuration file: {file_path}")
+            return self.config
 
     @staticmethod
     def str_to_bool(str):
@@ -75,7 +91,7 @@ class Automation:
                 config = yaml.safe_load(file)
                 return config
         except Exception as e:
-            logging.error(f"Error reading YAML file: {e}")
+            logging.error(f"Error reading Automation YAML configuration file: {file_path}: {e}")
             return None
     
     @staticmethod
@@ -105,6 +121,30 @@ class Automation:
                 logging.warning(f"Variable {var_name} not found in provided variables")
         
         return result
+    
+    def get_image_path(self, image_filename):
+        """
+        Find the full path to an image file by checking both config and default image directories.
+        
+        Args:
+            image_filename: The name of the image file to find
+            
+        Returns:
+            str: Full path to the image file if found, None otherwise
+        """
+        # First check in config image path (mounted from host)
+        config_img = os.path.join(self.config_img_path, image_filename)
+        if os.path.exists(config_img):
+            return config_img
+            
+        # If not found, check in default image path (from docker image)
+        default_img = os.path.join(self.img_path, image_filename)
+        if os.path.exists(default_img):
+            return default_img
+            
+        # Image not found in either location
+        logging.error(f"Image '{image_filename}' not found in either {self.config_img_path} or {self.img_path}")
+        return None
     
     @staticmethod
     def wrap(func, *args, **kwargs):
@@ -136,8 +176,10 @@ class Automation:
         logging.debug(f"{breadcrumbs}")
 
         success = False
-        if self.img_path is None:
-            logging.error("Image path not set.")
+        image_path = self.get_image_path(image)
+        if image_path is None:
+            logging.error(f"Image '{image}' not found")
+            return False
         else:
             for i in range(iterate):
                 result = self.wrap(pyautogui.locateCenterOnScreen, image_path, confidence=confidence, minSearchTime=minSearchTime)
@@ -163,7 +205,7 @@ class Automation:
                 if i < iterate - 1 and sleep_time > 0:
                     time.sleep(sleep_time)
 
-        logging.debug(f"Image: {image} result after {i+1} of {iterate} iterations: {result} success: {success}")
+        logging.debug(f"Image: {image} result after {i+1} of {iterate} iterations: {result} success: {success} ")
 
         if success:
             # Handle on_success

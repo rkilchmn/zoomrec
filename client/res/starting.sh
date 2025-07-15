@@ -32,7 +32,7 @@ echo -e "\nConnect to $VNC_IP:$VNC_PORT"
 # xauth add ${HOST}:0 . $(xxd -l 16 -p /dev/urandom)
 
 # Start xfce4
-"$START_DIR"/xfce.sh &> /home/zoomrec/recordings/xfce.log
+"$START_DIR"/xfce.sh &> /home/zoomrec/data/logs/xfce.log
 
 # Cleanup to ensure pulseaudio is stateless
 rm -rf /var/run/pulse /var/lib/pulse /home/zoomrec/.config/pulse
@@ -61,13 +61,13 @@ sleep 5
 if [[ "$LOG_LEVEL" == "DEBUG" ]]; then
   # Wait if something failed
   echo -e "Starting zoomrec.py with DEBUG mode" 
-  xfce4-terminal -H --geometry 85x7+0 --title=zoomrec --hide-toolbar --hide-menubar --hide-scrollbar --hide-borders --zoom=-3 -e "python3 -u ${HOME}/client/zoomrec_client.py" 2>&1 | tee ${HOME}/logs/starting_log.txt
+  xfce4-terminal -H --geometry 85x7+0 --title=zoomrec --hide-toolbar --hide-menubar --hide-scrollbar --hide-borders --zoom=-3 -e "python3 -u ${HOME}/client/zoomrec_client.py" 2>&1 | tee ${HOME}/data/logs/starting_log.txt
   # allow for some time to see/copy error message in the xfce4-terminal
   sleep 120
 else
   echo -e "Starting zoomrec.py with normal mode" 
   # Exit container if something failed
-  xfce4-terminal --geometry 85x7+0 --title=zoomrec --hide-toolbar --hide-menubar --hide-scrollbar --hide-borders --zoom=-3 -e "python3 -u ${HOME}/client/zoomrec_client.py" 2>&1 | tee ${HOME}/logs/starting.log.txt
+  xfce4-terminal --geometry 85x7+0 --title=zoomrec --hide-toolbar --hide-menubar --hide-scrollbar --hide-borders --zoom=-3 -e "python3 -u ${HOME}/client/zoomrec_client.py" 2>&1 | tee ${HOME}/data/logs/starting.log.txt
 fi
 # docker container restars
 echo -e "End of starting script - restarting container"

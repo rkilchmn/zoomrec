@@ -17,7 +17,7 @@ import os
 
 from shared.events_api import EventAPI
 from shared.users_api import UserAPI
-from shared.events import Events, EventField, EventStatus
+from shared.events import Events, EventField, EVENT_DEFAULT_VALUES
 from shared.users import MessengerAttribute, Users, UserField, UserRole
 from shared.constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT, LOG_TELEGRAM_BOT_FILENAME, DEBUG_MODULE_TELEGRAM_BOT   
 from shared.utilities import start_logging, start_debug
@@ -66,7 +66,7 @@ EXAMPLE_MODIFY_EVENT   = f'/{CMD_MODIFY_EVENT} 2 title "harbour bridge" timezone
 EXAMPLE_DELETE_EVENT   = f'/{CMD_DELETE_EVENT} "harbour bridge"'
 
 # Usage help for event commands
-USAGE_ADD_EVENT =       f"/{CMD_ADD_EVENT} <title> <user login> <date> <time> <timezone> <duration> <id/url> [required with id: <password>] [optional instruction, default is 'record': <record,transcribe,upload>]\n" + \
+USAGE_ADD_EVENT =       f"/{CMD_ADD_EVENT} <title> <user login> <date> <time> <timezone> <duration> <id/url> [required with id: <password>] [optional instruction, default is '{EVENT_DEFAULT_VALUES[EventField.INSTRUCTION.value]}']\n" + \
                         f"example: {EXAMPLE_ADD_EVENT1}\n" + \
                         f"example:{EXAMPLE_ADD_EVENT2}"
 USAGE_LIST_EVENT =      f"/{CMD_LIST_EVENT} [optional: <page number> or <search term>] - list a particular page if number of events exceeds {PAGE_EVENTS} or provide a search term\n" + \

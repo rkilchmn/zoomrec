@@ -341,9 +341,8 @@ def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lead, dte
             }
             
             # Create global instance of Automation with proper configuration and load the YAML config
-            config_path = os.path.join( SCRIPT_DIR, "zoom_auto.yaml")
-            auto_yaml = Automation(config_path=config_path, img_path=IMG_PATH, audio_path=AUDIO_PATH, debug_path=DEBUG_PATH)
-
+            # Initialize Automation with base path
+            auto_yaml = Automation(BASE_PATH)
             # Join meeting executing automation by config
             joined = auto_yaml.execute_instruction('join', variables)
             
