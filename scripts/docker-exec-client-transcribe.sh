@@ -1,5 +1,5 @@
 #!/bin/bash
-usage="Usage: $1 <meeting-base-name>"
+usage="Usage: $0 <meeting-base-name>"
 
 if [ "$#" -ne 1 ]; then
     echo "$usage"
