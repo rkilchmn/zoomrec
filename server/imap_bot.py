@@ -33,37 +33,67 @@ def format_event_command(event: dict, user_login: str) -> str:
     Format an event into a command string matching the Telegram bot's format.
     
     Args:
-        event: Dictionary containing event data with EventField keys
+        event: Dictionary containing event data with EventField keys.
+               Fields may be empty strings if no valid value is available.
         user_login: Login name of the user associated with the event
         
     Returns:
-        str: Formatted command string
+        str: Formatted command string with all fields, including empty ones
+        
+    Raises:
+        ValueError: If the event dictionary is invalid or missing required keys
     """
+    if not event or not isinstance(event, dict):
+        raise ValueError("Event must be a non-empty dictionary")
+    
+    if not user_login or not isinstance(user_login, str):
+        raise ValueError("User login must be a non-empty string")
+    
     try:
-        dt = datetime.strptime(event[EventField.DTSTART.value], DATETIME_FORMAT)
+        # Convert all values to strings, using <fieldname> if empty
+        def safe_get(field, default=""):
+            value = event.get(field.value, default)
+            return str(value) if value else f"<{field.value.lower()}>"
+            
+        # Get datetime or use <timestamp> if invalid
+        dt_str = safe_get(EventField.DTSTART)
+        try:
+            dt = datetime.strptime(dt_str, DATETIME_FORMAT) if dt_str and "<" not in dt_str else None
+        except ValueError:
+            dt = None
+        
+        # Build command parts with all fields, using <fieldname> if empty
         cmd_parts = [
-            f'/{CMD_ADD_EVENT}',
-            f'"{event[EventField.TITLE.value]}"',
-            f'"{user_login}"',
-            dt.strftime(DATE_FORMAT),
-            dt.strftime(TIME_FORMAT),
-            event[EventField.TIMEZONE.value],
-            str(event[EventField.DURATION.value]),
+            f"/{CMD_ADD_EVENT}",
+            f'"{safe_get(EventField.TITLE)}"',
+            f'"{user_login.strip()}"',
+            dt.strftime(DATE_FORMAT) if dt else "<date>",
+            dt.strftime(TIME_FORMAT) if dt else "<time>",
+            safe_get(EventField.TIMEZONE),
+            safe_get(EventField.DURATION),
         ]
         
-        # Add ID/URL and password if available
-        if event.get(EventField.URL.value):
-            cmd_parts.append(f'"{event[EventField.URL.value]}"')
-        elif event.get(EventField.ID.value):
-            cmd_parts.append(event[EventField.ID.value])
-            if event.get(EventField.PASSWORD.value):
-                cmd_parts.append(event[EventField.PASSWORD.value])
+        # Add ID/URL and password if the key exists
+        url = safe_get(EventField.URL)
+        event_id = safe_get(EventField.ID)
         
-        # Add instructions if available
-        if event.get(EventField.INSTRUCTION.value):
-            cmd_parts.append(f'"{event[EventField.INSTRUCTION.value]}"')
+        if EventField.URL.value in event:
+            cmd_parts.append(f'"{url}"' if "<" not in url else f"<{EventField.URL.value.lower()}>")
+        elif EventField.ID.value in event:
+            cmd_parts.append(event_id if "<" not in event_id else f"<{EventField.ID.value.lower()}>")
+            if EventField.PASSWORD.value in event:
+                password = safe_get(EventField.PASSWORD)
+                cmd_parts.append(password if "<" not in password else f"<{EventField.PASSWORD.value.lower()}>")
         
-        return ' '.join(cmd_parts)
+        # Add instructions if the key exists
+        if EventField.INSTRUCTION.value in event:
+            instruction = safe_get(EventField.INSTRUCTION)
+            cmd_parts.append(f'"{instruction}"' if "<" not in instruction else f"<{EventField.INSTRUCTION.value.lower()}>")
+        
+        # Join parts, replacing any empty parts with empty strings
+        # This ensures the command structure is maintained even with missing data
+        return ' '.join(part if part is not None else '' for part in cmd_parts)
+        
     except Exception as e:
         logging.error(f"Error formatting event command: {e}")
         raise
@@ -288,15 +318,15 @@ def run_bot():
                                 event[EventField.USER_KEY.value] = user[UserField.KEY.value]
 
                                 # if no date was provided, use todays date in events local timezone
-                                if event[EventField.TIMEZONE.value] is None:
-                                    dtstart = event[EventField.DTSTART.value]
-                                    if dtstart.year == 1900 and dtstart.month == 1 and dtstart.day == 1:
+                                dtstart = event[EventField.DTSTART.value]
+                                if dtstart.year == 1900 and dtstart.month == 1 and dtstart.day == 1:
+                                    if event[EventField.TIMEZONE.value] is not None:
                                         today_local = datetime.now(ZoneInfo(event[EventField.TIMEZONE.value])).date()
                                         dtstart = dtstart.replace(year=today_local.year, month=today_local.month, day=today_local.day)
-
-                                    # add local timezone of event
-                                    dtstart_local = dtstart.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
-                                    event[EventField.DTSTART.value] = dtstart_local.strftime(DATETIME_FORMAT)
+                                        # add local timezone of event
+                                        dtstart = dtstart.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
+                                # convert to date/time string (as events exoects that)
+                                event[EventField.DTSTART.value] = dtstart.strftime(DATETIME_FORMAT)
 
                                 # validate event
                                 try:
