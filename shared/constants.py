@@ -4,23 +4,25 @@ DATETIME_FORMAT = DATE_FORMAT + ' ' + TIME_FORMAT
 DURATION_FORMAT = '%H:%M:%S'
 TIME_FORMAT_LOG = "%Y-%m-%d_%H-%M-%S"
 
-# directories 
-SFTP_DATA_PATH = '/root/sftp-data' # mounted sftp data directory from host 
-RECORDINGS_DIR = 'data/recordings' # mounted recordings directory from host 
-AUDIO_DIR = 'config/audio' # mounted audio directory from host 
-IMG_DIR = 'img' # main image directory from docker image 
-CONFIG_IMG_DIR = 'config/img' # mounted image directory from host 
-LOG_DIR = 'data/logs' # mounted log directory from host 
-DEBUG_DIR = 'data/logs/screenshots' # mounted debug directory from host 
-ARDUINO_FIRMWARE_DIR = 'config/arduino/firmware' # mounted arduino firmware directory from host 
-ARDUINO_CONFIG_DIR = 'config/arduino/config' # mounted arduino config directory from host 
+# config directories 
+CONFIG_DIR = 'config' # client/server
+AUDIO_DIR = 'config/audio' # audio for automation (client only)
+CONFIG_IMG_DIR = 'config/img' # custom images for automation (client only)
+ARDUINO_FIRMWARE_DIR = 'config/arduino/firmware' # arduino firmware (server only)
+ARDUINO_CONFIG_DIR = 'config/arduino/config' # arduino config (server only)
+SFTP_CONFIG_DIR = 'config/sftp' # sftp config (client/server)
+
+# data directories 
+RECORDINGS_DIR = 'data/recordings' # recordings (client only)
+LOG_DIR = 'data/logs' # logs (client/server)
+DEBUG_DIR = 'data/logs/screenshots' # debug (client only)
 
 # imap bot config
-EMAIL_CONFIG_FILE = 'config/email_types.yaml'
+EMAIL_CONFIG_FILE = 'config/email_types.yaml' # email types (server only)
 
-# client automation config
-CLIENT_AUTOMATION_CONFIG_DIR = 'config'
+# automation config (client only)
 CLIENT_AUTOMATION_CONFIG_FILENAME = 'zoom_auto.yaml'
+IMG_DIR = 'img' # default images for automation (client only)
 
 # log file names
 LOG_CLIENT_FILENAME = 'client_log.txt'
@@ -31,9 +33,13 @@ LOG_GUNICORN_ACCESS_LOG_FILENAME = 'gunicorn_access_log.txt'
 LOG_GUNICORN_ERROR_LOG_FILENAME = 'gunicorn_error_log.txt'
 LOG_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 
-# OTHER
+# sftp
+SFTP_DATA_PATH = '/root/sftp-data' # mounted sftp data directory from host 
 SFTP_ADMIN_USERNAME = 'zoomrec_admin'
-SSH_IDENTITY_FILE = '.ssh/id_rsa'
+SFTP_ADMIN_USER_IDENTITY_FILE = 'config/sftp/zoomrec_admin_id'    
+SFTP_HOST_KEY_FILE = 'config/sftp/sftp_host_key'
+
+# recording
 VIDEO_EXTENSION = 'mkv'
 
 # gunicorn api server

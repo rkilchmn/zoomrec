@@ -31,7 +31,7 @@ fi
 # Transfer files via SFTP
 for file in "${FILE_LIST[@]}"; do
     echo "Transferring $file to $SSH_SERVER_URL:$TARGET_DIR..."
-    sftp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "$IDENTITY_FILE" "sftp://$SSH_SERVER_URL" <<EOF
+    sftp -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/home/zoomrec/config/sftp/known_hosts -i "/home/zoomrec/config/sftp/zoomrec_admin_id" "sftp://$SSH_SERVER_URL" <<EOF
 cd $TARGET_DIR
 put "$file"
 EOF

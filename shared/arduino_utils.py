@@ -31,18 +31,15 @@ def parse_version_string(version_str: str) -> Tuple[str, datetime]:
     Raises:
         ValueError: If the version string is not in the expected format
     """
-    # Split into parts using '.ino' as separator
-    (base_name, date_str) = version_str.strip().split('.ino-', 1)
     
     try:
+        # Split into parts using '.ino' as separator
+        (base_name, date_str) = version_str.strip().split('.ino-', 1)
         # Parse the date part (format: 'Mon DD YYYY-HH:MM:SS' with space-padded day)
         version_time = datetime.strptime(date_str, '%b %d %Y-%H:%M:%S')
         return base_name, version_time.replace(microsecond=0)
     except ValueError as e:
         raise ValueError(f"Invalid date format in version string: {date_str}") from e
-
-# Alias for backward compatibility
-parse_firmware_version = parse_version_string
 
 def get_config_file_path(CONFIG_PATH: str, firmware_name: str, firmware_version: datetime, current_config_version: datetime) -> Tuple[Optional[str], Optional[dict]]:
     """
@@ -118,7 +115,7 @@ def get_config_file_path(CONFIG_PATH: str, firmware_name: str, firmware_version:
                     newest_config = config_file
                     
             except ValueError:
-                continue
+                raise ValueError(f"Invalid date format in config file name: {config_file}")         
         
         if newest_config is None:
             return None, {"error_code": ERROR_NO_VALID_CONFIG_FILES, "error_msg": f"No valid config files found in directory {newest_dir}"}
@@ -163,18 +160,14 @@ def find_compatible_firmware(firmware_path: str, firmware_name: str,
         
         for filepath in firmware_files:
             try:
-                # Extract version from filename
-                base_name = os.path.basename(filepath)
-                version_str = base_name.replace(f"{firmware_name}.ino-", "").replace(ARDUINO_FIRMWARE_EXTENSION, "")
-                
-                # Parse the version datetime using our unified parser
-                _, version_time = parse_version_string(f"{firmware_name}-{version_str}")
+                _, version_time = parse_version_string( os.path.basename(filepath).replace(ARDUINO_FIRMWARE_EXTENSION, ""))
                 
                 # Only consider versions newer than current version
                 if version_time > current_version_time:
                     compatible_firmware.append((filepath, version_time))
                     
-            except ValueError:
+            except ValueError as e:
+                app.logger.error(f"Error parsing firmware version: {str(e)}")
                 continue
         
         if not compatible_firmware:

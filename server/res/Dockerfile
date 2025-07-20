@@ -84,6 +84,7 @@ RUN sed -i "s/#UsePAM no/UsePAM yes/" /etc/ssh/sshd_config && \
     sed -i "s/#ChallengeResponseAuthentication yes/ChallengeResponseAuthentication yes/" /etc/ssh/sshd_config && \
     sed -i "s/^#SyslogFacility.*$/SyslogFacility AUTH/" /etc/ssh/sshd_config && \
     sed -i "s/^#LogLevel.*$/LogLevel DEBUG/" /etc/ssh/sshd_config && \
+    echo "HostKey ${HOME}/config/sftp/sftp_host_key" >> /etc/ssh/sshd_config && \
     echo "Subsystem sftp internal-sftp -l DEBUG" >> /etc/ssh/sshd_config && \
     echo "Match User *,!zoomrec_admin" >> /etc/ssh/sshd_config && \
     echo "    ChrootDirectory /root/sftp-data/%u" >> /etc/ssh/sshd_config && \

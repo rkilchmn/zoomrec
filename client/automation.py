@@ -35,7 +35,7 @@ class Automation:
         self.img_path = os.path.join(base_path, constants.IMG_DIR)
         self.debug_path = os.path.join(base_path, constants.DEBUG_DIR)
         self.audio_path = os.path.join(base_path, constants.AUDIO_DIR)
-        self.config_path = os.path.join(base_path, constants.CLIENT_AUTOMATION_CONFIG_DIR, constants.CLIENT_AUTOMATION_CONFIG_FILENAME)
+        self.config_path = os.path.join(base_path, constants.CONFIG_DIR, constants.CLIENT_AUTOMATION_CONFIG_FILENAME)
         
         # Load configuration if it exists
         if os.path.exists(self.config_path):

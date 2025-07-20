@@ -150,7 +150,7 @@
 					"--model", "google/gemini-2.0-flash-exp:free",
 					"--api-url", "https://openrouter.ai/api/v1",
 					"--api-key-env", "AI_API_KEY",
-					"--prompt", "You are a helpful assistant and professional yoga, pilates and meditation instructor. Analyze the following transcript of a group class and create a html:\\n1. Identify all different sequences elements.\\n2. Summarize each segment with:\\n   -  Segment Title and timestamp range \\n   - Very Detailed teaching instructions \\n - seperately provide verbatim of cues, modifications/variations and other spiritual or other relevant quotes\\n- Link to recording file (example): <a href=\"vlc://{recording-link}?start-time=<replace with start timestamp in seconds>\">Open in VLC</a>)\\n\\nTranscript (as VTT file with timestamp format Minutes:Seconds:Milliseconds)\\n{content} ",	
+					"--prompt", "You are a helpful assistant and professional yoga, pilates and meditation instructor. Analyze the following transcript of a group class and create a html:\\n1. Identify all different sequences elements.\\n2. Summarize each segment with:\\n   -  Segment Title and timestamp range \\n   - Very Detailed teaching instructions \\n - seperately provide verbatim of cues, modifications/variations and other spiritual or other relevant quotes\\n - Link to recording file in segment header: <a href=\"vlc://{recording-link}?start-time=<replace with start timestamp in seconds>\">Open in VLC</a>)\\n\\nTranscript (as VTT file with timestamp format Minutes:Seconds:Milliseconds)\\n{content} ",	
 					"--content-filename-regex", "\\.mkv$|||.vtt",
 					"--recording-link-regex", "^/mnt/([a-zA-Z])/([^?]+)\\.\\w+$|||\\1/\\2.mkv",
 					"--output-extension", ".html"

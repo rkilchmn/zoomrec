@@ -49,7 +49,6 @@ services:
     volumes:
       - ${ZOOMREC_HOME}/data:/home/zoomrec/data
       - ${ZOOMREC_HOME}/config:/home/zoomrec/config
-      - ${SSH_IDENTITY_FILE:-/home/zoomrec/.ssh/id_rsa}:/home/zoomrec/.ssh/id_rsa:ro
     ports:
       - "5901:5901"
       - "445:445"

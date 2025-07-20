@@ -38,7 +38,7 @@ FFMPEG_OUTPUT_PARAMS = os.getenv('FFMPEG_OUTPUT_PARAMS')
 CLIENT_ID = os.getenv('CLIENT_ID')
 
 SSH_SERVER_URL = os.getenv('SSH_SERVER_URL')
-SSH_IDENTITY_FILE = os.getenv('SSH_IDENTITY_FILE')
+
 
 # process variables
 zoom_proc = None
@@ -197,7 +197,7 @@ class PostprocessAndTransferThread:
                                     command = (
                                         f"{SCRIPT_DIR}/sftp_upload.sh '{os.path.join(REC_PATH, recording_basename)}' "
                                         f"'{constants.SFTP_ADMIN_USERNAME}@{SSH_SERVER_URL}' "
-                                        f"'{os.path.join(BASE_PATH, constants.SSH_IDENTITY_FILE)}' "
+                                        f"'{os.path.join(BASE_PATH, constants.SFTP_ADMIN_USER_IDENTITY_FILE)}' "
                                         f"'{user[UserField.LOGIN.value]}/{constants.RECORDINGS_DIR}' {value['delete'] if 'delete' in value else 'true'}"
                                     )
                                 else:
