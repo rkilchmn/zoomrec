@@ -157,6 +157,18 @@
 				]
 			},
 			{
+				"name": "Python: install_zoomrec",
+				"type": "debugpy",
+				"request": "launch",
+				"program": "${workspaceFolder}/install_zoomrec.py",
+				"console": "integratedTerminal",
+				"justMyCode": false,
+				"args": [
+					"${input:zoomrecHome}",
+					"BOTH"
+				]
+			},			
+			{
 				"name": "Python: zoomrec_client (Docker)",
 				"type": "debugpy",
 				"request": "attach",
@@ -195,7 +207,14 @@
 				"type": "promptString",
 				"description": "Enter source filename:",
 				"default": ""
+			},
+			{
+				"id": "zoomrecHome",
+				"type": "promptString",
+				"description": "Enter zoomrec home directory:",
+				"default": ""
 			}
+
 		]
 	}
 }

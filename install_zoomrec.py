@@ -5,20 +5,33 @@ import pwd
 import shutil
 import logging
 from pathlib import Path
+from dotenv import load_dotenv
+
+def copy_if_not_exists(src, dst):
+    """Copy file from src to dst only if dst doesn't exist."""
+    dst_path = Path(dst)
+    if not dst_path.exists():
+        # Ensure destination directory exists
+        dst_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        logging.info(f"Copied {src} to {dst}")
+    else:
+        logging.info(f"Skipping {dst} - already exists")
+
 from shared.constants import (
     CONFIG_IMG_DIR,
     RECORDINGS_DIR,
     AUDIO_DIR,
-    IMG_DIR,
-    LOG_DIR,
+    SFTP_ADMIN_USERNAME,
+    SFTP_KNOWN_HOSTS_FILE,
     DEBUG_DIR,
     ARDUINO_FIRMWARE_DIR,
     ARDUINO_CONFIG_DIR,
-    ZOOMREC_DB_FILENAME,
     SFTP_CONFIG_DIR,
     SFTP_HOST_KEY_FILE,
     EMAIL_CONFIG_FILE,
-    CLIENT_AUTOMATION_CONFIG_FILENAME,
+    SFTP_DATA_PATH,
+    SFTP_ADMIN_USER_IDENTITY_FILE
 )
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
@@ -29,7 +42,7 @@ def show_help():
     print("")
     print("Parameters:")
     print("  ZOOMREC_HOME   Path to install/setup zoomrec (e.g., /home/zoomrec)")
-    print("  TYPE           CLIENT | SERVER | BOTH")
+    print("  COMPONENT      CLIENT | SERVER | BOTH")
     print("  ACCELERATION   VAAPI | NVIDIA | (blank for none)")
     print("")
     print("Example:")
@@ -47,7 +60,7 @@ def validate_args():
     acceleration = sys.argv[3].upper() if len(sys.argv) > 3 else None
 
     if install_type not in ["CLIENT", "SERVER", "BOTH"]:
-        logging.error("Error: TYPE must be CLIENT, SERVER, or BOTH.")
+        logging.error("Error: COMPONENT must be CLIENT, SERVER, or BOTH.")
         show_help()
 
     if acceleration and acceleration not in ["VAAPI"]:
@@ -60,18 +73,23 @@ def setup_user(zoomrec_home):
     """Create zoomrec user if not exists and set up groups."""
     try:
         pwd.getpwnam('zoomrec')
-        logging.info("User 'zoomrec' already exists.")
+        logging.info("User 'zoomrec' exists.")
+        return True
     except KeyError:
         ZOOMREC_USER_GID = os.getenv('ZOOMREC_USER_GID')
-        logging.info("Creating user 'zoomrec'")
-        os.system(f'useradd -s /bin/bash -d "{zoomrec_home}" -m -u {ZOOMREC_USER_GID} -g zoomrec')
-        os.system('passwd zoomrec')
+        logging.info("User 'zoomrec' does not exist. It needs to be created manually:")
+        logging.info("=== User Setup (requires sudo) ===")
+        logging.info("# Create zoomrec user and set password:")
+        logging.info(f"sudo useradd -s /bin/bash -d \"{zoomrec_home}\" -m -u {ZOOMREC_USER_GID} -g zoomrec")
+        logging.info("sudo passwd zoomrec")
+        logging.info("# Add user to docker group")
+        logging.info("# sudo usermod -aG docker zoomrec")
+        logging.info("=================================")
+        return True
 
-    # Add user to docker group
-    os.system('usermod -aG docker zoomrec')
-
-def setup_client(zoomrec_home):
+def setup_client(zoomrec_home, acceleration):
     """Set up client components."""
+    logging.info("")
     logging.info("Setting up CLIENT components")
     
     # Create required config subdirectories
@@ -81,84 +99,118 @@ def setup_client(zoomrec_home):
 
     # Create required data subdirectories
     os.makedirs(os.path.join(zoomrec_home, RECORDINGS_DIR), exist_ok=True)
-    os.makedirs(os.path.join(zoomrec_home, LOG_DIR, DEBUG_DIR), exist_ok=True)
+    os.makedirs(os.path.join(zoomrec_home, DEBUG_DIR), exist_ok=True)
 
-    # Set up SFTP known hosts
-    known_hosts_path = os.path.join(zoomrec_home, SFTP_CONFIG_DIR, 'known_hosts')
+    # Set up SFTP known hosts with server's public key
+    known_hosts_path = os.path.join(zoomrec_home, SFTP_KNOWN_HOSTS_FILE)
+    sftp_key_path = os.path.join(zoomrec_home, SFTP_HOST_KEY_FILE)
+    
     if not os.path.exists(known_hosts_path):
+        # Add server's public key to known_hosts
         with open(known_hosts_path, 'w') as f:
-            f.write('')
+            # Format: hostname key-type public-key
+            with open(f"{sftp_key_path}.pub", 'r') as key_file:
+                key_data = key_file.read().strip().split()
+                if len(key_data) >= 2:
+                    hostname = "zoomrec_server"
+                    key_type = key_data[0]
+                    public_key = key_data[1]
+                    f.write(f"{hostname} {key_type} {public_key}\n")
+        
         os.chmod(known_hosts_path, 0o600)
-        logging.info("Created empty known_hosts file for SFTP client")
+        logging.info(f"Added SFTP server public key to {known_hosts_path}")
 
     # Copy example files
-    shutil.copytree('example/audio', os.path.join(zoomrec_home, AUDIO_DIR), dirs_exist_ok=True)
-    shutil.copytree('res/img', os.path.join(zoomrec_home, IMG_DIR), dirs_exist_ok=True)
-    shutil.copy('example/email_types.yaml', os.path.join(zoomrec_home, 'email_types.yaml'))
-    shutil.copy('example/.client.env', os.path.join(zoomrec_home, '.client.env'))
-    shutil.copy('example/.env', os.path.join(zoomrec_home, '.env'))
+    copy_if_not_exists('example/.env', os.path.join(zoomrec_home, '.env'))
+    copy_if_not_exists('example/.client.env', os.path.join(zoomrec_home, '.client.env'))
+    copy_if_not_exists('example/.server.env', os.path.join(zoomrec_home, '.server.env')) # required for composer stop command
+
+    if acceleration == "VAAPI":
+        logging.info("=== VAAPI Acceleration Setup (requires root) ===")
+        logging.info("# Add zoomrec user to video and render groups for VAAPI acceleration:")
+        logging.info("sudo usermod -aG video zoomrec")
+        logging.info("sudo usermod -aG render zoomrec")
+        logging.info("==========================================")
 
 def setup_server(zoomrec_home):
     """Set up server components."""
+    logging.info("")
     logging.info("Setting up SERVER components")
     
     # Create config directories
     os.makedirs(os.path.join(zoomrec_home, ARDUINO_FIRMWARE_DIR), exist_ok=True)
     os.makedirs(os.path.join(zoomrec_home, ARDUINO_CONFIG_DIR), exist_ok=True)
-       
-    sftp_config_dir = os.path.join(zoomrec_home, SFTP_CONFIG_DIR)
-    # Set proper permissions on the SFTP key directory
-    os.chmod(sftp_config_dir, 0o700)
-    if os.path.exists(sftp_key_path):
-        os.chmod(sftp_key_path, 0o600)
-    if os.path.exists(f"{sftp_key_path}.pub"):
-        os.chmod(f"{sftp_key_path}.pub", 0o644)    # Generate SFTP host key if it doesn't exist
+    os.makedirs(os.path.join(zoomrec_home, SFTP_CONFIG_DIR), exist_ok=True)
+
+    # Generate SFTP host key if it doesn't exist
     sftp_key_path = os.path.join(zoomrec_home, SFTP_HOST_KEY_FILE)
     if not os.path.exists(sftp_key_path):
         os.makedirs(os.path.dirname(sftp_key_path), exist_ok=True)
         os.system(f'ssh-keygen -t ed25519 -f {sftp_key_path} -N ""')
         logging.info("Generated SFTP host key")
 
-    # needs sudo/root user
-    # os.makedirs(SFTP_DATA_PATH, exist_ok=True)
-    # # Set SFTP directory permissions
-    # os.chown(SFTP_DATA_PATH, 0, 0)  # root:root
-    # os.chmod(SFTP_DATA_PATH, 0o755)
+    # Set proper permissions on the SFTP key directory 
+    sftp_config_dir = os.path.join(zoomrec_home, SFTP_CONFIG_DIR)
+    os.chmod(sftp_config_dir, 0o700)
+    if os.path.exists(sftp_key_path):
+        os.chmod(sftp_key_path, 0o600)
+    if os.path.exists(f"{sftp_key_path}.pub"):
+        os.chmod(f"{sftp_key_path}.pub", 0o644)    
 
-    # Copy example files
-    shutil.copy('example/.server.env', os.path.join(zoomrec_home, '.server.env'))
-    shutil.copy('example/.env', os.path.join(zoomrec_home, '.env'))
-    shutil.copy('example/email_types.yaml', os.path.join(zoomrec_home, CONFIG_DIR, EMAIL_CONFIG_FILE))
-    shutil.copy('example/zoom_auto.yaml', os.path.join(zoomrec_home, CONFIG_DIR, CLIENT_AUTOMATION_CONFIG_FILENAME))
+    # Copy example files if they don't exist
+    copy_if_not_exists('example/.env', os.path.join(zoomrec_home, '.env'))
+    copy_if_not_exists('example/.server.env', os.path.join(zoomrec_home, '.server.env'))
+    copy_if_not_exists('example/.client.env', os.path.join(zoomrec_home, '.client.env'))  # required for composer stop command
+    copy_if_not_exists('example/email_types.yaml', os.path.join(zoomrec_home, EMAIL_CONFIG_FILE))
+   
+    # These commands require root privileges - please run them manually:
+    logging.info("")
+    logging.info("=== [OPTIONAL] SFTP Server Setup (requires sudo) ===")
+    logging.info(f"# Create and set up SFTP data directory:")
+    logging.info(f"sudo mkdir -p {SFTP_DATA_PATH}")
+    logging.info(f"sudo chown root:root {SFTP_DATA_PATH}")
+    logging.info(f"sudo chmod 755 {SFTP_DATA_PATH}")
+    
+    # Load environment variables (required by sftp_user_create_command)
+    load_dotenv(os.path.join(zoomrec_home, '.env')) 
+    from shared.sftp_user import sftp_user_create_command
+    # Get the SFTP user creation command and log it
+    cmd = sftp_user_create_command(SFTP_ADMIN_USERNAME)
+    logging.info("# Create SFTP admin user:")
+    logging.info(" ".join(cmd))
+    
+    # Command to copy the admin's private key
+    admin_key_path = os.path.join(zoomrec_home, SFTP_ADMIN_USER_IDENTITY_FILE)
+    logging.info("# Copy zoomrec admin's private key (run as root):")
+    logging.info(f"sudo cp {SFTP_DATA_PATH}/{SFTP_ADMIN_USERNAME}/.ssh/id_rsa {admin_key_path}")
+    logging.info(f"sudo chown zoomrec:zoomrec {admin_key_path}")
+    logging.info(f"chmod 600 {admin_key_path}")
+    logging.info("===========================================")
 
 def main():
-    zoomrec_home, *_ = validate_args()  # Only use ZOOMREC_HOME from CLI, use interactive for rest
-    component, acceleration = get_user_setup_options()
+    # Get and validate command line arguments
+    zoomrec_home, component, acceleration = validate_args()
+    logging.info("")
     logging.info(f"Setting up zoomrec environment at {zoomrec_home}")
 
     # Create base directory
     os.makedirs(zoomrec_home, exist_ok=True)
 
     # Set up user and groups
-    setup_user(zoomrec_home)
-
-    # Set up VAAPI acceleration if requested
-    if acceleration == "VAAPI":
-        os.system('usermod -aG video zoomrec')
-        os.system('usermod -aG render zoomrec')
+    if setup_user(zoomrec_home):
         
-    if component in ["SERVER", "BOTH"]:
-        setup_server(zoomrec_home)
+        if component in ["SERVER", "BOTH"]:
+            setup_server(zoomrec_home)
 
-    if component in ["CLIENT", "BOTH"]:
-        setup_client(zoomrec_home)
+        if component in ["CLIENT", "BOTH"]:
+            setup_client(zoomrec_home, acceleration)
 
-    # # Set final permissions
-    # os.system(f'chown -R zoomrec:zoomrec {zoomrec_home}')
-    # os.system(f'chmod -R 755 {zoomrec_home}')
+        # # Set final permissions
+        # os.system(f'chown -R zoomrec:zoomrec {zoomrec_home}')
+        # os.system(f'chmod -R 755 {zoomrec_home}')
 
-    logging.info("Setup complete.")
-    logging.info("IMPORTANT: Re-login to apply group changes.")
+        logging.info("Setup complete.")
+        logging.info("IMPORTANT: Re-login to apply group changes.")
     
 if __name__ == "__main__":
     main()

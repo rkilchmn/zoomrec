@@ -10,7 +10,6 @@ AUDIO_DIR = 'config/audio' # audio for automation (client only)
 CONFIG_IMG_DIR = 'config/img' # custom images for automation (client only)
 ARDUINO_FIRMWARE_DIR = 'config/arduino/firmware' # arduino firmware (server only)
 ARDUINO_CONFIG_DIR = 'config/arduino/config' # arduino config (server only)
-SFTP_CONFIG_DIR = 'config/sftp' # sftp config (client/server)
 
 # data directories 
 RECORDINGS_DIR = 'data/recordings' # recordings (client only)
@@ -34,10 +33,13 @@ LOG_GUNICORN_ERROR_LOG_FILENAME = 'gunicorn_error_log.txt'
 LOG_FORMAT = '%(asctime)s %(levelname)s %(message)s'
 
 # sftp
+SFTP_CONFIG_DIR = 'config/sftp' # sftp config (client/server)
 SFTP_DATA_PATH = '/root/sftp-data' # mounted sftp data directory from host 
 SFTP_ADMIN_USERNAME = 'zoomrec_admin'
 SFTP_ADMIN_USER_IDENTITY_FILE = 'config/sftp/zoomrec_admin_id'    
 SFTP_HOST_KEY_FILE = 'config/sftp/sftp_host_key'
+SFTP_KNOWN_HOSTS_FILE = 'config/sftp/known_hosts'
+SFTP_RECORDINGS_DIR = 'recordings'
 
 # recording
 VIDEO_EXTENSION = 'mkv'

@@ -8,8 +8,6 @@ set -e  # Exit on any error
 sed -i "s/#Port 22/Port ${SSH_PORT}/" /etc/ssh/sshd_config
 service ssh start 
 
-# ./create-sftp-user.sh sftpuser1
-
 # within docker container this is the url   
 SERVER_URL="http://localhost:${SERVER_PORT}"
 export SERVER_URL
