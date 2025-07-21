@@ -17,39 +17,35 @@ Planned version 2 features: (note: features completed have only undergone basic 
 - [X] support multiple zoomrec clients to allow recording in parallel (meetings get assigned to clients)
 - [X] zoomrec server supports users and meetings are linked to user. User record contains email details and telegram id to update user about meetings recorded/added. Currently user information like telegram id is stored in the meetings (and therefore duplicated and not possible to centrally manage)
 - [X] Support hardware assisted video encoding for using VAAPI or NVIDIA
-- [ ] currently the zoomrec clients has a SMB server included to access the recordings remotely but that only works in a LAN. The zoomrec server will have an sftp server and the client transfers the recording to the server, where they can be accessed from the internet (another reason to have a user database to manage the access via sftp)
-- [ ] build a YAML based configuration framework for the screen control to accommodate Zoom changes in UI behavior and also support other tools like teams. The screen control doesn't work anymore for latest zoom version out of the box, so new screenshots of buttons and labels are required anyway, so this seems to be the right time to do this on conjunction with allowing to work with latest Zoom versions. At the moment I use the oldest supported version to avoid touching the screen control logic (which is a bit of Spaghetti code - but largely works for now)
+- [X] currently the zoomrec clients has a SMB server included to access the recordings remotely but that only works in a LAN. The zoomrec server will have an sftp server and the client transfers the recording to the server, where they can be accessed from the internet (another reason to have a user database to manage the access via sftp)
+- [X] build a YAML based configuration framework for the screen control to accommodate Zoom changes in UI behavior and also support other tools like teams. The screen control doesn't work anymore for latest zoom version out of the box, so new screenshots of buttons and labels are required anyway, so this seems to be the right time to do this on conjunction with allowing to work with latest Zoom versions. At the moment I use the oldest supported version to avoid touching the screen control logic (which is a bit of Spaghetti code - but largely works for now)
 - [ ] Support other online meeting apps like Teams
 
 ## Quickstart
 
+1. Create python environment, activate it and install dependencies:
+
+   ```
+   python3 -m venv venv
+   source venv/bin/activate
+   pip install --upgrade pip
+   cd zoomrec # (github repo)
+   pip install -r install_requirements.txt
+   ```
+2. Run install script (in this example installing client and server "BOTH" using VAAPI acceleration)
+
+   ```
+   python install_zoomrec.py ~ BOTH VAAPI
+   ```
+
+3. Some of the steps (especially using a SFTP server) may require elevated access (sudo). Copy the commands from the install script and paste them into the command shell.
+
+4. Edit .env, .client.env and server.env to provide passwords and other required information like VAAPI drivers, imap bot config, telegram bot config etc.
+
+5. Use docker compose to build and run the containers (use the correct docker-compose files for your setup)
+````
 docker compose --env-file ~/.env -f docker-compose.yml -f docker-compose.vaapi_intel-wsl2.yaml -f docker-compose.debug.yaml up --build
-
-1. Create local zoomrec home directory:
-
-   ```
-   ./install_zoomrec.sh ~/zoomrec_home
-   ```
-2. Edit the config files in the newly created home directory and replace <...> with the required information. Read here how to aquire the [telegram bot token](https://core.telegram.org/bots/tutorial#obtain-your-bot-tokenhttps:/)
-3. Start the script to build and run the docker containers:
-
-   ```
-   ./start_zoomrec.sh ~/zoomrec_home/config_server.txt ~/zoomrec_home/config_client.txt
-   ```
-
-   or with hardware acceleration (VAAPI or NVIDIA):
-
-   ```
-   ./start_zoomrec.sh ~/zoomrec_home/config_server.txt ~/zoomrec_home/config_client.txt VAAPI
-   ```
-
-   For VAAPI make sure the correct driver is specified in the client config file:
-
-   ```
-    # VAAPI hardware acceleration 
-    LIBVA_DRIVER_NAME=d3d12 # intel iGPU Gen 11 (also works under WSL2) supports x265
-    # LIBVA_DRIVER_NAME=i965 # older ivy bridge intel iGPU supports x264 
-   ```
+````
 
 ## Possible issues 
 
