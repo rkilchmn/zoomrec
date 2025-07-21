@@ -25,6 +25,7 @@ from shared.constants import (
     SFTP_ADMIN_USERNAME,
     SFTP_KNOWN_HOSTS_FILE,
     DEBUG_DIR,
+    LOG_DIR,
     ARDUINO_FIRMWARE_DIR,
     ARDUINO_CONFIG_DIR,
     SFTP_CONFIG_DIR,
@@ -99,6 +100,7 @@ def setup_client(zoomrec_home, acceleration):
 
     # Create required data subdirectories
     os.makedirs(os.path.join(zoomrec_home, RECORDINGS_DIR), exist_ok=True)
+    os.makedirs(os.path.join(zoomrec_home, LOG_DIR), exist_ok=True)
     os.makedirs(os.path.join(zoomrec_home, DEBUG_DIR), exist_ok=True)
 
     # Set up SFTP known hosts with server's public key
@@ -161,6 +163,9 @@ def setup_server(zoomrec_home):
         os.chmod(sftp_key_path, 0o600)
     if os.path.exists(f"{sftp_key_path}.pub"):
         os.chmod(f"{sftp_key_path}.pub", 0o644)    
+
+    # Create required data subdirectories
+    os.makedirs(os.path.join(zoomrec_home, LOG_DIR), exist_ok=True)
 
     # Copy example files if they don't exist
     copy_if_not_exists('example/.env', os.path.join(zoomrec_home, '.env'))
