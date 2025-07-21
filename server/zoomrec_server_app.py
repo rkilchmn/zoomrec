@@ -476,7 +476,7 @@ def get_config():
                 ERROR_NO_NEWER_CONFIG: 304,  # Not Modified
                 ERROR_CONFIG_DIR_NOT_FOUND: 500,
                 ERROR_CONFIG_DIR_READ: 500,
-                ERROR_NO_COMPATIBLE_CONFIG: 404,
+                ERROR_NO_COMPATIBLE_CONFIG: 204,
                 ERROR_NO_CONFIG_FILES: 204,
                 ERROR_NO_VALID_CONFIG_FILES: 204,
                 ERROR_CONFIG_READ: 500,
