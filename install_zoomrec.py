@@ -115,12 +115,12 @@ def setup_client(zoomrec_home, acceleration):
                     key_type = key_data[0]
                 public_key = key_data[1]
                 f.write(f"{hostname} {key_type} {public_key}\n")
+            os.chmod(known_hosts_path, 0o600)
+            logging.info(f"Added SFTP server public key to {known_hosts_path}")
         else:
             logging.info(f"SFTP server public key not found. Copy it from the server to {sftp_key_path}.pub and rerun the install script.")
         
-        os.chmod(known_hosts_path, 0o600)
-        logging.info(f"Added SFTP server public key to {known_hosts_path}")
-
+    # check admin private key
     admin_key_path = os.path.join(zoomrec_home, SFTP_ADMIN_USER_IDENTITY_FILE)
     if not os.path.exists(admin_key_path):
         logging.info("SFTP admin private key not found. Copy it from the server to {admin_key_path} and rerun the install script to verify this error is resolved.")
