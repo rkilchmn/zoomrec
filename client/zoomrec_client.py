@@ -198,7 +198,7 @@ class PostprocessAndTransferThread:
                                         f"{SCRIPT_DIR}/sftp_upload.sh '{os.path.join(REC_PATH, recording_basename)}' "
                                         f"'{constants.SFTP_ADMIN_USERNAME}@{SSH_SERVER_URL}' "
                                         f"'{os.path.join(BASE_PATH, constants.SFTP_ADMIN_USER_IDENTITY_FILE)}' "
-                                        f"'{user[UserField.LOGIN.value]}/{constants.RECORDINGS_DIR}' {value['delete'] if 'delete' in value else 'true'}"
+                                        f"'{user[UserField.LOGIN.value]}/{constants.SFTP_RECORDINGS_DIR}' {value['delete'] if 'delete' in value else 'true'}"
                                     )
                                 else:
                                     logging.error("SFTP transfer to server cannot be initiated: SSH_SERVER_URL not specified.")
