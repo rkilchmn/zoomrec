@@ -29,7 +29,7 @@ Planned version 2 features: (note: features completed have only undergone basic 
    python3 -m venv venv
    source venv/bin/activate
    pip install --upgrade pip
-   cd zoomrec # (github repo)
+   cd zoomrec
    pip install -r install_requirements.txt
    ```
 2. Run install script (in this example installing client and server "BOTH" using VAAPI acceleration)
