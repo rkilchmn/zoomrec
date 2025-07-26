@@ -14,8 +14,8 @@ ENV HOME=/home/zoomrec \
     FFMPEG_INPUT_PARAMS="" \
     FFMPEG_OUTPUT_PARAMS="-acodec pcm_s16le -vcodec libx264rgb -preset ultrafast -crf 0" \
     LIBVA_DRIVER_NAME=iHD \
-    SAMBA_USERNAME=testuser \
-    SAMBA_PASSWORD=test123 \
+    SAMBA_USERNAME= \
+    SAMBA_PASSWORD= \
     IMAP_SERVER="" \
     IMAP_PORT="" \
     EMAIL_ADDRESS="" \
@@ -320,12 +320,6 @@ RUN mkdir -p ${HOME}/.ssh && \
 
 # samba server setup
 COPY client/res/smb.conf /etc/samba/smb.conf
-RUN useradd $SAMBA_USERNAME
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-RUN echo -ne "$SAMBA_PASSWORD\n$SAMBA_PASSWORD\n" | smbpasswd -a -s $SAMBA_USERNAME && \
-    groupadd samba && \
-    gpasswd -a $SAMBA_USERNAME samba && \
-    testparm -s
 # samba ports
 EXPOSE 139 445 137 138
 EXPOSE ${VNC_PORT}

@@ -46,6 +46,8 @@ services:
       - SERVER_URL=${SERVER_URL}
       - SSH_SERVER_URL=${SSH_SERVER_URL}
       - WHISPER_API_URL=${WHISPER_API_URL}
+      - SAMBA_USERNAME=${SAMBA_USERNAME}
+      - SAMBA_PASSWORD=${SAMBA_PASSWORD}
     volumes:
       - ${ZOOMREC_HOME}/data:/home/zoomrec/data
       - ${ZOOMREC_HOME}/config:/home/zoomrec/config
