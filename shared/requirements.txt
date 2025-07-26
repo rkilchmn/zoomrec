@@ -4,3 +4,5 @@ bcrypt
 langchain_community
 langchain-openai
 langchain-core
+# retry mechanism
+tenacity>=8.2.3

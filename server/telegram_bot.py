@@ -77,7 +77,7 @@ USAGE_DELETE_EVENT =    f"/{CMD_DELETE_EVENT} <index or search term>. Note: sear
                         f"example:{EXAMPLE_DELETE_EVENT}"
 
 # sample requests for events
-EXAMPLE_ADD_USER     = f'/{CMD_ADD_USER} "John Doe" johndoe securepassword "America/New_York" "john.doe@example.com"1'
+EXAMPLE_ADD_USER     = f'/{CMD_ADD_USER} "John Doe" johndoe securepassword "john.doe@example.com" "America/New_York" 1'
 EXAMPLE_LIST_USER    = f'/{CMD_LIST_USER} johndoe'
 EXAMPLE_MODIFY_USER  = f'/{CMD_MODIFY_USER} 1 name "Johnathon Doe" timezone "Australia/Sydney"'
 EXAMPLE_DELETE_USER  = f'/{CMD_DELETE_USER} johndoe'
@@ -401,7 +401,7 @@ async def delete_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def add_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         args = parse_quoted_args(context.args)
-        if len(args) < 4:
+        if len(args) < 3:
             await update.message.reply_text("Usage: " + USAGE_ADD_USER)
             return
 
@@ -409,9 +409,9 @@ async def add_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             UserField.NAME.value: args[0],
             UserField.LOGIN.value: args[1],
             UserField.PASSWORD.value: args[2],
-            UserField.TIMEZONE.value: args[3],
-            UserField.EMAIL.value: args[4] if len(args) > 4 else '',
-            UserField.ROLE.value: int(args[5]) if len(args) > 5 else UserRole.NORMAL
+            UserField.EMAIL.value: args[3] if len(args) > 3 else None,
+            UserField.TIMEZONE.value: args[4] if len(args) > 4 else None,
+            UserField.ROLE.value: int(args[5]) if len(args) > 5 else None
         }
 
         # add telegram client id 

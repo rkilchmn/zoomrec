@@ -122,7 +122,7 @@ class Users(ABC):
     @staticmethod
     def set_missing_defaults(user):
         for fieldname, default_value in USER_DEFAULT_VALUES.items():
-            if fieldname not in user and default_value is not None:
+            if (fieldname not in user or user[fieldname] is None) and default_value is not None:
                 user[fieldname] = default_value
         return user
     

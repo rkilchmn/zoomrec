@@ -217,7 +217,7 @@ class Events(ABC):
     @staticmethod
     def set_missing_defaults(event):
         for fieldname, default_value in EVENT_DEFAULT_VALUES.items():
-            if fieldname not in event and default_value is not None:
+            if (fieldname not in event or event[fieldname] is None) and default_value is not None:
                 event[fieldname] = default_value
         return event
     
