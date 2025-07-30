@@ -550,7 +550,9 @@ class SQLLiteEvents(Events):
 
             if max_dtend_instance < dtnow:
                 # all instances have expired
-                self.delete( event_key=event[EventField.KEY.value])
+                if  event[EventField.STATUS.value] == EventStatus.ENDED.value or \
+                    event[EventField.STATUS.value] == EventStatus.SCHEDULED.value:
+                    self.delete( event_key=event[EventField.KEY.value])
             elif event[EventField.STATUS.value] == EventStatus.ENDED.value and \
                 min_dtstart_instance > dtnow and min_dtend_instance > dtnow:
                 # a previous instance has ended, but there are future instances
