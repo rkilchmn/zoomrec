@@ -302,14 +302,14 @@ async def modify_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         new_time = None
         target_event = events_list[target_index]
         for i in range(1, len(args), 2):
-            attribute_name = args[i]
+            attribute_name = args[i].lower()
             new_attribute_value = args[i + 1]
 
-            if attribute_name.lower() == "date":
+            if attribute_name == "date":
                 new_date = new_attribute_value
-            elif attribute_name.lower() == "time":
+            elif attribute_name == "time":
                 new_time = new_attribute_value
-            elif attribute_name.lower() not in target_event:
+            elif attribute_name not in target_event:
                 await update.message.reply_text(f"Attribute '{attribute_name}' not found in event")
                 return
             else:
@@ -466,9 +466,9 @@ async def modify_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
         target_user = user_list[target_index]
         for i in range(1, len(args), 2):
-            attribute_name = args[i]
+            attribute_name = args[i].lower()
             new_attribute_value = args[i + 1]
-            if attribute_name.lower() not in target_user:
+            if attribute_name not in target_user:
                 await update.message.reply_text(f"Attribute '{attribute_name}' not found in user")
                 return
             target_user[attribute_name] = new_attribute_value

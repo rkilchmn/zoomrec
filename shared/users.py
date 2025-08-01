@@ -33,6 +33,13 @@ class UserRole:
     NORMAL = 1
     ADMIN = 2
 
+    @classmethod
+    def get_description(cls, role):
+        return {
+            cls.NORMAL.value: "Normal",
+            cls.ADMIN.value: "Admin"
+        }.get(role, "Unknown Role")
+
 USER_DEFAULT_VALUES = {
     UserField.ROLE.value: UserRole.NORMAL,
     UserField.EMAIL.value: '',
@@ -167,6 +174,21 @@ class Users(ABC):
         # Check for at least one of email or messenger detail
         if not user.get(UserField.EMAIL.value) and not user.get(UserField.MESSENGER.value):
             raise ValueError("At least one of the fields 'email' or 'messenger' must be provided.")
+
+        # Validate role if present
+        if UserField.ROLE.value in user and user[UserField.ROLE.value] is not None:
+            try:
+                # Convert role to int if it's a string
+                role = int(user[UserField.ROLE.value])
+                # Check if role is a valid UserRole value
+                valid_roles = [UserRole.NORMAL, UserRole.ADMIN]
+                if role not in valid_roles:
+                    valid_roles_str = ', '.join(str(r) for r in valid_roles)
+                    raise ValueError(f"Invalid role '{role}'. Must be one of: {valid_roles_str}")
+                # Update user with integer role
+                user[UserField.ROLE.value] = role
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Role must be a number. Got: {user[UserField.ROLE.value]}") from e
 
         return user
 

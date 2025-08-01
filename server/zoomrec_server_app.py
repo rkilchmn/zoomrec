@@ -2,7 +2,8 @@ from flask import Flask, request, jsonify, send_file
 from flask_basicauth import BasicAuth
 from datetime import datetime, timezone
 import os.path
-from shared.events import Events, EventStatus, EventField, SQLLiteEvents
+from typing import Any, Dict, List, Optional, Set, TypeVar, Union
+from shared.events import Events, EventStatus, EventField, SQLLiteEvents, EventType
 from urllib.parse import unquote
 from shared.users import SQLLiteUser, Users, UserField
 import logging
@@ -51,6 +52,50 @@ app.config['BASIC_AUTH_USERNAME'] = os.getenv('SERVER_USERNAME')
 app.config['BASIC_AUTH_PASSWORD'] = os.getenv('SERVER_PASSWORD')
 basic_auth = BasicAuth(app)
 
+# Type variable for generic dictionary
+DictType = TypeVar('DictType', bound=Dict[str, Any])
+
+def filter_response_fields(
+    data: Union[DictType, List[DictType]],
+    fields_param: Optional[str],
+    required_fields: Optional[Set[str]] = None
+) -> Union[DictType, List[DictType]]:
+    """
+    Filter response data to include only the requested fields.
+    
+    Args:
+        data: The data to filter (can be a dictionary or list of dictionaries)
+        fields_param: Comma-separated string of fields to include
+        required_fields: Set of fields that should always be included
+    
+    Returns:
+        Filtered data with only the requested and required fields
+    """
+    if not fields_param:
+        return data
+    
+    # Convert fields_param to a set of requested fields
+    requested_fields = set(fields_param.split(',')) if fields_param else set()
+    
+    # Ensure required fields are always included
+    required_fields = required_fields or set()
+    included_fields = requested_fields.union(required_fields)
+    
+    if not included_fields:
+        return data
+    
+    def filter_single_item(item: DictType) -> DictType:
+        """Filter a single dictionary to include only the requested fields."""
+        return {
+            k: v for k, v in item.items() 
+            if k in included_fields or not included_fields
+        }
+    
+    # Handle both single item and list responses
+    if isinstance(data, list):
+        return [filter_single_item(item) for item in data]
+    return filter_single_item(data)
+
 # Define the state_changed_callback function
 def event_state_changed_callback(old_event, new_event):
     # Timestamp fields to exclude from change detection
@@ -88,6 +133,10 @@ def event_state_changed_callback(old_event, new_event):
                             new_status_description = EventStatus.get_description(new_event[field_value])
                             old_status_description = EventStatus.get_description(old_event[field_value])
                             changes.append(f"status changed from '{old_status_description}' to '{new_status_description}'\n")
+                        elif field_value == EventField.TYPE.value:  
+                            new_type_description = EventType.get_description(new_event[field_value])
+                            old_type_description = EventType.get_description(old_event[field_value])
+                            changes.append(f"type changed from '{old_type_description}' to '{new_type_description}'\n")
                         else:
                             # Generic handling for other fields
                             # For empty values, replace with "(empty)" for better readability
@@ -252,6 +301,7 @@ def delete_event(key):
 @basic_auth.required
 def get_event():
     filters = []
+    fields_param = request.args.get('fields')
 
     # Retrieve filter parameters from the request
     for key, value in request.args.items():
@@ -271,11 +321,22 @@ def get_event():
 
     try:
         returned_events = events.get(filters=filters)  # Pass the filters to the get method
-            
+        
         if returned_events:
-            return jsonify(returned_events), 200 # sucesss, returning content
+            # Filter the response to include only requested fields
+            filtered_events = filter_response_fields(
+                data=returned_events,
+                fields_param=fields_param,
+                required_fields={
+                    EventField.KEY.value,  # Always include the key field
+                    EventField.TITLE.value,  # Always include the title
+                    EventField.DTSTART.value,  # Always include the start time
+                    EventField.STATUS.value  # Always include the status
+                }
+            )
+            return jsonify(filtered_events), 200  # success, returning content
         else:
-            return  jsonify({}), 204 # sucsess, but "204 No Content"
+            return jsonify({}), 204  # success, but "204 No Content"
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

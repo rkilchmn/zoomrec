@@ -24,6 +24,13 @@ class EventType(Enum):
     ZOOM = 1
     SYSTEM = 2 # used for example to start client in case of manitenance etc
 
+    @classmethod
+    def get_description(cls, type):
+        return {
+            cls.ZOOM.value: "Zoom",
+            cls.SYSTEM.value: "System"
+        }.get(type, "Unknown Type")
+
 class EventInstructionAttribute(Enum):
     PROCESS = "process"
     POSTPROCESS = "postprocess"
@@ -180,21 +187,50 @@ class Events(ABC):
                 # result = subprocess.run(command, capture_output=True, text=True)
                 # event[EventField.ID.value] = result.stdout.strip()
 
-         # Validate id 
+        # Validate event type if present
+        if EventField.TYPE.value in event and event[EventField.TYPE.value] is not None:
+            try:
+                # Convert type to int if it's a string
+                event_type = int(event[EventField.TYPE.value])
+                # Check if type is a valid EventType value
+                valid_types = [e.value for e in EventType]
+                if event_type not in valid_types:
+                    valid_types_str = ', '.join(str(t) for t in valid_types)
+                    raise ValueError(f"Invalid event type '{event_type}'. Must be one of: {valid_types_str}")
+                # Update event with integer type
+                event[EventField.TYPE.value] = event_type
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Event type must be a number. Got: {event[EventField.TYPE.value]}") from e
+
+        # Validate id 
         if event[EventField.ID.value]:
-                if event[EventField.TYPE.value] == EventType.ZOOM:
+                if event[EventField.TYPE.value] == EventType.ZOOM.value:  # Use .value for comparison
                     if not re.search(r'\d{9,}', event[EventField.ID.value]):
                         raise ValueError("Invalid Zoom id. Must be a number with minimum 9 digits (no blanks)")                
+
+        # Validate status if present
+        if EventField.STATUS.value in event and event[EventField.STATUS.value] is not None:
+            try:
+                # Convert status to int if it's a string
+                status = int(event[EventField.STATUS.value])
+                # Check if status is a valid EventStatus value
+                valid_statuses = [e.value for e in EventStatus]
+                if status not in valid_statuses:
+                    valid_status_str = ', '.join(str(s) for s in valid_statuses)
+                    raise ValueError(f"Invalid status '{status}'. Must be one of: {valid_status_str}")
+                # Update event with integer status
+                event[EventField.STATUS.value] = status
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Status must be a number. Got: {event[EventField.STATUS.value]}") from e
 
         # Validate instruction
         if EventField.INSTRUCTION.value in event:
             if isinstance(event[EventField.INSTRUCTION.value], str):
                 try:
                     for instruction_attribute in EventInstructionAttribute:
-                        value = Events.get_instruction_attribute( instruction_attribute, event)
+                        value = Events.get_instruction_attribute(instruction_attribute, event)
                 except Exception as e:
                     raise ValueError(f"Invalid instruction format in '{EventField.INSTRUCTION.value}'. Parsing error for '{event[EventField.INSTRUCTION.value]}': {e.args[0]}")
-
             else:
                 raise ValueError(f"Invalid instruction format in '{EventField.INSTRUCTION.value}'. It must be a string.")
             
@@ -416,7 +452,7 @@ class SQLLiteEvents(Events):
         event = Events.validate(event)
         event[EventField.LAST_UPDATED_TIMESTAMP.value] = Events.now(event).isoformat()
 
-        # retrive previous event state before update
+        # retrieve previous event state before update
         pre_event = self.get(filters=[[EventField.KEY.value, "=", event[EventField.KEY.value]]])
         if len(pre_event) == 0:
             raise ValueError(f"Event with key '{event[EventField.KEY.value]}' not found")

@@ -68,6 +68,7 @@
 					"SERVER_URL": "http://localhost:8081",
 					"SERVER_PORT": "8081", // for gunicorn to start server 
 					"DEBUG_MODULE": "", // turn off remote debugging (we are already debugging)
+					"SKIP_SFTP_USER_CREATION": "true"
 				}
 			},
 			{
