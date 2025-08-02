@@ -202,11 +202,11 @@ class Events(ABC):
             except (ValueError, TypeError) as e:
                 raise ValueError(f"Event type must be a number. Got: {event[EventField.TYPE.value]}") from e
 
-        # Validate id 
-        if event[EventField.ID.value]:
-                if event[EventField.TYPE.value] == EventType.ZOOM.value:  # Use .value for comparison
-                    if not re.search(r'\d{9,}', event[EventField.ID.value]):
-                        raise ValueError("Invalid Zoom id. Must be a number with minimum 9 digits (no blanks)")                
+        # Validate id if present
+        if EventField.ID.value in event and event[EventField.ID.value]:
+            if event[EventField.TYPE.value] == EventType.ZOOM.value:  # Use .value for comparison
+                if not re.search(r'\d{9,}', event[EventField.ID.value]):
+                    raise ValueError("Invalid Zoom id. Must be a number with minimum 9 digits (no blanks)")                
 
         # Validate status if present
         if EventField.STATUS.value in event and event[EventField.STATUS.value] is not None:
@@ -541,8 +541,13 @@ class SQLLiteEvents(Events):
             for dtstart in Events.get_dtstart_datetime_list(event, dtfrom):
                 dtstart_instance = dtstart
                 dtend_instance = dtstart_instance + timedelta(minutes=int(event[EventField.DURATION.value]))
-                dtstart_instance_lead = dtstart_instance - timedelta(seconds=lead_time_sec)
-                dtend_instance_trail = dtend_instance + timedelta(seconds=trail_time_sec)
+                if event[EventField.TYPE.value] == EventType.SYSTEM.value:
+                    # no lead/trail time for system events
+                    dtstart_instance_lead = dtstart_instance
+                    dtend_instance_trail = dtend_instance
+                else:
+                    dtstart_instance_lead = dtstart_instance - timedelta(seconds=lead_time_sec)
+                    dtend_instance_trail = dtend_instance + timedelta(seconds=trail_time_sec)
                 
                 if dtend_instance_trail > max_dtend_instance:
                     max_dtend_instance = dtend_instance_trail

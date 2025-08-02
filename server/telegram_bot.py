@@ -17,13 +17,16 @@ import os
 
 from shared.events_api import EventAPI
 from shared.users_api import UserAPI
-from shared.events import Events, EventField, EVENT_DEFAULT_VALUES
+from shared.events import Events, EventField, EventType, EventStatus, EVENT_DEFAULT_VALUES
 from shared.users import MessengerAttribute, Users, UserField, UserRole
 from shared.constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT, LOG_TELEGRAM_BOT_FILENAME, DEBUG_MODULE_TELEGRAM_BOT   
 from shared.utilities import start_logging, start_debug
+import logging
 
 start_logging(LOG_TELEGRAM_BOT_FILENAME)
 start_debug(DEBUG_MODULE_TELEGRAM_BOT, os.getenv('DEBUG_PORT_SERVER'))
+
+logging.info("Starting Telegram bot")
 
 # get env vars
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -56,6 +59,7 @@ CMD_LIST_USER = "list_user"
 
 # Constants for other commands
 CMD_INFO = "info"
+CMD_CLIENT = "client"
 CMD_HELP = "help"
 
 # sample requests for events
@@ -92,6 +96,15 @@ USAGE_MODIFY_USER = f"/{CMD_MODIFY_USER} <index> <attribute name1> <new attribut
                     f"example: {EXAMPLE_MODIFY_USER}"
 USAGE_DELETE_USER = f"/{CMD_DELETE_USER} <index>\n" + \
                     f"example: {EXAMPLE_DELETE_USER}"
+
+# Usage help for client command
+# Sample requests for client command
+EXAMPLE_CLIENT_ON = f'/{CMD_CLIENT} on 20 "turn on client immedeately for 20 minutes"'
+EXAMPLE_CLIENT_OFF = f'/{CMD_CLIENT} off 30 "turn off client after 30 minutes"'
+
+USAGE_CLIENT = f"/{CMD_CLIENT} <on|off> [optional: minutes]\n" + \
+               f"example:{EXAMPLE_CLIENT_ON}\n" + \
+               f"example:{EXAMPLE_CLIENT_OFF}"
 
 # Usage help for other commands
 USAGE_INFO = f"/{CMD_INFO} - return some session info such as the chat id"
@@ -593,6 +606,83 @@ async def list_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     await update.message.reply_text(output)
 
+async def client_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the /client command to control the client's on/off state."""
+    if not is_admin(str(update.effective_user.id)):
+        await update.message.reply_text("Error: You don't have permission to use this command.")
+        return
+
+    args = context.args
+    if not args or args[0].lower() not in ['on', 'off']:
+        await update.message.reply_text(f"Usage: {USAGE_CLIENT}")
+        return
+
+    action = args[0].lower()
+    minutes = int(args[1]) if len(args) > 1 and args[1].isdigit() else 0
+    
+    try:
+        with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
+            # First, check if there's an existing SYSTEM event
+            system_events = event_api.get(filters=[[EventField.TYPE.value, "=", EventType.SYSTEM.value]]) 
+            
+            if action == 'on':
+                # Get the current user's login
+                current_user = get_user_by_telegram_id(update.effective_chat.id)
+                if not current_user:
+                    await update.message.reply_text("Error: Could not find your user account.")
+                    return
+                
+                # Create or update SYSTEM event to turn on
+                event = {
+                    EventField.TITLE.value: f"System: Client Control ({current_user[UserField.LOGIN.value]})",
+                    EventField.TYPE.value: EventType.SYSTEM.value,  
+                    EventField.STATUS.value: EventStatus.SCHEDULED.value,  # SCHEDULED
+                    EventField.DTSTART.value: datetime.now().strftime(DATETIME_FORMAT).lower(),
+                    EventField.TIMEZONE.value: current_user[UserField.TIMEZONE.value],
+                    EventField.DURATION.value: minutes if minutes > 0 else 60,  # Default to 1 hour if not specified
+                    EventField.USER_KEY.value: current_user[UserField.KEY.value]  # Use the current user's login
+                }
+                
+                if system_events:
+                    # Update existing system event
+                    event[EventField.KEY.value] = system_events[0][EventField.KEY.value]
+                    event_api.update(event)
+                    message = f"Updated client control: ON{f' for {minutes} minutes' if minutes > 0 else ''}"
+                else:
+                    # Create new system event
+                    event_api.create(event)
+                    message = f"Client turned ON{f' for {minutes} minutes' if minutes > 0 else ''}"
+                
+            else:  # action == 'off'
+                if system_events:
+                    if minutes > 0:
+                        # Get user's timezone
+                        with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+                            current_user = user_api.get(filters=[["id", "=", update.effective_user.id]])
+                            if not current_user:
+                                await update.message.reply_text("Error: Could not find your user account.")
+                                return
+                            user_timezone = current_user[0].get(UserField.TIMEZONE.value, "UTC")
+                        
+                        # Update existing system event to schedule turn off
+                        event = system_events[0].copy()
+                        event[EventField.DTSTART.value] = datetime.now().strftime(DATETIME_FORMAT).lower()
+                        event[EventField.DURATION.value] = minutes
+                        event[EventField.TIMEZONE.value] = user_timezone
+                        event_api.update(event)
+                        message = f"Client will turn OFF in {minutes} minutes"
+                    else:
+                        # Turn off immediately
+                        event_api.delete(system_events[0][EventField.KEY.value])
+                        message = "Client turned OFF"
+                else:
+                    message = "Client is already OFF"
+            
+            await update.message.reply_text(message)
+            
+    except Exception as e:
+        await update.message.reply_text(f"Error: {str(e)}")
+
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a message when the command /help is issued."""
     response = f"Use these commands to manage events:\n"
@@ -606,6 +696,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     response += f"{USAGE_LIST_USER}\n"
     response += f"{USAGE_MODIFY_USER}\n"
     response += f"{USAGE_DELETE_USER}\n"
+    response += f"\n"
+    response += f"Use this command to control the client:\n"
+    response += f"{USAGE_CLIENT}\n"
+    response += f"\n"
+    response += f"Other useful commands:\n"
     response += f"{USAGE_INFO}\n"
     await update.message.reply_text(response)
 
@@ -670,6 +765,55 @@ def filter_users_by_permission(user_id, chat_id, users_list):
     
     return filtered_users
 
+
+def get_user_by_telegram_id(telegram_id):
+    """
+    Retrieve a user by their Telegram chat ID by checking all users' messenger attributes.
+    
+    Args:
+        telegram_id: The Telegram chat ID to look up
+        
+    Returns:
+        dict: The user dictionary if found, None otherwise
+    """
+    if not telegram_id:
+        logging.warning("get_user_by_telegram_id called with empty telegram_id")
+        return None
+        
+    try:
+        logging.debug(f"Looking up user with Telegram ID: {telegram_id}")
+        with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+            # Get all users
+            all_users = user_api.get()
+            
+            # Check each user's messenger attributes
+            for user in all_users:
+                try:
+                    # Get the telegram chat ID from the user's messenger attributes
+                    user_telegram_id = Users.get_messenger_attribute(
+                        MessengerAttribute.TELEGRAM_CHAT_ID, 
+                        user
+                    )
+                    
+                    # Check if this user's telegram ID matches
+                    if user_telegram_id and str(user_telegram_id) == str(telegram_id):
+                        logging.debug(f"Found user '{user.get(UserField.LOGIN.value, 'unknown')} "
+                                  f"for Telegram ID {telegram_id}")
+                        return user
+                        
+                except Exception as e:
+                    logging.error(f"Error checking user {user.get(UserField.KEY.value, 'unknown')}: {str(e)}", 
+                                exc_info=True)
+                    continue
+            
+            logging.warning(f"No user found for Telegram ID: {telegram_id}")
+            return None
+            
+    except Exception as e:
+        logging.error(f"Error getting user by Telegram ID {telegram_id}: {str(e)}", exc_info=True)
+        return None
+
+
 def start_bot() -> None:
     """Start the bot."""
     # Create the Application and pass it your bot's token.
@@ -689,6 +833,7 @@ def start_bot() -> None:
     application.add_handler(CommandHandler(CMD_LIST_USER, list_user))
     application.add_handler(CommandHandler(CMD_HELP, help_command))
     application.add_handler(CommandHandler(CMD_INFO, info_command))
+    application.add_handler(CommandHandler(CMD_CLIENT, client_command))
 
     # Add handler for unknown commands (must be added after all other command handlers)
     application.add_handler(MessageHandler(filters.COMMAND, unknown))
