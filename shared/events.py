@@ -27,8 +27,8 @@ class EventType(Enum):
     @classmethod
     def get_description(cls, type):
         return {
-            cls.ZOOM.value: "Zoom",
-            cls.SYSTEM.value: "System"
+            cls.ZOOM.value: "zoom",
+            cls.SYSTEM.value: "system"
         }.get(type, "Unknown Type")
 
 class EventInstructionAttribute(Enum):

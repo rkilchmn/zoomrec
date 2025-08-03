@@ -26,11 +26,8 @@ start_debug(constants.DEBUG_MODULE_ZOOMREC_CLIENT, os.getenv('DEBUG_PORT_CLIENT'
 
 # Get vars
 BASE_PATH = os.getenv('ZOOMREC_HOME')
-IMG_PATH = os.path.join(BASE_PATH, constants.IMG_DIR)
 REC_PATH = os.path.join(BASE_PATH, constants.RECORDINGS_DIR)
-AUDIO_PATH = os.path.join(BASE_PATH, constants.AUDIO_DIR) 
 LOG_PATH = os.path.join(BASE_PATH, constants.LOG_DIR)
-DEBUG_PATH = os.path.join(LOG_PATH, constants.DEBUG_DIR)
 
 FFMPEG_INPUT_PARAMS = os.getenv('FFMPEG_INPUT_PARAMS')
 FFMPEG_OUTPUT_PARAMS = os.getenv('FFMPEG_OUTPUT_PARAMS')
@@ -340,9 +337,22 @@ def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lead, dte
                 "HOST_ENDED_MEETING": False
             }
             
-            # Create global instance of Automation with proper configuration and load the YAML config
-            # Initialize Automation with base path
-            auto_yaml = Automation(BASE_PATH)
+            # Get event type and corresponding subdirectory
+            event_type_subdir = EventType.get_description(event[EventField.TYPE.value])
+            
+            # Set up paths based on event type
+            default_path = os.path.join(BASE_PATH,constants.AUTOMATION_DIR, event_type_subdir)
+            config_path = os.path.join(BASE_PATH, constants.CONFIG_DIR, constants.AUTOMATION_DIR, event_type_subdir)
+            audio_path = os.path.join(BASE_PATH, constants.AUDIO_DIR)
+            screenshot_path = os.path.join(BASE_PATH, constants.SCREENSHOT_DIR)
+            
+            # Create instance of Automation with the configured paths
+            auto_yaml = Automation(
+                default_path=default_path,
+                config_path=config_path if os.path.exists(config_path) else None,
+                audio_path=audio_path if os.path.exists(audio_path) else None,
+                screenshot_path=screenshot_path
+            )
             # Join meeting executing automation by config
             joined = auto_yaml.execute_instruction('join', variables)
             

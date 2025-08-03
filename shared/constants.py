@@ -6,22 +6,22 @@ TIME_FORMAT_LOG = "%Y-%m-%d_%H-%M-%S"
 
 # config directories 
 CONFIG_DIR = 'config' # client/server
-AUDIO_DIR = 'config/audio' # audio for automation (client only)
-CONFIG_IMG_DIR = 'config/img' # custom images for automation (client only)
 ARDUINO_FIRMWARE_DIR = 'config/arduino/firmware' # arduino firmware (server only)
 ARDUINO_CONFIG_DIR = 'config/arduino/config' # arduino config (server only)
 
 # data directories 
 RECORDINGS_DIR = 'data/recordings' # recordings (client only)
 LOG_DIR = 'data/logs' # logs (client/server)
-DEBUG_DIR = 'data/logs/screenshots' # debug (client only)
 
 # imap bot config
 EMAIL_CONFIG_FILE = 'config/email_types.yaml' # email types (server only)
 
 # automation config (client only)
-CLIENT_AUTOMATION_CONFIG_FILENAME = 'zoom_auto.yaml'
+AUTOMATION_DIR = 'automation' # automation (client only)
+CLIENT_AUTOMATION_CONFIG_FILENAME = 'automation.yaml'
 IMG_DIR = 'img' # default images for automation (client only)
+AUDIO_DIR = 'config/automation/audio' # audio for automation (client only)
+SCREENSHOT_DIR = 'data/logs/screenshots' # debug (client only)
 
 # log file names
 LOG_CLIENT_FILENAME = 'client_log.txt'

@@ -293,8 +293,8 @@ COPY shared/* ${HOME}/shared/
 COPY setup.py ${HOME}/
 RUN pip install --break-system-packages --no-cache-dir -e .
     
-# img folder
-COPY client/res/img ${HOME}/img/
+# automation folder
+COPY client/res/home/automation ${HOME}/automation/
 
 # vaapi test scripts
 ADD client/res/test_vaapi_x265.sh ${HOME}/

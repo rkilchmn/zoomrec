@@ -17,35 +17,63 @@ class Automation:
     Class for handling YAML configuration operations automation.
     """
     
-    def __init__(self, base_path):
+    def __init__(self, default_path, config_path=None, audio_path=None, screenshot_path=None):
         """
         Initialize the Automation class
         
         Args:
-            base_path: Base directory path where all other paths will be relative to
+            default_path: Path containing default automation.yaml and IMG directory
+            config_path: Optional path containing custom automation.yaml and IMG directory
+            audio_path: Path containing audio files
+            screenshot_path: Path for storing debug information
         """
         self.config = None
-        self.base_path = base_path
+        self.default_path = os.path.abspath(default_path)
+        self.config_path = os.path.abspath(config_path) if config_path else None
+        self.audio_path = os.path.abspath(audio_path) if audio_path else None
+        self.screenshot_path = screenshot_path
         
         # Import constants
         from shared import constants
         
-        # Set up paths using constants
-        self.config_img_path = os.path.join(base_path, constants.CONFIG_IMG_DIR)
-        self.img_path = os.path.join(base_path, constants.IMG_DIR)
-        self.debug_path = os.path.join(base_path, constants.DEBUG_DIR)
-        self.audio_path = os.path.join(base_path, constants.AUDIO_DIR)
-        self.config_path = os.path.join(base_path, constants.CONFIG_DIR, constants.CLIENT_AUTOMATION_CONFIG_FILENAME)
-        
-        # Load configuration if it exists
-        if os.path.exists(self.config_path):
-            self.load_config(self.config_path)
+        # Set up paths
+        self.default_img_path = os.path.join(self.default_path, constants.IMG_DIR)
+        self.config_img_path = os.path.join(self.config_path, constants.IMG_DIR) if self.config_path else None
+       
+        # Load configuration with fallback
+        self._load_config_with_fallback()
+    
+    def _load_config_with_fallback(self):
+        """Load configuration with fallback from config_path to default_path"""
+        # Try to load from config_path first
+        if self.config_path and os.path.isfile(os.path.join(self.config_path, constants.CLIENT_AUTOMATION_CONFIG_FILENAME)):
+            config_file = os.path.join(self.config_path, constants.CLIENT_AUTOMATION_CONFIG_FILENAME)
+            self.load_config(config_file)
+        # Fall back to default_path
+        elif os.path.isfile(os.path.join(self.default_path, constants.CLIENT_AUTOMATION_CONFIG_FILENAME)):
+            config_file = os.path.join(self.default_path, constants.CLIENT_AUTOMATION_CONFIG_FILENAME)
+            self.load_config(config_file)
         else:
-            # Fallback to config file in the same directory as the script
-            fallback_config = os.path.join(os.path.dirname(__file__), constants.CLIENT_AUTOMATION_CONFIG_FILENAME)
-            if os.path.exists(fallback_config):
-                self.config_path = fallback_config
-                self.load_config(self.config_path)
+            raise FileNotFoundError(f"Automation YAML configuration file '{constants.CLIENT_AUTOMATION_CONFIG_FILENAME}' not found in ' {self.config_path}' or '{self.default_path}'")
+
+    
+    def get_image_path(self, filename):
+        """
+        Get the full path to an image file, checking config path first, then default path
+        
+        Args:
+            filename: Name of the image file
+            
+        Returns:
+            Full path to the image file, or None if not found
+        """
+        # Check in config image path first
+        if self.config_img_path and os.path.isfile(os.path.join(self.config_img_path, filename)):
+            return os.path.join(self.config_img_path, filename)
+        # Fall back to default image path
+        if os.path.isfile(os.path.join(self.default_img_path, filename)):
+            return os.path.join(self.default_img_path, filename)
+        return None
     
     def load_config(self, file_path):
         """
@@ -122,30 +150,6 @@ class Automation:
         
         return result
     
-    def get_image_path(self, image_filename):
-        """
-        Find the full path to an image file by checking both config and default image directories.
-        
-        Args:
-            image_filename: The name of the image file to find
-            
-        Returns:
-            str: Full path to the image file if found, None otherwise
-        """
-        # First check in config image path (mounted from host)
-        config_img = os.path.join(self.config_img_path, image_filename)
-        if os.path.exists(config_img):
-            return config_img
-            
-        # If not found, check in default image path (from docker image)
-        default_img = os.path.join(self.img_path, image_filename)
-        if os.path.exists(default_img):
-            return default_img
-            
-        # Image not found in either location
-        logging.error(f"Image '{image_filename}' not found in either {self.config_img_path} or {self.img_path}")
-        return None
-    
     @staticmethod
     def wrap(func, *args, **kwargs):
         """
@@ -164,7 +168,6 @@ class Automation:
             variables = {}
                 
         image = locate_image.get('image')
-        image_path = os.path.join(self.img_path, image)
         click = self.str_to_bool(locate_image.get('click', 'False'))
         iterate = locate_image.get('iterate', 1)
         until_found = self.str_to_bool(locate_image.get('until_found', 'True'))
@@ -219,8 +222,8 @@ class Automation:
             return True
         else:
             # Debug screenshot
-            if logging.getLogger().level == logging.DEBUG and self.debug_path is not None:
-                pyautogui.screenshot(os.path.join(self.debug_path, time.strftime(
+            if logging.getLogger().level == logging.DEBUG and self.screenshot_path is not None:
+                pyautogui.screenshot(os.path.join(self.screenshot_path, time.strftime(
                     constants.TIME_FORMAT_LOG) + "-" + image))
                     
             # Handle on_error or on_error
