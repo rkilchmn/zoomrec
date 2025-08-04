@@ -130,7 +130,10 @@ def mapping_ai(attribute_name: str, attribute_value: str, ai_config: dict) -> Op
     Returns:
     Optional[str]: The mapped attribute value, or None if an error occurs.
     """
-    try:           
+    try:         
+        # get default value if it exists
+        default = ai_config["default"] if "default" in ai_config else None  
+
         llm = LLMChat(
             model=ai_config["model"],
             api_url=ai_config["api_url"],
@@ -138,11 +141,15 @@ def mapping_ai(attribute_name: str, attribute_value: str, ai_config: dict) -> Op
         )
         prompt = ai_config["prompt_template"].format(input=attribute_value)
         result = llm.ask(prompt)
-        return result
+        if result is not None:
+            return result
+        else:
+            logging.error(f"Error mapping attribute: No response from LLM. Returning 'default' {default}")
+            return default
         
     except Exception as e:
-        logging.error(f"Error mapping attribute: {attribute_name} value: {attribute_value} using AI: {str(e)}", exc_info=True)
-        return None
+        logging.error(f"Error mapping attribute: {attribute_name} value: {attribute_value} using AI. Returning 'default' {default}.\nException: {str(e)}", exc_info=True)
+        return default
 
 def run_bot():   
     # Load the YAML config file
@@ -304,8 +311,6 @@ def run_bot():
                         # event should be stored 
                         for event in events:
                             if event['match']:
-                                eventStr = f"Event {event[EventField.TITLE.value]} {event[EventField.DTSTART.value]} {event[EventField.TIMEZONE.value]}"
-
                                 # lookup user by login
                                 user = None
                                 try:
@@ -327,6 +332,8 @@ def run_bot():
                                         dtstart = dtstart.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
                                 # convert to date/time string (as events exoects that)
                                 event[EventField.DTSTART.value] = dtstart.strftime(DATETIME_FORMAT)
+
+                                eventStr = f"Event {event[EventField.TITLE.value]} {event[EventField.DTSTART.value]} {event[EventField.TIMEZONE.value]}"
 
                                 # validate event
                                 try:
