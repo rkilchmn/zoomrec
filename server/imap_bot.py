@@ -321,6 +321,10 @@ def run_bot():
                                     continue
                             
                                 event[EventField.USER_KEY.value] = user[UserField.KEY.value]
+                                # set timezone to user timezone if not provided
+                                if event[EventField.TIMEZONE.value] is None:
+                                    logging.warning(f"Timezone not provided for event {event[EventField.TITLE.value]}. Using user timezone {user[UserField.TIMEZONE.value]}")
+                                    event[EventField.TIMEZONE.value] = user[UserField.TIMEZONE.value]
 
                                 # if no date was provided, use todays date in events local timezone
                                 dtstart = event[EventField.DTSTART.value]
@@ -335,7 +339,6 @@ def run_bot():
 
                                 eventStr = f"Event {event[EventField.TITLE.value]} {event[EventField.DTSTART.value]} {event[EventField.TIMEZONE.value]}"
 
-                                # validate event
                                 try:
                                     event = Events.validate( event)
                                 except ValueError as error:
