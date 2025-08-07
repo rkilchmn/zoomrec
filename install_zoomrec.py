@@ -6,6 +6,25 @@ import shutil
 import logging
 from pathlib import Path
 from dotenv import load_dotenv
+from shared.events import EventType 
+from shared.constants import (
+    CONFIG_DIR,
+    IMG_DIR,
+    RECORDINGS_DIR,
+    AUDIO_DIR,
+    SFTP_ADMIN_USERNAME,
+    SFTP_KNOWN_HOSTS_FILE,
+    SCREENSHOT_DIR,
+    LOG_DIR,
+    AUTOMATION_DIR,
+    ARDUINO_FIRMWARE_DIR,
+    ARDUINO_CONFIG_DIR,
+    SFTP_CONFIG_DIR,
+    SFTP_HOST_KEY_FILE,
+    EMAIL_CONFIG_FILE,
+    SFTP_DATA_PATH,
+    SFTP_ADMIN_USER_IDENTITY_FILE
+)
 
 def copy_if_not_exists(src, dst):
     """Copy file from src to dst only if dst doesn't exist."""
@@ -17,23 +36,6 @@ def copy_if_not_exists(src, dst):
         logging.info(f"Copied {src} to {dst}")
     else:
         logging.info(f"Skipping {dst} - already exists")
-
-from shared.constants import (
-    CONFIG_IMG_DIR,
-    RECORDINGS_DIR,
-    AUDIO_DIR,
-    SFTP_ADMIN_USERNAME,
-    SFTP_KNOWN_HOSTS_FILE,
-    DEBUG_DIR,
-    LOG_DIR,
-    ARDUINO_FIRMWARE_DIR,
-    ARDUINO_CONFIG_DIR,
-    SFTP_CONFIG_DIR,
-    SFTP_HOST_KEY_FILE,
-    EMAIL_CONFIG_FILE,
-    SFTP_DATA_PATH,
-    SFTP_ADMIN_USER_IDENTITY_FILE
-)
 
 logging.basicConfig(level=logging.INFO, format='[%(levelname)s] %(message)s')
 
@@ -93,15 +95,20 @@ def setup_client(zoomrec_home, acceleration):
     logging.info("")
     logging.info("Setting up CLIENT components")
     
-    # Create required config subdirectories
-    os.makedirs(os.path.join(zoomrec_home, AUDIO_DIR), exist_ok=True)
-    os.makedirs(os.path.join(zoomrec_home, CONFIG_IMG_DIR), exist_ok=True)
+    # Create mandatory config subdirectories 
+    os.makedirs(os.path.join(zoomrec_home, CONFIG_DIR), exist_ok=True)
     os.makedirs(os.path.join(zoomrec_home, SFTP_CONFIG_DIR), exist_ok=True)
 
+    # Create optional paths for automation
+    os.makedirs(os.path.join(zoomrec_home, CONFIG_DIR, AUTOMATION_DIR), exist_ok=True)
+    os.makedirs(os.path.join(zoomrec_home, AUDIO_DIR), exist_ok=True)
+    os.makedirs(os.path.join(zoomrec_home, CONFIG_DIR, AUTOMATION_DIR,EventType.get_description(EventType.ZOOM.value)), exist_ok=True)
+    os.makedirs(os.path.join(zoomrec_home, CONFIG_DIR, AUTOMATION_DIR,EventType.get_description(EventType.ZOOM.value), IMG_DIR), exist_ok=True)
+    
     # Create required data subdirectories
     os.makedirs(os.path.join(zoomrec_home, RECORDINGS_DIR), exist_ok=True)
     os.makedirs(os.path.join(zoomrec_home, LOG_DIR), exist_ok=True)
-    os.makedirs(os.path.join(zoomrec_home, DEBUG_DIR), exist_ok=True)
+    os.makedirs(os.path.join(zoomrec_home, SCREENSHOT_DIR), exist_ok=True)
 
     # Set up SFTP known hosts with server's public key
     known_hosts_path = os.path.join(zoomrec_home, SFTP_KNOWN_HOSTS_FILE)
