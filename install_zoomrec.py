@@ -6,7 +6,6 @@ import shutil
 import logging
 from pathlib import Path
 from dotenv import load_dotenv
-from shared.events import EventType 
 from shared.constants import (
     CONFIG_DIR,
     IMG_DIR,
@@ -102,8 +101,8 @@ def setup_client(zoomrec_home, acceleration):
     # Create optional paths for automation
     os.makedirs(os.path.join(zoomrec_home, CONFIG_DIR, AUTOMATION_DIR), exist_ok=True)
     os.makedirs(os.path.join(zoomrec_home, AUDIO_DIR), exist_ok=True)
-    os.makedirs(os.path.join(zoomrec_home, CONFIG_DIR, AUTOMATION_DIR,EventType.get_description(EventType.ZOOM.value)), exist_ok=True)
-    os.makedirs(os.path.join(zoomrec_home, CONFIG_DIR, AUTOMATION_DIR,EventType.get_description(EventType.ZOOM.value), IMG_DIR), exist_ok=True)
+    os.makedirs(os.path.join(zoomrec_home, CONFIG_DIR, AUTOMATION_DIR, 'zoom'), exist_ok=True)
+    os.makedirs(os.path.join(zoomrec_home, CONFIG_DIR, AUTOMATION_DIR, 'zoom', IMG_DIR), exist_ok=True)
     
     # Create required data subdirectories
     os.makedirs(os.path.join(zoomrec_home, RECORDINGS_DIR), exist_ok=True)
