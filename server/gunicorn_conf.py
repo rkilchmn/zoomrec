@@ -6,7 +6,7 @@ bind = '0.0.0.0' + ':' + os.getenv("SERVER_PORT")
 worker_class = 'sync'
 loglevel = os.getenv("LOG_LEVEL", "INFO").lower()
 keepalive = 30  # seconds
-timeout = 120 # seconds - give ESP enough time to download new firmware
+timeout = 300 # seconds - give ESP enough time to download new firmware
 
 LOG_DIR = os.path.join(os.getenv('ZOOMREC_HOME'), constants.LOG_DIR)
 accesslog = os.path.join(LOG_DIR, constants.LOG_GUNICORN_ACCESS_LOG_FILENAME)
