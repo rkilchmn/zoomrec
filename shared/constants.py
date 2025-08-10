@@ -2,7 +2,7 @@ DATE_FORMAT = '%d/%m/%Y'
 TIME_FORMAT = '%H:%M'
 DATETIME_FORMAT = DATE_FORMAT + ' ' + TIME_FORMAT
 DURATION_FORMAT = '%H:%M:%S'
-TIME_FORMAT_LOG = "%Y-%m-%d_%H-%M-%S"
+DATETIME_FORMAT_LOG = '[%d/%b/%Y:%H:%M:%S %z]' # Apache Common Log Format
 
 # config directories 
 CONFIG_DIR = 'config' # client/server

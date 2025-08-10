@@ -83,7 +83,7 @@ def start_logging( log_filename):
         logger.handlers.clear()
 
         handler = FlushFileHandler(log_filepath, mode="a")
-        formatter = logging.Formatter(constants.LOG_FORMAT)
+        formatter = logging.Formatter(fmt=constants.LOG_FORMAT,datefmt=constants.DATETIME_FORMAT_LOG)
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
