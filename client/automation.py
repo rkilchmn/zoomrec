@@ -224,8 +224,8 @@ class Automation:
         else:
             # Debug screenshot
             if logging.getLogger().level == logging.DEBUG and self.screenshot_path is not None:
-                pyautogui.screenshot(convert_to_safe_filename(self.screenshot_path, time.strftime(
-                    constants.DATETIME_FORMAT_LOG) + "-" + image))
+                pyautogui.screenshot(convert_to_safe_filename(os.path.join(self.screenshot_path, time.strftime(
+                    constants.DATETIME_FORMAT_LOG) + "-" + image)))
                     
             # Handle on_error or on_error
             on_error = locate_image.get('on_error')
