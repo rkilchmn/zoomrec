@@ -8,7 +8,7 @@ import subprocess
 import random
 
 import shared.constants as constants
-from shared.utilities import create_unique_filename
+from shared.utilities import convert_to_safe_filename
 
 # Disable failsafe
 pyautogui.FAILSAFE = False
@@ -224,7 +224,7 @@ class Automation:
         else:
             # Debug screenshot
             if logging.getLogger().level == logging.DEBUG and self.screenshot_path is not None:
-                pyautogui.screenshot(create_unique_filename(self.screenshot_path, time.strftime(
+                pyautogui.screenshot(convert_to_safe_filename(self.screenshot_path, time.strftime(
                     constants.DATETIME_FORMAT_LOG) + "-" + image))
                     
             # Handle on_error or on_error
