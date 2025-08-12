@@ -28,13 +28,35 @@ if [[ ${#FILE_LIST[@]} -lt 1 ]]; then
     exit 0
 fi
 
-# Transfer files via SFTP
+# SFTP transfer with retry logic
+MAX_RETRIES=3
+RETRY_DELAY=5  # seconds
+
 for file in "${FILE_LIST[@]}"; do
     echo "Transferring $file to $SSH_SERVER_URL:$TARGET_DIR..."
-    sftp -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/home/zoomrec/config/sftp/known_hosts -i "/home/zoomrec/config/sftp/zoomrec_admin_id" "sftp://$SSH_SERVER_URL" <<EOF
-cd $TARGET_DIR
+    
+    for ((retry=1; retry<=$MAX_RETRIES; retry++)); do
+        # Run SFTP with connection timeout and batch mode
+        if sftp -o BatchMode=yes -o ConnectTimeout=10 \
+                -o StrictHostKeyChecking=yes \
+                -o UserKnownHostsFile=/home/zoomrec/config/sftp/known_hosts \
+                -i "/home/zoomrec/config/sftp/zoomrec_admin_id" \
+                "sftp://$SSH_SERVER_URL" <<EOF
+cd "$TARGET_DIR"
 put "$file"
 EOF
+        then
+            echo "Successfully transferred $file"
+            break  # Success, exit the retry loop
+        else
+            if [ $retry -eq $MAX_RETRIES ]; then
+                echo "Error: Failed to transfer $file after $MAX_RETRIES attempts"
+                exit 1
+            fi
+            echo "Attempt $retry failed. Retrying in $RETRY_DELAY seconds..."
+            sleep $RETRY_DELAY
+        fi
+    done
 done
 
 echo "File transfer complete."
