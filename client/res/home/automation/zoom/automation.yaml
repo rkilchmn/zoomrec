@@ -87,13 +87,13 @@ join_popup_with_id: &join_popup_with_id
 join_check_workplace: &join_check_workplace
   locate_image: 
     image: 'zoom_workplace_joined.png'
-    iterate: 20
+    iterate: 
     sleep: 1
 
 check_toolbar: &check_toolbar
   locate_image: 
     image: 'toolbar_leave.png'
-    iterate: 20
+    iterate: 60
     sleep: 1
     on_success: "True" # default is "True", but explicit here for clarity
     on_error: "True" # default is "False", but explicit here for clarity
