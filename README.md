@@ -46,6 +46,83 @@ Planned version 2 features: (note: features completed have only undergone basic 
 ````
 docker compose --env-file ~/.env -f docker-compose.yml -f docker-compose.vaapi_intel-wsl2.yaml -f docker-compose.debug.yaml up --build
 ````
+## using TLS/HTTPS with self-signed certificate
+
+1. On server machine generate self-signed key and andcertificated. Using ECDHE-ECDSA-AES128-GCM-SHA256 cipher suite which is considered strong and modern, supporting forward secrecy, efficient authentication, and authenticated encryption and also supported by ESP8266 BearSSL implementation
+```
+ openssl ecparam -genkey -name prime256v1 -noout -out server.key
+```
+2. Create a self-signed certificate with SAN extention (subject alternative name). Python SSL/TLS module only relies on subject alternative name (SAN) and not on common name (CN)
+
+openssl req -x509 -sha256 \
+  -key server.key \
+  -out server.crt \
+  -days 36500 \
+  -subj "/C=NL/ST=Zuid Holland/L=Rotterdam/O=ACME Corp/OU=IT Dept/CN=example.org"  \
+  -addext "subjectAltName = DNS:localhost,DNS:example.org" 
+  -addext "basicConstraints=CA:FALSE" \
+  -addext "keyUsage=digitalSignature,keyEncipherment" \
+  -addext "extendedKeyUsage=serverAuth"
+
+3. Copy the server.key and server.crt 
+
+```
+  sudo mkdir -p /etc/ssl/selfsigned
+  sudo chown root:root /etc/ssl/selfsigned
+  sudo chmod 700 /etc/ssl/selfsigned
+  sudo chmod 644 /etc/ssl/selfsigned/server.crt
+  sudo chmod 600 /etc/ssl/selfsigned/server.key
+  sudo chown root:root /etc/ssl/selfsigned/server.key
+  sudo chown root:root /etc/ssl/selfsigned/server.crt
+```
+4. For nginx, add the following SSL settings to the server block:
+
+```
+  # Paths to certificate and private key
+    ssl_certificate     /etc/ssl/selfsigned/server.crt;
+    ssl_certificate_key /etc/ssl/selfsigned/server.key;
+
+    # TLS settings
+    ssl_protocols TLSv1.2;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+    ssl_prefer_server_ciphers on;
+    ssl_ecdh_curve prime256v1;
+
+    # Session security
+    ssl_session_tickets on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1h;
+
+```
+5. Test config and restart nginx
+
+```
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+6. On client machine copy the self-signed certificate to the clients config directory
+
+```
+cp server.pem ~/config/server.pem
+```
+
+7. In .client.env add REQUESTS_CA_BUNDLE environment variable to point to the self-signed certificate
+
+```
+# self signed cert for HTTPS
+REQUESTS_CA_BUNDLE=$ZOOMREC_HOME/config/server.pem
+```
+
+8. Restart client container
+
+9. (Optional if using https://github.com/rkilchmn/ESP8266_zoomrec to turn on client machine based on zoomrec schedule retrieved from server). In config JSON file add the public key for public key pinning:
+
+```
+ "tls_server_pubkey": "-----BEGIN PUBLIC KEY-----\\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE38HxSo9LBaFlVRhtsdFhfY5+qwfH\\nd5ZA4aTcf+MEQcHF/YiHuH7YIxn39JuV4+b/rOhlwbi2/Bostz/ll5ZGMg==\\n-----END PUBLIC KEY-----"
+
+```
+
 
 ## Possible issues 
 
