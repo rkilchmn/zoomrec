@@ -17,7 +17,7 @@ from shared.events import Events, EventType, EventField, EventStatus, EventInstr
 from shared.users import UserField
 from shared.users_api import UserAPI
 from shared.events_api import EventAPI
-from shared.utilities import start_debug, end_process, convert_to_safe_filename, create_unique_filename, start_logging
+from shared.utilities import start_debug, end_process, convert_to_safe_filename, create_unique_filename, start_logging, format_template
 import shared.constants as constants
 from client.automation import Automation
 
@@ -292,20 +292,28 @@ def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lead, dte
             meet_url = event[EventField.URL.value]
             duration = int(event[EventField.DURATION.value]) * 60
             description = event[EventField.TITLE.value]
+            # add dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_instance_trail to event
+            event['dtstart_instance'] = dtstart_instance
+            event['dtend_instance'] = dtend_instance
+            event['dtstart_instance_lead'] = dtstart_instance_lead
+            event['dtend_instance_trail'] = dtend_instance_trail
 
             info_str = f"Joining meeting event with title: '{description}'"
             logging.info(info_str)
             print_console(info_str)
 
             if logging.getLogger().level == logging.DEBUG:
-                ffmpeg_recording_join_proc = start_recording( 
-                    os.path.join(REC_PATH, 
-                        create_unique_filename(REC_PATH, 
-                            convert_to_safe_filename(f"{description}-JOIN-{dtstart_instance.strftime( constants.DATETIME_FORMAT)}"), 
-                            constants.VIDEO_EXTENSION
-                        )
-                    )
+                basename_join_template = os.getenv('BASENAME_JOIN_TEMPLATE', constants.DEFAULT_BASENAME_JOIN_TEMPLATE)
+                join_recording_basename = format_template(
+                    template=basename_join_template,
+                    data=event
                 )
+                join_recording_basename = convert_to_safe_filename(join_recording_basename)
+                filename_join_recording = os.path.join(
+                    REC_PATH,
+                    create_unique_filename(REC_PATH, join_recording_basename, constants.VIDEO_EXTENSION)
+                )
+                ffmpeg_recording_join_proc = start_recording(filename_join_recording)
 
             # Exit Zoom if running
             exit_process_by_name("zoom")
@@ -370,7 +378,12 @@ def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lead, dte
             should_record = any(isinstance(step, dict) and EventInstructionProcess.RECORD.value in step for step in process) if isinstance(process, list) else False
             recording_basename = None
             if should_record:
-                recording_basename = f"{description}-{dtstart_instance.strftime(constants.DATETIME_FORMAT)}"
+                basename_template = os.getenv('BASENAME_TEMPLATE', constants.DEFAULT_BASENAME_TEMPLATE)
+                # Generate basename using the template
+                recording_basename = format_template(
+                    template=basename_template,
+                    data=event
+                )
                 recording_basename = convert_to_safe_filename(recording_basename)
                 filename_recording = os.path.join(REC_PATH, create_unique_filename(REC_PATH, recording_basename, constants.VIDEO_EXTENSION))
 

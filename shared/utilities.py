@@ -1,11 +1,17 @@
 import logging
 import os
+import re
 import traceback
 import sys
 import debugpy
 import signal
+from datetime import datetime
+from typing import Any, Dict, Optional, Match
 
 from . import constants
+
+# Pre-compile regex pattern for better performance
+_TEMPLATE_PATTERN = re.compile(r'\{(?P<field>[a-zA-Z0-9_.]+)(?::(?P<format>[^}]*))?\}')
 
 def convert_to_safe_filename(filename):
     invalid_chars = '\\/:*?"\'<>|'
@@ -111,4 +117,81 @@ def end_process(proc):
     if proc is not None:
         os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
         proc = None
+
+
+def format_template(
+    template: str,
+    data: Dict[str, Any],
+    default: str = '',
+    datetime_format: str = '%Y-%m-%d %H:%M:%S'
+) -> str:
+    """
+    Format a template string using dictionary values with support for datetime formatting.
+    
+    Args:
+        template: The template string with {field} or {field:format} placeholders
+        data: Dictionary containing the values to substitute
+        default: Default value to use when a field is missing
+        datetime_format: Default datetime format string
+        
+    Returns:
+        Formatted string with placeholders replaced by values
+        
+    Examples:
+        data = {
+            'title': 'Team Meeting',
+            'dtstart': '2023-09-25 14:30:00',
+            'user': {'name': 'John', 'id': 42}
+        }
+        
+        # Basic usage
+        format_template("{title}_{dtstart:%Y%m%d}", data)  # "Team Meeting_20230925"
+        
+        # With nested fields
+        format_template("User: {user.name} (ID: {user.id})", data)  # "User: John (ID: 42)"
+        
+        # Multiple datetime formats
+        format_template("Meeting at {dtstart:%H:%M} on {dtstart:%Y-%m-%d}", data)  # "Meeting at 14:30 on 2023-09-25"
+    """
+    # Handle escaped braces
+    if '{{' in template or '}}' in template:
+        template = template.replace('{{', '\x00').replace('}}', '\x01')
+    
+    def get_value(field: str) -> Any:
+        """Get value from data dictionary with support for nested fields."""
+        value = data
+        for part in field.split('.'):
+            if not isinstance(value, dict) or part not in value:
+                return None
+            value = value[part]
+        return value
+    
+    def replace_match(match: Match) -> str:
+        field = match.group('field')
+        fmt = match.group('format')
+        value = get_value(field)
+        
+        if value is None:
+            return default
+            
+        # Handle datetime formatting
+        if fmt is not None:
+            try:
+                if isinstance(value, str):
+                    value = datetime.strptime(value, datetime_format)
+                if isinstance(value, (datetime, datetime.date)):
+                    return value.strftime(fmt)
+            except (ValueError, TypeError, AttributeError):
+                pass
+                
+        return str(value)
+    
+    # Process the template
+    result = _TEMPLATE_PATTERN.sub(replace_match, template)
+    
+    # Restore escaped braces if needed
+    if '\x00' in result or '\x01' in result:
+        result = result.replace('\x00', '{').replace('\x01', '}')
+    
+    return result
         

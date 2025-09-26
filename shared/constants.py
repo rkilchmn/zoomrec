@@ -43,6 +43,8 @@ SFTP_RECORDINGS_DIR = 'recordings'
 
 # recording
 VIDEO_EXTENSION = 'mkv'
+DEFAULT_BASENAME_TEMPLATE = "{title}-{dtstart_instance:%Y%m%d_%H%M}"
+DEFAULT_BASENAME_JOIN_TEMPLATE = "{title}-JOIN-{dtstart_instance:%Y%m%d_%H%M}"
 
 # gunicorn api server
 ZOOMREC_DB_FILENAME = 'data/zoomrec_server_db'
