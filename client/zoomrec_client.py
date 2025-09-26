@@ -105,25 +105,80 @@ def find_process_id_by_name(process_name):
     return list_of_process_objects
 
 def start_recording(filename):
-
-    # Start recording
-    width, height = pyautogui.size()
-    resolution = str(width) + 'x' + str(height)
-    disp = os.getenv('DISPLAY')
-
-    logging.info(f"Start recording {filename}")
-
-    command = "ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + \
-        resolution + " " + FFMPEG_INPUT_PARAMS + " -i " + disp + " " + FFMPEG_OUTPUT_PARAMS + \
-        " -threads 0 -async 1 -vsync 1 \"" + filename + "\""
-
-    logging.debug(f"Recording command: {command}")
-
-    command = shlex.split(command)
-    subprocess_info = subprocess.Popen(
-        command, stdout=subprocess.PIPE, shell=False, preexec_fn=os.setsid)
+    """
+    Start screen recording using ffmpeg and verify the output file is writable.
     
-    return subprocess_info
+    Args:
+        filename (str): Path where the recording should be saved
+        
+    Returns:
+        subprocess.Popen: Process handle for the recording, or None if failed to start
+    """
+    try:
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(os.path.abspath(filename)), exist_ok=True)
+        
+        # Touch the file to check if we can write to the location
+        try:
+            with open(filename, 'ab') as f:
+                f.write(b'')  # Write empty bytes to create file if it doesn't exist
+        except IOError as e:
+            logging.error(f"Cannot write to recording file {filename}: {e}")
+            return None
+            
+        width, height = pyautogui.size()
+        resolution = f"{width}x{height}"
+        disp = os.getenv('DISPLAY')
+
+        logging.debug(f"Starting recording to {filename}")
+
+        command = (
+            f"ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab "
+            f"-r 30 -s {resolution} {FFMPEG_INPUT_PARAMS} -i {disp} {FFMPEG_OUTPUT_PARAMS} "
+            f"-threads 0 -async 1 -vsync 1 \"{filename}\""
+        )
+
+        logging.debug(f"Recording command: {command}")
+        command = shlex.split(command)
+        
+        try:
+            subprocess_info = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                shell=False,
+                preexec_fn=os.setsid
+            )
+            
+            # Verify the process started and is writing to the file
+            time.sleep(1)  # Give ffmpeg a moment to start
+            
+            if subprocess_info.poll() is not None:
+                # Process already exited
+                _, stderr = subprocess_info.communicate()
+                logging.error(f"Failed to start ffmpeg: {stderr.decode('utf-8', 'replace')}")
+                return None
+                
+            # Check if file exists and is growing in size
+            initial_size = os.path.getsize(filename) if os.path.exists(filename) else 0
+            time.sleep(1)
+            if not os.path.exists(filename) or os.path.getsize(filename) <= initial_size:
+                logging.error(f"Recording file {filename} is not being written to")
+                end_process(subprocess_info)
+                return None
+                
+            logging.debug(f"Successfully started recording to {filename}")
+            return subprocess_info
+            
+        except Exception as e:
+            logging.error(f"Error starting recording: {e}")
+            if 'subprocess_info' in locals():
+                end_process(subprocess_info)
+            return None
+            
+    except Exception as e:
+        logging.error(f"Unexpected error in start_recording: {e}", exc_info=True)
+        return None
 
 class PostprocessAndTransferThread:
     def __init__(self, recording_basename, event, event_api):
