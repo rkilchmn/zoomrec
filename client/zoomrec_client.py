@@ -146,7 +146,7 @@ def start_recording(filename):
                 command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                shell=False,
+                shell=True,
                 preexec_fn=os.setsid
             )
             
