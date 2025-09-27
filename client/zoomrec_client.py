@@ -125,12 +125,12 @@ def start_recording(filename):
         # except IOError as e:
         #     logging.error(f"Cannot write to recording file {filename}: {e}")
         #     return None
-            
-        # width, height = pyautogui.size()
-        # resolution = f"{width}x{height}"
-        # disp = os.getenv('DISPLAY')
 
-        # logging.debug(f"Starting recording to {filename}")
+        logging.debug(f"Starting recording to {filename}")
+            
+        width, height = pyautogui.size()
+        resolution = f"{width}x{height}"
+        disp = os.getenv('DISPLAY')
 
         command = (
             f"ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab "
