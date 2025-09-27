@@ -159,11 +159,10 @@ def start_recording(filename):
                 logging.error(f"Failed to start ffmpeg: {stderr.decode('utf-8', 'replace')}")
                 return None
                 
-            # Check if file exists and is growing in size
-            initial_size = os.path.getsize(filename) if os.path.exists(filename) else 0
+            # Check if file exists after a short delay
             time.sleep(1)
-            if not os.path.exists(filename) or os.path.getsize(filename) <= initial_size:
-                logging.error(f"Recording file {filename} is not being written to")
+            if not os.path.exists(filename):
+                logging.error(f"Recording file {filename} was not created")
                 end_process(subprocess_info)
                 return None
                 
