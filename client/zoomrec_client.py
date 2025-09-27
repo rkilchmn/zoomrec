@@ -115,22 +115,22 @@ def start_recording(filename):
         subprocess.Popen: Process handle for the recording, or None if failed to start
     """
     try:
-        # Create directory if it doesn't exist
-        os.makedirs(os.path.dirname(os.path.abspath(filename)), exist_ok=True)
+        # # Create directory if it doesn't exist
+        # os.makedirs(os.path.dirname(os.path.abspath(filename)), exist_ok=True)
         
-        # Touch the file to check if we can write to the location
-        try:
-            with open(filename, 'ab') as f:
-                f.write(b'')  # Write empty bytes to create file if it doesn't exist
-        except IOError as e:
-            logging.error(f"Cannot write to recording file {filename}: {e}")
-            return None
+        # # Touch the file to check if we can write to the location
+        # try:
+        #     with open(filename, 'ab') as f:
+        #         f.write(b'')  # Write empty bytes to create file if it doesn't exist
+        # except IOError as e:
+        #     logging.error(f"Cannot write to recording file {filename}: {e}")
+        #     return None
             
-        width, height = pyautogui.size()
-        resolution = f"{width}x{height}"
-        disp = os.getenv('DISPLAY')
+        # width, height = pyautogui.size()
+        # resolution = f"{width}x{height}"
+        # disp = os.getenv('DISPLAY')
 
-        logging.debug(f"Starting recording to {filename}")
+        # logging.debug(f"Starting recording to {filename}")
 
         command = (
             f"ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab "
