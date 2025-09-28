@@ -159,12 +159,12 @@ def start_recording(filename):
                 logging.error(f"Failed to start ffmpeg: {stderr.decode('utf-8', 'replace')}")
                 return None
                 
-            # Check if file exists after a short delay
-            time.sleep(1)
-            if not os.path.exists(filename):
-                logging.error(f"Recording file {filename} was not created")
-                end_process(subprocess_info)
-                return None
+            # # Check if file exists after a short delay
+            # time.sleep(1)
+            # if not os.path.exists(filename):
+            #     logging.error(f"Recording file {filename} was not created")
+            #     end_process(subprocess_info)
+            #     return None
                 
             logging.debug(f"Successfully started recording to {filename}")
             return subprocess_info
