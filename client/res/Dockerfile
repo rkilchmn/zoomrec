@@ -297,6 +297,7 @@ RUN pip install --break-system-packages --no-cache-dir -e .
 COPY client/res/home/automation ${HOME}/automation/
 
 # vaapi test scripts
+ADD client/res/test_vaapi.sh ${HOME}/
 ADD client/res/test_vaapi_x265.sh ${HOME}/
 ADD client/res/test_vaapi_AV1.sh ${HOME}/
 
