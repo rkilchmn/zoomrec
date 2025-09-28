@@ -133,9 +133,9 @@ def start_recording(filename):
         disp = os.getenv('DISPLAY')
 
         command = (
-            f"ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab "
+            f"ffmpeg -nostats -loglevel error -f pulse -ac 2 -i speaker.monitor -f x11grab "
             f"-r 30 -s {resolution} {FFMPEG_INPUT_PARAMS} -i {disp} {FFMPEG_OUTPUT_PARAMS} "
-            f"-threads 0 -async 1 -vsync 1 \"{filename}\""
+            f"-threads 0 -async 1 -fps_mode cfr \"{filename}\""
         )
 
         logging.debug(f"Recording command: {command}")
@@ -146,7 +146,7 @@ def start_recording(filename):
                 command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                shell=True,
+                shell=False,
                 preexec_fn=os.setsid
             )
             
