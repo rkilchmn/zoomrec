@@ -11,6 +11,7 @@ from ics import Calendar
 import os
 import math  # Define math module
 import json
+import requests
 try:
     from zoneinfo import ZoneInfo # >= 3.9
 except ImportError:
@@ -105,6 +106,15 @@ CONTENT_TYPE_PLAIN = "text/plain"
 CONTENT_TYPE_HTML = "text/html"
 CONTENT_TYPE_CALENDAR = "text/calendar"
 
+# Fallback ICS fetch settings
+MAX_ICS_BYTES = 2 * 1024 * 1024  # 2MB cap to avoid huge downloads
+ICS_LINK_TEXT_HINTS = [
+    "outlook calendar",
+    "download .ics",
+    "add to outlook",
+    "add to calendar",
+]
+
 # Get varsh
 BASE_PATH = os.getenv('ZOOMREC_HOME')
 
@@ -150,6 +160,67 @@ def mapping_ai(attribute_name: str, attribute_value: str, ai_config: dict) -> Op
     except Exception as e:
         logging.error(f"Error mapping attribute: {attribute_name} value: {attribute_value} using AI. Returning 'default' {default}.\nException: {str(e)}", exc_info=True)
         return default
+
+def _read_limited(resp, max_bytes: int) -> bytes:
+    """
+    Read a streaming response body with a size limit to prevent OOM on large files.
+    """
+    chunks = []
+    total = 0
+    for chunk in resp.iter_content(8192):
+        if not chunk:
+            continue
+        total += len(chunk)
+        if total > max_bytes:
+            raise ValueError("ICS exceeds size limit")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+def fetch_calendar_from_html(html_body: str) -> Optional[Calendar]:
+    """
+    Parse HTML body, find likely ICS download links (e.g., "Outlook Calendar (.ICS)"),
+    fetch the ICS, and return a parsed Calendar. Returns None on failure.
+    """
+    try:
+        soup = BeautifulSoup(html_body, 'html.parser')
+        candidates = []
+        for a in soup.find_all('a', href=True):
+            href = a['href'].strip()
+            text = (a.get_text() or "").strip().lower()
+            href_l = href.lower()
+            score = 0
+            if href_l.endswith(".ics") or "calendar.ics" in href_l or "ics" in href_l:
+                score += 1
+            if any(hint in text for hint in ICS_LINK_TEXT_HINTS):
+                score += 1
+            if score > 0:
+                candidates.append((score, href))
+
+        if not candidates:
+            return None
+
+        # Prefer higher score, then shorter URL (heuristic)
+        candidates.sort(key=lambda x: (-x[0], len(x[1])))
+
+        for _, url in candidates:
+            try:
+                headers = {"User-Agent": "zoomrec-imap-bot/1.0"}
+                with requests.get(url, headers=headers, timeout=10, allow_redirects=True, stream=True) as r:
+                    r.raise_for_status()
+                    content_type = (r.headers.get("Content-Type") or "").lower()
+                    if (".ics" in url.lower()) or ("text/calendar" in content_type) or ("text/plain" in content_type):
+                        data = _read_limited(r, MAX_ICS_BYTES)
+                        text = data.decode("utf-8", errors="replace")
+                        cal = Calendar(text)
+                        if getattr(cal, "events", None):
+                            return cal
+            except Exception as e:
+                logging.warning(f"Failed to fetch ICS from {url}: {e}")
+
+        return None
+    except Exception as e:
+        logging.error(f"Error parsing HTML for ICS links: {e}", exc_info=True)
+        return None
 
 def run_bot():   
     # Load the YAML config file
@@ -207,6 +278,18 @@ def run_bot():
                         soup = BeautifulSoup(body[CONTENT_TYPE_HTML], 'html.parser')
                         body[CONTENT_TYPE_PLAIN]  = soup.get_text()
                         text = soup.get_text()
+
+                    # If no calendar part present, try to extract ICS from HTML links
+                    if CONTENT_TYPE_CALENDAR not in body and CONTENT_TYPE_HTML in body:
+                        try:
+                            calendar = fetch_calendar_from_html(body[CONTENT_TYPE_HTML])
+                            if calendar is not None:
+                                body[CONTENT_TYPE_CALENDAR] = calendar
+                                logging.info("Fetched calendar from HTML ICS link.")
+                            else:
+                                logging.debug("No valid ICS link found in HTML or download failed.")
+                        except Exception as e:
+                            logging.error(f"Error attempting ICS download from HTML: {e}", exc_info=True)
 
                     # process email if content type available
                     events = []
