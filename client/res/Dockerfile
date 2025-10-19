@@ -181,6 +181,7 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ] && [ "$GPU_BUILD_SUBTYPE" = "INTEL-WSL2" ]; th
         apt-add-repository -y "deb http://archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse" && \
         apt-get update && \
         apt-get install -y mesa-va-drivers=23.2.1-1ubuntu3.1~22.04.3 && \
+        apt-mark hold mesa-va-drivers && \
         apt-get install --no-install-recommends -y \
             # standard drivers includes 
             # "radeonsi" for RX4x0/RC5x0
