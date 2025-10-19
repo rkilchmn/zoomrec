@@ -59,7 +59,7 @@ openssl req -x509 -sha256 \
   -out server.crt \
   -days 36500 \
   -subj "/C=NL/ST=Zuid Holland/L=Rotterdam/O=ACME Corp/OU=IT Dept/CN=example.org"  \
-  -addext "subjectAltName = DNS:localhost,DNS:example.org" 
+  -addext "subjectAltName = DNS:localhost,DNS:example.org" \
   -addext "basicConstraints=CA:FALSE" \
   -addext "keyUsage=digitalSignature,keyEncipherment" \
   -addext "extendedKeyUsage=serverAuth"
@@ -67,12 +67,14 @@ openssl req -x509 -sha256 \
 3. Copy the server.key and server.crt 
 
 ```
-  sudo mkdir -p /etc/ssl/selfsigned
-  sudo chown root:root /etc/ssl/selfsigned
-  sudo chmod 700 /etc/ssl/selfsigned
-  sudo chmod 644 /etc/ssl/selfsigned/server.crt
-  sudo chmod 600 /etc/ssl/selfsigned/server.key
-  sudo chown root:root /etc/ssl/selfsigned/server.key
+  sudo mkdir -p /etc/ssl/selfsigned 
+  sudo cp server.key /etc/ssl/selfsigned/ 
+  sudo cp server.crt /etc/ssl/selfsigned/ 
+  sudo chown root:root /etc/ssl/selfsigned 
+  sudo chmod 700 /etc/ssl/selfsigned 
+  sudo chmod 644 /etc/ssl/selfsigned/server.crt 
+  sudo chmod 600 /etc/ssl/selfsigned/server.key 
+  sudo chown root:root /etc/ssl/selfsigned/server.key 
   sudo chown root:root /etc/ssl/selfsigned/server.crt
 ```
 4. For nginx, add the following SSL settings to the server block:
@@ -104,14 +106,14 @@ sudo systemctl restart nginx
 6. On client machine copy the self-signed certificate to the clients config directory
 
 ```
-cp server.pem ~/config/server.pem
+cp server.crt ~/config/server.crt
 ```
 
 7. In .client.env add REQUESTS_CA_BUNDLE environment variable to point to the self-signed certificate
 
 ```
 # self signed cert for HTTPS
-REQUESTS_CA_BUNDLE=$ZOOMREC_HOME/config/server.pem
+REQUESTS_CA_BUNDLE=$ZOOMREC_HOME/config/server.crt
 ```
 
 8. Restart client container
