@@ -16,6 +16,7 @@ ERROR_CONFIG_READ = "config_read_error"
 ERROR_NO_NEWER_CONFIG = "no_newer_config"
 ERROR_FIRMWARE_DIR_NOT_FOUND = "firmware_dir_not_found"
 ERROR_NO_COMPATIBLE_FIRMWARE = "no_compatible_firmware"
+ERROR_INVALID_FIRMWARE_VERSION = "invalid_firmware_name"
 ERROR_UNEXPECTED = "unexpected_error"
 
 def parse_version_string(version_str: str) -> Tuple[str, datetime]:
@@ -160,15 +161,17 @@ def find_compatible_firmware(firmware_path: str, firmware_name: str,
         
         for filepath in firmware_files:
             try:
-                _, version_time = parse_version_string( os.path.basename(filepath).replace(ARDUINO_FIRMWARE_EXTENSION, ""))
+                version = os.path.basename(filepath).replace(ARDUINO_FIRMWARE_EXTENSION, "")
+                _, version_time = parse_version_string(version)
                 
                 # Only consider versions newer than current version
                 if version_time > current_version_time:
                     compatible_firmware.append((filepath, version_time))
                     
             except ValueError as e:
-                app.logger.error(f"Error parsing firmware version: {str(e)}")
-                continue
+                error_msg = f"Error parsing firmware version: {version}"
+                return None, {"error_code": ERROR_INVALID_FIRMWARE_VERSION,
+                            "error_msg": error_msg}
         
         if not compatible_firmware:
             return None, {"error_code": ERROR_NO_COMPATIBLE_FIRMWARE,
