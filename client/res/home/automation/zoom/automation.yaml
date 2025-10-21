@@ -87,7 +87,7 @@ join_popup_with_id: &join_popup_with_id
 join_check_workplace: &join_check_workplace
   locate_image: 
     image: 'zoom_workplace_joined.png'
-    iterate: 
+    iterate: 1
     sleep: 1
 
 check_toolbar: &check_toolbar
