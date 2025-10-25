@@ -150,6 +150,9 @@ RUN apt-get install --no-install-recommends -y \
 # Clean up APT when done.
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Install Temporal CLI into /home/zoomrec/.temporalio/bin/temporal
+RUN curl -sSfL https://temporal.download/cli.sh | bash
+
 # Set the noninteractive environment variable to suppress prompts
 ENV DEBIAN_FRONTEND=noninteractive
 

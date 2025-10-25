@@ -13,6 +13,9 @@ beautifulsoup4
 shortuuid
 debugpy # only for debug inside docker
 python-dateutil
-# for postprocessing
+# postprocessing: reliable execution of postprocessing steps 
+temporalio
+# postprocessing: for whisper audio transcription
 whisper-ctranslate2-remote-api
+
 

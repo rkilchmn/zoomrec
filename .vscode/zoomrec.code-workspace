@@ -86,6 +86,20 @@
 				}
 			},
 			{
+				"name": "Python: postprocessing",
+				"type": "debugpy",
+				"request": "launch",
+				"program": "${workspaceFolder}/client/postprocessing.py",
+				"console": "integratedTerminal",
+				"justMyCode": false,
+				"envFile": "${userHome}/.client.env",
+				"env": {
+					"ZOOMREC_HOME": "${userHome}",
+					"SERVER_URL": "http://localhost:8081",
+					"DEBUG_MODULE": "", // turn off remote debugging (we are already debugging)
+				}
+			},
+			{
 				"name": "Python: summarize_transcript (container)",
 				"type": "debugpy",
 				"request": "launch",

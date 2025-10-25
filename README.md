@@ -118,8 +118,12 @@ REQUESTS_CA_BUNDLE=$ZOOMREC_HOME/config/server.crt
 
 8. Restart client container
 
-9. (Optional if using https://github.com/rkilchmn/ESP8266_zoomrec to turn on client machine based on zoomrec schedule retrieved from server). In config JSON file add the public key for public key pinning:
-
+9. (Optional if using https://github.com/rkilchmn/ESP8266_zoomrec to turn on client machine based on zoomrec schedule retrieved from server)
+Export public key in PEM format (bas64 encoded)
+```
+openssl pkey -in server.key -pubout -out pubkey.pem 
+```
+ In config JSON file add the public key in PEM format for public key pinning. Replace newlines with \\n:
 ```
  "tls_server_pubkey": "-----BEGIN PUBLIC KEY-----\\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE38HxSo9LBaFlVRhtsdFhfY5+qwfH\\nd5ZA4aTcf+MEQcHF/YiHuH7YIxn39JuV4+b/rOhlwbi2/Bostz/ll5ZGMg==\\n-----END PUBLIC KEY-----"
 

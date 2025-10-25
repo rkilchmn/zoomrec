@@ -54,8 +54,21 @@ pactl load-module module-remap-source master=microphone.monitor source_name=micr
 # Set microphone Volume
 pactl set-source-volume 3 60%
 
-echo -e "\nStart script.."
-sleep 5
+# start temporal server with db backend --ui-ip 0.0.0.0 is to expose UI outside docker for debugging
+/home/zoomrec/.temporalio/bin/temporal server start-dev \
+  --search-attribute Event_Key=Keyword \
+  --search-attribute Event_Title=Text \
+  --search-attribute Event_Start=Datetime \
+  --search-attribute Event_Start_Instance=Datetime \
+  --search-attribute Event_Filename=Text \
+  --ui-ip 0.0.0.0 \
+  --db-filename ${HOME}/data/temporaldb \
+  >> ${HOME}/data/logs/temporal-server_log.txt 2>&1 &
+
+echo -e "\nStart Zoomrec Client.."
+
+# start temporal postprocessing worker
+python3 -u "$HOME/client/postprocessing.py" &> "$HOME/data/logs/starting_log.txt" &
 
 # Start python script in separated terminal
 if [[ "$LOG_LEVEL" == "DEBUG" ]]; then

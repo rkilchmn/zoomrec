@@ -25,6 +25,7 @@ SCREENSHOT_DIR = 'data/logs/screenshots' # debug (client only)
 
 # log file names
 LOG_CLIENT_FILENAME = 'client_log.txt'
+LOG_POSTPROCESS_FILENAME = 'postprocessing_log.txt'
 LOG_SERVER_FILENAME = 'server_log.txt'
 LOG_IMAP_BOT_FILENAME = 'imap_bot_log.txt'
 LOG_TELEGRAM_BOT_FILENAME = 'telegram_bot_log.txt'
@@ -52,6 +53,7 @@ ZOOMREC_DB_FILENAME = 'data/zoomrec_server_db'
 # debugging
 DEBUG_MODULE_ZOOMREC_SERVER_APP = 'zoomrec_server_app'
 DEBUG_MODULE_ZOOMREC_CLIENT = 'zoomrec_client'
+DEBUG_MODULE_POSTPROCESS = 'postprocessing'
 DEBUG_MODULE_IMAP_BOT = 'imap_bot'
 DEBUG_MODULE_TELEGRAM_BOT = 'telegram_bot'
 DEBUG_MODULE_ZOOMREC_SERVER = 'zoomrec_server'

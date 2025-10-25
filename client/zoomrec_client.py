@@ -8,18 +8,17 @@ import subprocess
 import time
 import atexit
 import shlex
-import threading
 import pyautogui
 from pathlib import Path
 from datetime import datetime
+import asyncio
 
-from shared.events import Events, EventType, EventField, EventStatus, EventInstructionAttribute, EventInstructionProcess, EventInstructionPostprocess  
-from shared.users import UserField
-from shared.users_api import UserAPI
+from shared.events import Events, EventType, EventField, EventStatus, EventInstructionAttribute, EventInstructionProcess  
 from shared.events_api import EventAPI
 from shared.utilities import start_debug, end_process, convert_to_safe_filename, create_unique_filename, start_logging, format_template
 import shared.constants as constants
 from client.automation import Automation
+from client.postprocessing import schedulePostprocess
 
 start_logging(constants.LOG_CLIENT_FILENAME)
 start_debug(constants.DEBUG_MODULE_ZOOMREC_CLIENT, os.getenv('DEBUG_PORT_CLIENT'))
@@ -35,7 +34,6 @@ FFMPEG_OUTPUT_PARAMS = os.getenv('FFMPEG_OUTPUT_PARAMS')
 CLIENT_ID = os.getenv('CLIENT_ID')
 
 SSH_SERVER_URL = os.getenv('SSH_SERVER_URL')
-
 
 # process variables
 zoom_proc = None
@@ -60,7 +58,7 @@ def getIntEnv( env_str, default_value):
         val_str = os.getenv(env_str)
         if val_str:
             int_val = int(val_str)
-    except ValueError or TypeError:
+    except (ValueError, TypeError):
         logging.error(f"error converting env {env_str} value {val_str} to integer. Default value {default_value} used.")
 
     return int_val
@@ -178,150 +176,8 @@ def start_recording(filename):
     except Exception as e:
         logging.error(f"Unexpected error in start_recording: {e}", exc_info=True)
         return None
-
-class PostprocessAndTransferThread:
-    def __init__(self, recording_basename, event, event_api):
-        self.recording_basename = recording_basename
-        self.event = event
-        self.event_api = event_api
-
-        thread = threading.Thread(target=self.run, args=())
-        thread.daemon = True  # Daemonize thread
-        thread.start()  # Start the execution
-
-    def run(self):
-
-        # Define desired postprocess execution order
-        def postprocess_order(step):
-            EXECUTION_ORDER = [
-                EventInstructionPostprocess.TRANSCRIBE.value,
-                EventInstructionPostprocess.TRANSLATE.value,
-                EventInstructionPostprocess.CUSTOM.value,
-                EventInstructionPostprocess.UPLOAD.value
-            ]
-
-            if not isinstance(step, dict):
-                return len(EXECUTION_ORDER)
-            for idx, key in enumerate(EXECUTION_ORDER):
-                if key in step:
-                    return idx
-            return len(EXECUTION_ORDER)
-
-        try:
-            event = self.event
-            event_api = self.event_api
-            recording_basename = self.recording_basename
-
-            # start postprocessing
-            postprocessing_start = Events.now(event)
-            txt = f"Started postprocessing phase at {postprocessing_start.strftime(constants.DATETIME_FORMAT)}"
-            logging.info(txt)
-            print_console(txt)
-
-            filename_postprocess = None
-            if recording_basename:
-                # Consolidate videos if multiple recordings of same meeting
-                command = f"{SCRIPT_DIR}/concatenate_video.sh '{os.path.join(REC_PATH, recording_basename)}' {constants.VIDEO_EXTENSION} yes"
-                logging.debug(f"Consolidate video command: {command}")
-                result = subprocess.run(command, shell=True, capture_output=True, text=True)
-                if result.returncode != 0:
-                    logging.error(f"Error consolidating video: {result.stderr}")
-                else:
-                    logging.debug(f"Consolidated video: {result.stdout}")
-                    filename_postprocess = os.path.join(REC_PATH, f"{recording_basename}.{constants.VIDEO_EXTENSION}")
-
-                # postprocessing instruction
-                postprocess = Events.get_instruction_attribute(EventInstructionAttribute.POSTPROCESS, event)
-                postprocess_sorted = sorted(postprocess, key=postprocess_order)
-                for step in postprocess_sorted:
-                    command = None
-                    for key, value in step.items():
-                        match key:
-                            case EventInstructionPostprocess.TRANSCRIBE.value:
-                                command = f"{SCRIPT_DIR}/transcribe_video.sh {key} {filename_postprocess}"
-                            case EventInstructionPostprocess.TRANSLATE.value:
-                                command = f"{SCRIPT_DIR}/transcribe_video.sh {key}={value['language'] if 'language' in value else 'en'} {filename_postprocess}"
-                            case EventInstructionPostprocess.UPLOAD.value:
-                                if SSH_SERVER_URL:
-                                    with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
-                                        user = user_api.get(filters=[[UserField.KEY.value, "=", event[EventField.USER_KEY.value]]])[0]
-                                    command = (
-                                        f"{SCRIPT_DIR}/sftp_upload.sh '{os.path.join(REC_PATH, recording_basename)}' "
-                                        f"'{constants.SFTP_ADMIN_USERNAME}@{SSH_SERVER_URL}' "
-                                        f"'{os.path.join(BASE_PATH, constants.SFTP_ADMIN_USER_IDENTITY_FILE)}' "
-                                        f"'{user[UserField.LOGIN.value]}/{constants.SFTP_RECORDINGS_DIR}' {value['delete'] if 'delete' in value else 'true'}"
-                                    )
-                                else:
-                                    logging.error("SFTP transfer to server cannot be initiated: SSH_SERVER_URL not specified.")
-                            case EventInstructionPostprocess.CUSTOM.value:
-                                # Handle both single task (dict) and multiple tasks (list)
-                                tasks = value if isinstance(value, list) else [value]
-                                commands = []
-                                
-                                for task in tasks:
-                                    if not isinstance(task, dict) or 'task' not in task:
-                                        logging.error(f"Invalid custom task format: {task}")
-                                        continue
-                                    
-                                    # Build command for this task
-                                    script_name = task['task']
-                                    script_path = os.path.join(SCRIPT_DIR, f"{script_name}")
-                                    
-                                    # Check if script exists and is executable
-                                    if not os.path.isfile(script_path) or not os.access(script_path, os.X_OK):
-                                        logging.error(f"Script not found or not executable: {script_path}")
-                                        continue
-                                    
-                                    # Build the command with the script and its arguments
-                                    cmd = f"{script_path} {filename_postprocess}"
-                                    for param, param_value in task.items():
-                                        if param != 'task':  # Skip task as it's used as script name
-                                            cmd += f" --{param} '{param_value}'"  # Quote the parameter value
-                                    commands.append(cmd)
-                                
-                                # Join commands with && to run them sequentially
-                                command = " && ".join(commands) if commands else ""
-                            case _:
-                                logging.error(f"Unknown postprocessing step: {key}")
-                                continue
-                            
-                    # run command
-                    if command:
-                        postprocessing_step_start = Events.now(event)
-                        txt = f"Started postprocessing step '{key}' with args {value} at {postprocessing_step_start.strftime(constants.DATETIME_FORMAT)}"
-                        logging.info(txt)
-                        print_console(txt)
-
-                        logging.debug(f"Postprocessing task '{key}' command: {command}")
-                        postprocess_proc = subprocess.Popen(
-                            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-                        if postprocess_proc:
-                            stdout, stderr = postprocess_proc.communicate()
-                            if postprocess_proc.returncode == 0:
-                                postprocessing_step_end = Events.now(event)
-                                postprocessing_step_duration = postprocessing_step_end - postprocessing_step_start
-                                logging.info(f"Postprocessing task '{key}' completed successfully at {postprocessing_step_end.strftime(constants.DATETIME_FORMAT)} after {str(postprocessing_step_duration).split('.')[0]}")
-                            else:
-                                logging.error(f"Postprocessing task '{key}' failed with return code: {postprocess_proc.returncode} and error: {stderr.decode().strip()}")
-                            # debug output
-                            logging.debug(f"Postprocessing task '{key}' stdout: {stdout.decode().strip()}")
-                            logging.debug(f"Postprocessing task '{key}' stderr: {stderr.decode().strip()}")
-                            postprocess_proc = None
-                        else:
-                            logging.error(f"Postprocessing task '{key}' failed to start.")
-                            
-            # update event status
-            try:
-                event[EventField.STATUS.value] = EventStatus.ENDED.value
-                event[EventField.ASSIGNED.value] = ''
-                event[EventField.ASSIGNED_TIMESTAMP.value] = ''
-                event_api.update(event)
-            except Exception as e:
-                logging.error(f"Error updating event: {e}")
-        except Exception as e:
-            logging.error(f"Error in postprocess_and_transfer thread: {e}")
     
-def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_instance_trail):
+async def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lead, dtend_instance_trail):
     try:
         with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
             event = event_api.get(filters=[[EventField.KEY.value, "=", event_key]])[0]
@@ -478,18 +334,19 @@ def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lead, dte
                 logging.error(f"Meeting prematurely ended at {now_in_tz.strftime(constants.DATETIME_FORMAT)} after {str(meeting_elapsed).split(".")[0]}")
                 return False
 
-            logging.info(f"Meeting ended at {now_in_tz.strftime(constants.DATETIME_FORMAT)} after {str(meeting_elapsed).split(".")[0]}")
-
-            event[EventField.STATUS.value] = EventStatus.POSTPROCESS.value
-            event[EventField.ASSIGNED.value] = CLIENT_ID
-            event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
+            # update event to ENDED to prevent re-joining 
             try:
+                event[EventField.STATUS.value] = EventStatus.ENDED.value
+                event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
                 event_api.update(event)
             except Exception as e:
                 logging.error(f"Error updating event: {e}")
-            
-            # Start postprocessing and transfer in a separate thread
-            PostprocessAndTransferThread(recording_basename, event, event_api)
+
+            logging.info(f"Meeting ended at {now_in_tz.strftime(constants.DATETIME_FORMAT)} after {str(meeting_elapsed).split(".")[0]}")
+
+            # start postprocessing using temporal.io
+            handle = await schedulePostprocess(recording_basename, event, CLIENT_ID)
+            logging.info(f"Started postprocessing with workflow id: '{handle.id}'")
 
             # now other events can be joined while postprocessing is still ongoing
             return True
@@ -535,7 +392,7 @@ def print_console(message, no_scroll=True):
     else:
         print(padded_message, flush=True)
 
-def main():
+async def main():
     # loop to retrive next event and wait for it to join
     with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
         while True:
@@ -550,7 +407,7 @@ def main():
                     next_event['dtnow'] = Events.replaceTimezone(datetime.fromisoformat(next_event['dtnow']), next_event['timezone'])
                             
                 if next_event and next_event['dtstart_instance_lead'] <= next_event['dtnow'] and next_event['dtnow'] <= next_event['dtend_instance_trail']:
-                    join( next_event[EventField.KEY.value], next_event['dtstart_instance'], next_event['dtend_instance'], next_event['dtstart_instance_lead'], next_event['dtend_instance_trail'])  
+                    await join( next_event[EventField.KEY.value], next_event['dtstart_instance'], next_event['dtend_instance'], next_event['dtstart_instance_lead'], next_event['dtend_instance_trail'])  
                 else:                  
                     for _ in range(constants.INTERVAL_CHECK_NEXT_EVENT):
                         if next_event:
@@ -571,4 +428,4 @@ def main():
 if __name__ == '__main__':
     version = get_zoom_version()
     print_console(f"Zoom version: {version}", False)
-    main()
+    asyncio.run(main())
