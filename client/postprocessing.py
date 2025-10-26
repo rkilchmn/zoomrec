@@ -271,21 +271,22 @@ async def get_temporal_client():
     global _temporal_client
     
     if _temporal_client is None:
-        TEMPORAL_SERVER_URL = os.getenv('TEMPORAL_SERVER_URL', 'localhost:7233')
-        logging.info(f"Creating Temporal client connection to {TEMPORAL_SERVER_URL}")
-        _temporal_client = await Client.connect(TEMPORAL_SERVER_URL)
+        TEMPORAL_SERVER = os.getenv('TEMPORAL_SERVER', 'localhost:7233')
+        logging.info(f"Creating Temporal client connection to {TEMPORAL_SERVER}")
+        _temporal_client = await Client.connect(TEMPORAL_SERVER)
         logging.info("Temporal client connected")
     
     return _temporal_client
 
 
-async def schedulePostprocess(recording_basename, event, client_id):
+async def schedulePostprocess(postprocess, recording_basename, event, client_id):
     """Schedule a postprocessing workflow for a recording.
     
     This function reuses a shared Temporal client connection, allowing
     multiple calls without creating new connections each time.
     
     Args:
+        postprocess: List of postprocessing instructions
         recording_basename: Base name of the recording file
         event: Event dictionary using EventField keys
         client_id: ID of the client scheduling the postprocess
@@ -295,29 +296,33 @@ async def schedulePostprocess(recording_basename, event, client_id):
     """
     # Get shared Temporal client
     client = await get_temporal_client()
+
+    if isinstance(postprocess, list) and len(postprocess) > 0:
     
-    # Get postprocessing instruction
-    postprocess = Events.get_instruction_attribute(EventInstructionAttribute.POSTPROCESS, event)
-    postprocess_sorted = sorted(postprocess, key=postprocess_order)
-    
-    # Generate workflow ID based on event
-    workflow_id = f"zoomrec-client-postprocess-{recording_basename}"
-    
-    # Start the workflow
-    handle = await client.start_workflow(
-        PostprocessWorkflow.run,
-        PostprocessWorkflowInput(
-            recording_basename=recording_basename,
-            event=event,
-            client_id=client_id,
-            postprocess_sorted=postprocess_sorted
-        ),
-        id=workflow_id,
-        task_queue="postprocess-task-queue",
-    )
-    
-    logging.info(f"Started postprocessing with workflow id: '{workflow_id}' and handle: '{handle.id}'")
-    return handle
+        # sequence postprocessing instruction
+        postprocess_sorted = sorted(postprocess, key=postprocess_order)
+        
+        # Generate workflow ID based on event
+        workflow_id = f"zoomrec-client-postprocess-{recording_basename}"
+        
+        # Start the workflow
+        handle = await client.start_workflow(
+            PostprocessWorkflow.run,
+            PostprocessWorkflowInput(
+                recording_basename=recording_basename,
+                event=event,
+                client_id=client_id,
+                postprocess_sorted=postprocess_sorted
+            ),
+            id=workflow_id,
+            task_queue="postprocess-task-queue",
+        )
+        
+        logging.info(f"Started postprocessing with workflow id: '{workflow_id}' and handle: '{handle.id}'")
+        return handle
+    else:
+        logging.error("No postprocessing instructions found")
+        return None
 
 async def main():
     """Main function to start the Temporal worker for postprocessing.
@@ -325,13 +330,9 @@ async def main():
     This worker will listen for postprocessing workflow tasks and execute
     the registered activities (updateStatus, consolidateRecording, getUserLogin, executePostprocessStep).
     """
-    # Get Temporal server URL
-    TEMPORAL_SERVER_URL = os.getenv('TEMPORAL_SERVER_URL', 'localhost:7233')
     
-    logging.info(f"Connecting to Temporal server at {TEMPORAL_SERVER_URL}")
-    
-    # Connect to Temporal server
-    client = await Client.connect(TEMPORAL_SERVER_URL)
+    # Get shared Temporal client
+    client = await get_temporal_client()
     
     logging.info("Connected to Temporal server")
 

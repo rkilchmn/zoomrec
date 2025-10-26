@@ -334,19 +334,30 @@ async def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lea
                 logging.error(f"Meeting prematurely ended at {now_in_tz.strftime(constants.DATETIME_FORMAT)} after {str(meeting_elapsed).split(".")[0]}")
                 return False
 
-            # update event to ENDED to prevent re-joining 
-            try:
-                event[EventField.STATUS.value] = EventStatus.ENDED.value
-                event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
-                event_api.update(event)
-            except Exception as e:
-                logging.error(f"Error updating event: {e}")
-
             logging.info(f"Meeting ended at {now_in_tz.strftime(constants.DATETIME_FORMAT)} after {str(meeting_elapsed).split(".")[0]}")
 
-            # start postprocessing using temporal.io
-            handle = await schedulePostprocess(recording_basename, event, CLIENT_ID)
-            logging.info(f"Started postprocessing with workflow id: '{handle.id}'")
+             # Get postprocessing instruction
+            postprocess = Events.get_instruction_attribute(EventInstructionAttribute.POSTPROCESS, event)
+            if isinstance(postprocess, list) and len(postprocess) > 0:
+                # update event to POSTPROCESS to prevent re-joining but keep client running (ESP8266 PCSwitch)
+                try:
+                    event[EventField.STATUS.value] = EventStatus.POSTPROCESS.value
+                    event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
+                    event_api.update(event)
+                except Exception as e:
+                    logging.error(f"Error updating event status to POSTPROCESS: {e}")
+           
+                # start postprocessing using temporal.io
+                handle = await schedulePostprocess(postprocess, recording_basename, event, CLIENT_ID)
+                logging.info(f"Started postprocessing with workflow id: '{handle.id}'")
+            else:
+                # update event to ENDED to prevent re-joining 
+                try:
+                    event[EventField.STATUS.value] = EventStatus.ENDED.value
+                    event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(event).isoformat()
+                    event_api.update(event)
+                except Exception as e:
+                    logging.error(f"Error updating event status to ENDED: {e}")
 
             # now other events can be joined while postprocessing is still ongoing
             return True
