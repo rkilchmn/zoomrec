@@ -138,6 +138,34 @@ class PostprocessWorkflowInput:
     
 @workflow.defn
 class PostprocessWorkflow:
+    def __init__(self):
+        self.skipped_tasks = set()
+
+    @workflow.signal(name="skipSteps")
+    def skip_steps_signal(self, task_names) -> None:
+        """Signal handler to skip specific postprocessing steps.
+        
+        Args:
+            task_names: A single task name (str) or list of task names to skip
+        """
+        if isinstance(task_names, str):
+            task_names = [task_names]
+        self.skipped_tasks.update(task_names)
+        workflow.logger.info(f"Added tasks to skip: {', '.join(task_names)}")
+
+    def should_skip_step(self, step_name: str) -> bool:
+        """Check if the current step should be skipped.
+        
+        Args:
+            step_name: Name of the step to check
+            
+        Returns:
+            bool: True if the step should be skipped, False otherwise
+        """
+        if step_name in self.skipped_tasks:
+            workflow.logger.info(f"Skipping execution of postprocessing step '{step_name}' as requested")
+            return True
+        return False
 
     @workflow.run
     async def run(self, input: PostprocessWorkflowInput):
@@ -237,6 +265,10 @@ class PostprocessWorkflow:
                         logging.error(f"Unknown postprocessing step: {key}")
                         continue
             if command:
+                # Check if this step should be skipped
+                if self.should_skip_step(key):
+                    continue
+                    
                 await workflow.execute_activity(
                     executePostprocessStep,
                     executePostprocessStepInput(
