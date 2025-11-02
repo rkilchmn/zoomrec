@@ -151,7 +151,7 @@ class PostprocessWorkflow:
         if isinstance(task_names, str):
             task_names = [task_names]
         self.skipped_tasks.update(task_names)
-        workflow.logger.info(f"Added tasks to skip: {', '.join(task_names)}")
+        logging.info(f"Added tasks to skip: {', '.join(task_names)}")
 
     def should_skip_step(self, step_name: str) -> bool:
         """Check if the current step should be skipped.
@@ -163,7 +163,7 @@ class PostprocessWorkflow:
             bool: True if the step should be skipped, False otherwise
         """
         if step_name in self.skipped_tasks:
-            workflow.logger.info(f"Skipping execution of postprocessing step '{step_name}' as requested")
+            logging.info(f"Skipping execution of postprocessing step '{step_name}' as requested")
             return True
         return False
 
