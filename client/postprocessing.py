@@ -2,12 +2,14 @@
 from temporalio import activity, workflow
 from temporalio.client import Client
 from temporalio.worker import Worker
+# type: ignore  # Pylance may not recognize these imports, but they are valid in temporalio
 # from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner, SandboxRestrictions
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import subprocess
 import logging
 import os
+from typing import Optional
 
 # Import with sandbox passthrough for modules that use http.client and other restricted modules
 with workflow.unsafe.imports_passed_through():
@@ -21,6 +23,34 @@ with workflow.unsafe.imports_passed_through():
 start_logging(LOG_POSTPROCESS_FILENAME)
 start_debug(DEBUG_MODULE_POSTPROCESS, os.getenv('DEBUG_PORT_POSTPROCESS'))
 
+def get_context_prefix() -> str:
+    """Return a standardized log prefix with workflow and/or activity context.
+
+    Works in both workflow and activity execution contexts.
+    Example output:
+      [Workflow: 'zoomrec-client-postprocess' Run: '1234abcd' Activity: 'postprocess_activity']
+    """
+    parts = []
+
+    # Check if inside workflow
+    try:
+        wf_info = workflow.info()
+        parts.append(f"Workflow: '{wf_info.workflow_id}' Run: '{wf_info.run_id}'")
+    except Exception:
+        pass  # Not in workflow context
+
+    # Check if inside activity
+    try:
+        act_info = activity.info()
+        parts.append(f"Workflow: '{act_info.workflow_id}' Run: '{act_info.workflow_run_id}' Activity: '{act_info.activity_type}'")
+    except Exception:
+        pass  # Not in activity context
+
+    # Return formatted prefix
+    if parts:
+        return f"[{' '.join(parts)}]"
+    return "[NoContext]"
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 SERVER_USERNAME = os.getenv('SERVER_USERNAME')
@@ -28,6 +58,8 @@ SERVER_PASSWORD = os.getenv('SERVER_PASSWORD')
 SERVER_URL = os.getenv('SERVER_URL')
 SSH_SERVER_URL = os.getenv('SSH_SERVER_URL')
 BASE_PATH = os.getenv('ZOOMREC_HOME')
+if BASE_PATH is None:
+    raise ValueError("ZOOMREC_HOME environment variable is not set")
 REC_PATH = os.path.join(BASE_PATH, RECORDINGS_DIR)
 
 # Temporal client (initialized on first use)
@@ -57,32 +89,45 @@ class UpdateStatusInput:
     new_status: int
 
 @activity.defn
-async def updateStatus( input: UpdateStatusInput):
+async def updateStatus(input: UpdateStatusInput):
     with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
-        # update event to POSTPROCES
+        # Get current event status
+        try:
+            current_event = event_api.get(filters=[[EventField.KEY.value, "=", input.event[EventField.KEY.value]]])[0]
+
+        except Exception as e:
+            logging.warning(f"{get_context_prefix()} Failed to retrieve event '{Events.nameStr(input.event)}'. This can happen if was deleted when postprocessing took too long")
+            return  
+
+        # Update event status and assignment info
         input.event[EventField.STATUS.value] = input.new_status
+        
         if input.client_id:
             input.event[EventField.ASSIGNED.value] = input.client_id
             input.event[EventField.ASSIGNED_TIMESTAMP.value] = Events.now(input.event).isoformat()
         else:
             input.event[EventField.ASSIGNED.value] = ""
             input.event[EventField.ASSIGNED_TIMESTAMP.value] = ""
+    
+        # Save changes
         event_api.update(input.event)
+        logging.info(f"{get_context_prefix()} Successfully updated event status to '{EventStatus.get_description(input.new_status)}'")
 
 @dataclass
 class consolidateRecordingInput:
     recording_basename_path: str
 
 @activity.defn
-async def consolidateRecording(input: consolidateRecordingInput)->str:
+async def consolidateRecording(input: consolidateRecordingInput) -> Optional[str]:
     # Consolidate videos if multiple recordings of same meeting
     command = f"{SCRIPT_DIR}/concatenate_video.sh '{input.recording_basename_path}' {VIDEO_EXTENSION} yes"
-    logging.debug(f"Consolidate video command: {command}")
+    logging.debug(f"{get_context_prefix()} Consolidate video command: {command}")
     result = subprocess.run(command, shell=True, capture_output=True, text=True)
     if result.returncode != 0:
-        logging.error(f"Error consolidating video: {result.stderr}")
+        logging.error(f"{get_context_prefix()} Error consolidating video: {result.stderr}")
+        return None
     else:
-        logging.debug(f"Consolidated video: {result.stdout}")
+        logging.debug(f"{get_context_prefix()} Consolidated video: {result.stdout}")
         return f"{input.recording_basename_path}.{VIDEO_EXTENSION}"
 
 @dataclass
@@ -105,10 +150,9 @@ class executePostprocessStepInput:
 @activity.defn
 async def executePostprocessStep(input: executePostprocessStepInput):
     postprocessing_step_start = Events.now(input.event)
-    txt = f"Started postprocessing step '{input.step}'at {postprocessing_step_start.strftime(DATETIME_FORMAT)}"
-    logging.info(txt)
+    logging.info(f"{get_context_prefix()} Started postprocessing step '{input.step}' at {postprocessing_step_start.strftime(DATETIME_FORMAT)}")
 
-    logging.debug(f"Postprocessing step '{input.step}' command: {input.command}")
+    logging.debug(f"{get_context_prefix()} Postprocessing step '{input.step}' command: {input.command}")
     postprocess_proc = subprocess.Popen(
         input.command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
     if postprocess_proc:
@@ -116,18 +160,17 @@ async def executePostprocessStep(input: executePostprocessStepInput):
         if postprocess_proc.returncode == 0:
             postprocessing_step_end = Events.now(input.event)
             postprocessing_step_duration = postprocessing_step_end - postprocessing_step_start
-            logging.info(f"Postprocessing step '{input.step}' completed successfully at {postprocessing_step_end.strftime(DATETIME_FORMAT)} after {str(postprocessing_step_duration).split('.')[0]}")
+            logging.info(f"{get_context_prefix()} Postprocessing step '{input.step}' completed successfully at {postprocessing_step_end.strftime(DATETIME_FORMAT)} after {str(postprocessing_step_duration).split('.')[0]}")
         else:
             txt = f"Postprocessing step '{input.step}' failed with return code: {postprocess_proc.returncode} and error: {stderr.decode().strip()}"
-            logging.error(txt)
+            logging.error(f"{get_context_prefix()} {txt}")
             raise RuntimeError(txt)
         # debug output
-        logging.debug(f"Postprocessing step '{input.step}' stdout: {stdout.decode().strip()}")
-        logging.debug(f"Postprocessing step '{input.step}' stderr: {stderr.decode().strip()}")
+        logging.debug(f"{get_context_prefix()} Postprocessing step '{input.step}' stdout: {stdout.decode().strip()}")
+        logging.debug(f"{get_context_prefix()} Postprocessing step '{input.step}' stderr: {stderr.decode().strip()}")
     else:
-        txt = f"Postprocessing step '{input.step}' failed to start."
-        logging.error(txt)
-        raise RuntimeError(txt)       
+        logging.error(f"{get_context_prefix()} Postprocessing step '{input.step}' failed to start.")
+        raise RuntimeError(f"Postprocessing step '{input.step}' failed to start.")
 
 @dataclass
 class PostprocessWorkflowInput:
@@ -151,7 +194,7 @@ class PostprocessWorkflow:
         if isinstance(task_names, str):
             task_names = [task_names]
         self.skipped_tasks.update(task_names)
-        logging.info(f"Added tasks to skip: {', '.join(task_names)}")
+        logging.info(f"{get_context_prefix()} Added tasks to skip: {', '.join(task_names)}")
 
     def should_skip_step(self, step_name: str) -> bool:
         """Check if the current step should be skipped.
@@ -163,7 +206,6 @@ class PostprocessWorkflow:
             bool: True if the step should be skipped, False otherwise
         """
         if step_name in self.skipped_tasks:
-            logging.info(f"Skipping execution of postprocessing step '{step_name}' as requested")
             return True
         return False
 
@@ -192,8 +234,7 @@ class PostprocessWorkflow:
 
         # start postprocessing
         postprocessing_start = Events.now(input.event)
-        txt = f"Started postprocessing for '{input.recording_basename}' at {postprocessing_start.strftime(DATETIME_FORMAT)}"
-        logging.info(txt)
+        logging.info(f"{get_context_prefix()} Started postprocessing for '{input.recording_basename}' at {postprocessing_start.strftime(DATETIME_FORMAT)}")
 
         # concatenate video
         filename_postprocess = await workflow.execute_activity(
@@ -204,6 +245,10 @@ class PostprocessWorkflow:
             start_to_close_timeout=timedelta(hours=2),
             summary=f"Consolidate recording for '{input.recording_basename}'"
         )
+
+        # Check if consolidation succeeded
+        if not filename_postprocess:
+            raise RuntimeError(f"Failed to consolidate recording for '{input.recording_basename}'. Aborting postprocessing.")
 
         # build postprocessing command
         for step in input.postprocess_sorted:
@@ -231,7 +276,7 @@ class PostprocessWorkflow:
                                 f"'{user_login}/{SFTP_RECORDINGS_DIR}' {value['delete'] if 'delete' in value else 'true'}"
                             )
                         else:
-                            logging.error("SFTP transfer to server cannot be initiated: SSH_SERVER_URL not specified.")
+                            logging.error(f"{get_context_prefix()} SFTP transfer to server cannot be initiated: SSH_SERVER_URL not specified.")
                     case EventInstructionPostprocess.CUSTOM.value:
                         # Handle both single task (dict) and multiple tasks (list)
                         tasks = value if isinstance(value, list) else [value]
@@ -239,7 +284,7 @@ class PostprocessWorkflow:
                         
                         for task in tasks:
                             if not isinstance(task, dict) or 'task' not in task:
-                                logging.error(f"Invalid custom task format: {task}")
+                                logging.error(f"{get_context_prefix()} Invalid custom task format: {task}")
                                 continue
                             
                             # Build command for this task
@@ -262,11 +307,12 @@ class PostprocessWorkflow:
                         # Join commands with && to run them sequentially
                         command = " && ".join(commands) if commands else ""
                     case _:
-                        logging.error(f"Unknown postprocessing step: {key}")
+                        logging.error(f"{get_context_prefix()} Unknown postprocessing step: '{key}'")
                         continue
             if command:
                 # Check if this step should be skipped
                 if self.should_skip_step(key):
+                    logging.info(f"{get_context_prefix()} Skipping execution of postprocessing step '{key}' as requested")
                     continue
                     
                 await workflow.execute_activity(
@@ -350,10 +396,10 @@ async def schedulePostprocess(postprocess, recording_basename, event, client_id)
             task_queue="postprocess-task-queue",
         )
         
-        logging.info(f"Started postprocessing with workflow id: '{workflow_id}' and handle: '{handle.id}'")
+        logging.info(f"Scheduled posprocessing workflow id: '{workflow_id}' and handle: '{handle.id}'")
         return handle
     else:
-        logging.error("No postprocessing instructions found")
+        logging.error("No postprocessing instructions found for '{recording_basename}'")
         return None
 
 async def main():
