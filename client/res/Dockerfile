@@ -160,6 +160,7 @@ RUN mkdir -p ${HOME}/.temporalio/bin && \
     mv temporal ${HOME}/.temporalio/bin/ && \
     chmod 755 ${HOME}/.temporalio/bin/temporal && \
     chown -R zoomrec:zoomrec ${HOME}/.temporalio && \
+    echo "alias tctl='/home/zoomrec/.temporalio/bin/temporal'" >> ${HOME}/.bashrc && \
     rm -f /tmp/temporal.tar.gz
 
 # Set the noninteractive environment variable to suppress prompts
