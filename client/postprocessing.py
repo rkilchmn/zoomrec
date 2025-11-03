@@ -35,20 +35,20 @@ def get_context_prefix() -> str:
     # Check if inside workflow
     try:
         wf_info = workflow.info()
-        parts.append(f"Workflow: '{wf_info.workflow_id}' Run: '{wf_info.run_id}'")
+        parts.append(f"Workflow:'{wf_info.workflow_id}' Run:'{wf_info.run_id}'")
     except Exception:
         pass  # Not in workflow context
 
     # Check if inside activity
     try:
         act_info = activity.info()
-        parts.append(f"Workflow: '{act_info.workflow_id}' Run: '{act_info.workflow_run_id}' Activity: '{act_info.activity_type}'")
+        parts.append(f"Workflow:'{act_info.workflow_id}' Activity:'{act_info.activity_type}' Run:'{act_info.workflow_run_id}' Activity: '{act_info.activity_type}'")
     except Exception:
         pass  # Not in activity context
 
     # Return formatted prefix
     if parts:
-        return f"[{' '.join(parts)}]"
+        return f"({' '.join(parts)})"
     return "[NoContext]"
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
