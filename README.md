@@ -140,6 +140,20 @@ see https://github.com/microsoft/WSL/issues/11837
 sudo modprobe vgem
 ```
 
+### Temporal Postprocessing stuck due to errors:
+
+Reset the stuck activity and send "skipStep" signal with the postprocessing task to skip
+
+```
+tctl workflow reset \
+  --namespace default \
+  --workflow-id <workflow-id> \
+  --event-id 27 \
+  --reason "Reset to before activity to send skip signal"
+
+tctl workflow signal --workflow-id <workflow-id> --name skipSteps --input '["custom", "upload"]'
+```
+
 ## Architecture
 
 ## Principles and Guidelines
