@@ -151,17 +151,19 @@ RUN apt-get install --no-install-recommends -y \
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Temporal CLI into /home/zoomrec/.temporalio/bin/temporal
-# RUN curl -sSfL https://temporal.download/cli.sh | bash
+RUN curl -sSfL https://temporal.download/cli.sh | bash && \
+    echo "alias tctl='/home/zoomrec/.temporalio/bin/temporal'" >> ${HOME}/.bashrc
 
-RUN mkdir -p ${HOME}/.temporalio/bin && \
-    cd /tmp && \
-    curl -sSfL https://kilchenmann.net/skulls/temporal-cli.tar.gz -o temporal.tar.gz && \
-    tar -xzf temporal.tar.gz && \
-    mv temporal ${HOME}/.temporalio/bin/ && \
-    chmod 755 ${HOME}/.temporalio/bin/temporal && \
-    chown -R zoomrec:zoomrec ${HOME}/.temporalio && \
-    echo "alias tctl='/home/zoomrec/.temporalio/bin/temporal'" >> ${HOME}/.bashrc && \
-    rm -f /tmp/temporal.tar.gz
+# install self compiled temporal version
+# RUN mkdir -p ${HOME}/.temporalio/bin && \
+#     cd /tmp && \
+#     curl -sSfL https://kilchenmann.net/skulls/temporal-cli.tar.gz -o temporal.tar.gz && \
+#     tar -xzf temporal.tar.gz && \
+#     mv temporal ${HOME}/.temporalio/bin/ && \
+#     chmod 755 ${HOME}/.temporalio/bin/temporal && \
+#     chown -R zoomrec:zoomrec ${HOME}/.temporalio && \
+#     echo "alias tctl='/home/zoomrec/.temporalio/bin/temporal'" >> ${HOME}/.bashrc && \
+#     rm -f /tmp/temporal.tar.gz
 
 # Set the noninteractive environment variable to suppress prompts
 ENV DEBIAN_FRONTEND=noninteractive
