@@ -22,6 +22,10 @@ CLIENT_AUTOMATION_CONFIG_FILENAME = 'automation.yaml'
 IMG_DIR = 'img' # default images for automation (client only)
 AUDIO_DIR = 'config/automation/audio' # audio for automation (client only)
 SCREENSHOT_DIR = 'data/logs/screenshots' # debug (client only)
+AUTOMATION_VARIABLE_HOST_ENDED_MEETING = 'HOST_ENDED_MEETING'
+AUTOMATION_VARIABLE_MEET_ID = 'MEET_ID'
+AUTOMATION_VARIABLE_DISPLAY_NAME = 'DISPLAY_NAME'
+AUTOMATION_VARIABLE_PASSWORD = 'PASSWORD'
 
 # log file names
 LOG_CLIENT_FILENAME = 'client_log.txt'

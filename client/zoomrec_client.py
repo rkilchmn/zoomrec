@@ -249,10 +249,10 @@ async def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lea
             logging.info("Zoom started!")
             
             variables = {
-                "MEET_ID": meet_id,
-                "DISPLAY_NAME": DISPLAY_NAME,
-                "PASSWORD": meet_pw,
-                "HOST_ENDED_MEETING": False
+                constants.AUTOMATION_VARIABLE_MEET_ID: meet_id,
+                constants.AUTOMATION_VARIABLE_DISPLAY_NAME: DISPLAY_NAME,
+                constants.AUTOMATION_VARIABLE_PASSWORD: meet_pw,
+                constants.AUTOMATION_VARIABLE_HOST_ENDED_MEETING: False
             }
             
             # Get event type and corresponding subdirectory
@@ -330,7 +330,7 @@ async def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lea
             end_process(zoom_proc)
             end_process(ffmpeg_recording_proc)
 
-            if not (meeting_duration_exceeded or variables['HOST_ENDED_MEETING']):
+            if not (meeting_duration_exceeded or variables[constants.AUTOMATION_VARIABLE_HOST_ENDED_MEETING]):
                 logging.error(f"Meeting prematurely ended at {now_in_tz.strftime(constants.DATETIME_FORMAT)} after {str(meeting_elapsed).split(".")[0]}")
                 return False
 

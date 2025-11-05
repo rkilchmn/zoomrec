@@ -169,6 +169,7 @@ class Automation:
     def execute_locate_image(self, breadcrumbs, locate_image, variables=None):
 
         def compute_region( region):
+
             def _eval_num(v):
                 if isinstance(v, (int, float)):
                     return v
@@ -205,7 +206,7 @@ class Automation:
         confidence = locate_image.get('confidence', 0.9)
         minSearchTime = locate_image.get('minSearchTime', 0)
         region_def = locate_image.get('region')
-        store_variable = locate_image.get('store_variable')
+        set_variable = locate_image.get('set_variable')
 
         breadcrumbs += f"/LocateImage:[{image}]"
         logging.debug(f"{breadcrumbs}")
@@ -228,9 +229,9 @@ class Automation:
                     x = left + width // 2
                     y = top + height // 2
 
-                    if store_variable:
+                    if set_variable:
                         # Store result in structured format under the given name
-                        variables[store_variable] = SimpleNamespace(
+                        variables[set_variable] = SimpleNamespace(
                             center_x=x,
                             center_y=y,
                             width=width,
@@ -251,7 +252,7 @@ class Automation:
                         success = True
                         break
                 else:
-                    if point is None:
+                    if result is None:
                         success = True
                         break
 
@@ -448,23 +449,23 @@ class Automation:
         if variables is None:
             variables = {}
         
-        variable_name = set_variable.get('variable')
+        name = set_variable.get('name')
         value = set_variable.get('value')
         
         # Process template variables in value if it's a string
         if isinstance(value, str):
             value = self.process_template_vars(value, variables)
         
-        breadcrumbs += f"/SetVariable:[{variable_name}={value}]"
+        breadcrumbs += f"/SetVariable:[{name}={value}]"
         logging.debug(f"{breadcrumbs}")
         
         success = False
         try:
-            variables[variable_name] = eval(value)
+            variables[name] = eval(value)
             success = True
-            logging.debug(f"Set variable '{variable_name}' to '{value}'")
+            logging.debug(f"Set variable '{name}' to '{value}'")
         except Exception as e:
-            logging.error(f"Error setting variable '{variable_name}' to '{value}': {e}", exc_info=True)
+            logging.error(f"Error setting variable '{name}' to '{value}': {e}", exc_info=True)
             success = False
         
         if success:

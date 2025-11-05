@@ -198,7 +198,7 @@ check_meeting_ended: &check_meeting_ended
         on_error: "False" # meeting duration ended
         on_success: # the host ended the meeting
           set_variable:
-            variable: "HOST_ENDED_MEETING"
+            name: "HOST_ENDED_MEETING"
             value: "True"
             on_success:
               locate_image: 
@@ -213,7 +213,8 @@ close_message_info_is_here: &close_message_info_is_here
     image: 'custom_message_meeting_info_is_here.png'
     iterate: 3
     sleep: 1
-    store_variable: "custom_message_meeting_info_is_here"
+    #  set these variables: variables[name].center_x, `center_y, width, height, left, top, right, bottom
+    set_variable: "custom_message_meeting_info_is_here"
     on_error: "True" # no message shown, continue meeting
     on_success:
       # click close icon
@@ -239,7 +240,7 @@ join:
   - *view_option_fullscreen
   - *minimize_video_panel
   - *check_toolbar
-  - *play_hello_audio
+  # - *play_hello_audio
   - *close_message_info_is_here
   
 ongoing:
