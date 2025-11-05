@@ -6,6 +6,7 @@ import time
 import pyautogui  
 import subprocess
 import random
+from types import SimpleNamespace
 
 import shared.constants as constants
 from shared.utilities import convert_to_safe_filename
@@ -162,8 +163,36 @@ class Automation:
         except Exception as e:
             # logging.error(f"Error executing function: {func} args: {args}, kwargs: {kwargs}: {e}")
             return None
+
+
     
     def execute_locate_image(self, breadcrumbs, locate_image, variables=None):
+
+        def compute_region( region):
+            def _eval_num(v):
+                if isinstance(v, (int, float)):
+                    return v
+                if isinstance(v, str):
+                    try:
+                        # Allow formulas to access both top-level keys (e.g., anchor.center_x)
+                        # and the variables mapping itself (e.g., variables["anchor"].center_x)
+                        _locals = dict(variables)
+                        _locals['variables'] = variables
+                        return float(eval(v, {}, _locals))
+                    except Exception:
+                        return None
+                return None
+
+            if not isinstance(region, dict):
+                return None
+            tlx = _eval_num(region.get('top_left_x'))
+            tly = _eval_num(region.get('top_left_y'))
+            brx = _eval_num(region.get('bottom_right_x'))
+            bry = _eval_num(region.get('bottom_right_y'))
+            if None in (tlx, tly, brx, bry):
+                return None
+            else:
+                return (int(tlx), int(tly), int(brx), int(bry))
 
         if variables is None:
             variables = {}
@@ -175,6 +204,8 @@ class Automation:
         sleep_time = locate_image.get('sleep', 0)
         confidence = locate_image.get('confidence', 0.9)
         minSearchTime = locate_image.get('minSearchTime', 0)
+        region_def = locate_image.get('region')
+        store_variable = locate_image.get('store_variable')
 
         breadcrumbs += f"/LocateImage:[{image}]"
         logging.debug(f"{breadcrumbs}")
@@ -185,31 +216,49 @@ class Automation:
             logging.error(f"Image '{image}' not found")
             return False
         else:
+            region_box = None
+            if region_def is not None:
+                region_box = compute_region(region_def)
+
             for i in range(iterate):
-                result = self.wrap(pyautogui.locateCenterOnScreen, image_path, confidence=confidence, minSearchTime=minSearchTime)
+                result = self.wrap(pyautogui.locateOnScreen, image_path, confidence=confidence, minSearchTime=minSearchTime, region=region_box)
 
                 if result is not None:
-                    # Check if click is required
-                    if click: 
-                        x, y = result  
+                    left, top, width, height = result.left, result.top, result.width, result.height
+                    x = left + width // 2
+                    y = top + height // 2
+
+                    if store_variable:
+                        # Store result in structured format under the given name
+                        variables[store_variable] = SimpleNamespace(
+                            center_x=x,
+                            center_y=y,
+                            width=width,
+                            height=height,
+                            # Add some utility properties
+                            left=left,
+                            top=top,
+                            right=left + width,
+                            bottom=top + height
+                        )
+
+                    if click:
                         pyautogui.click(x, y)
                         logging.debug(f"Clicked at position {x}, {y}")
 
                 if until_found:
-                    # default - exit  after first time found
                     if result is not None:
                         success = True
-                        break          
+                        break
                 else:
-                    # inverse - exit after first time NOT found
-                    if result is None:
+                    if point is None:
                         success = True
                         break
 
                 if i < iterate - 1 and sleep_time > 0:
                     time.sleep(sleep_time)
 
-        logging.debug(f"Image: {image} result after {i+1} of {iterate} iterations: {result} success: {success} ")
+        logging.debug(f"Image: {image} result after {i+1} of {iterate} iterations: {('FOUND' if success else 'NOT FOUND')} success: {success} ")
 
         if success:
             # Handle on_success
