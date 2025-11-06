@@ -1,4 +1,4 @@
-# Zoomrec V2
+# Zoomrec NextGen (zoomrec-ng)
 
 Zoomrec V2 is a partial re-write/enhancement over [kastldratza/zoomrec](https://github.com/kastldratza/zoomrec) which uses a client/server architecture and hence a client and a server docker container:
 
@@ -46,6 +46,10 @@ Planned version 2 features: (note: features completed have only undergone basic 
 ````
 docker compose --env-file ~/.env -f docker-compose.yml -f docker-compose.vaapi_intel-wsl2.yaml -f docker-compose.debug.yaml up --build
 ````
+6. On server map root sftp-data to /srv/sftp-data on /etc/fstab:
+```
+/root/sftp-data  /home/zoomrec/data/sftp-data  none  bind  0  0
+```
 ## using TLS/HTTPS with self-signed certificate
 
 1. On server machine generate self-signed key and andcertificated. Using ECDHE-ECDSA-AES128-GCM-SHA256 cipher suite which is considered strong and modern, supporting forward secrecy, efficient authentication, and authenticated encryption and also supported by ESP8266 BearSSL implementation

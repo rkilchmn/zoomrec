@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, Response, abort
 from flask_basicauth import BasicAuth
 from datetime import datetime, timezone
 import os.path
@@ -558,6 +558,238 @@ def get_config():
         error_msg = f"Error serving config file: {str(e)}"
         app.logger.error(f"{request.endpoint}: {error_msg}", exc_info=True)
         return jsonify({"message": "Error serving config file"}), 500
+
+@app.route("/view/<user_login>/<basename>/<path:password_hash>", methods=['GET'])
+def view_video(user_login, basename, password_hash):
+    try:
+        matched_users = users.get(filters=[[UserField.LOGIN.value, '=', user_login]])
+        if not matched_users:
+            return jsonify({"error": "user not found"}), 404
+        user = matched_users[0]
+        if password_hash != user[UserField.PASSWORD.value]:
+            return jsonify({"error": "unauthorized"}), 403
+        seconds = request.args.get('seconds', default=None, type=float)
+        seconds_js = str(seconds) if seconds is not None else "null"
+        stream_url = f"/stream/{user_login}/{basename}/{password_hash}"
+        template_path = os.path.join(os.path.dirname(__file__), 'res', 'view.html')
+        with open(template_path, 'r', encoding='utf-8') as f:
+            html = f.read()
+        html = html.replace('{{user_login}}', user_login)
+        html = html.replace('{{basename}}', basename)
+        html = html.replace('{{stream_url}}', stream_url)
+        html = html.replace('{{seconds_js}}', seconds_js)
+        return Response(html, mimetype='text/html')
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+def _get_video_file_path(user_login: str, basename: str) -> str:
+    s = users.get(filters=[[UserField.LOGIN.value, '=', user_login]])
+    if not s:
+        raise FileNotFoundError("user not found")
+    user = s[0]
+    sftp_username = user.get(UserField.SFTP_USERNAME.value) or user[UserField.LOGIN.value]
+    safe_base = ''.join(c for c in basename if c.isalnum() or c in ('-', '_'))
+    filename = f"{safe_base}.mp4"
+    
+    # Construct the full path to the video file
+    recordings_dir = os.path.join("data", "sftp-data", sftp_username, "recordings")
+    os.makedirs(recordings_dir, exist_ok=True)
+    return os.path.join(recordings_dir, filename)
+
+def _range_response(path, mimetype='video/mp4'):
+    """Generate a response with support for HTTP Range requests for H.265 video.
+    
+    Args:
+        path: Path to the video file
+        mimetype: MIME type of the video file
+        
+    Returns:
+        Flask Response object with appropriate headers
+    """
+    try:
+        # Convert to absolute path to avoid any path resolution issues
+        abs_path = os.path.abspath(path)
+        app.logger.debug(f"Absolute file path: {abs_path}")
+        
+        file_size = os.path.getsize(abs_path)
+        app.logger.debug(f"File size: {file_size} bytes")
+        
+        range_header = request.headers.get('Range', '')
+        app.logger.debug(f"Range header: {range_header}")
+        
+        # Set default headers for all responses
+        headers = {
+            'Accept-Ranges': 'bytes',
+            'Content-Type': mimetype,
+            'Content-Length': str(file_size),
+            'X-Content-Type-Options': 'nosniff',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+            'X-Video-Codec': 'hevc',
+            'X-Content-Duration': str(file_size)
+        }
+        
+        # If no range header, return the full file with 200 OK
+        if not range_header:
+            app.logger.debug("No range header, sending full file")
+            return send_file(
+                path,
+                mimetype=mimetype,
+                conditional=True,
+                download_name=os.path.basename(path),
+                etag=True,
+                last_modified=os.path.getmtime(path),
+                max_age=0
+            )
+        
+        # Parse the range header (e.g., 'bytes=0-999')
+        if '=' not in range_header:
+            raise ValueError("Invalid range header format")
+            
+        range_type, range_spec = range_header.split('=', 1)
+        if range_type.strip().lower() != 'bytes':
+            app.logger.error(f"Invalid range type: {range_type}")
+            return Response('Invalid range type', status=400, headers=headers)
+        
+        # Handle single range (we don't support multiple ranges)
+        range_parts = range_spec.strip().split('-')
+        if len(range_parts) != 2:
+            app.logger.error(f"Invalid range format: {range_spec}")
+            return Response('Invalid range format', status=400, headers=headers)
+            
+        start = int(range_parts[0]) if range_parts[0] else 0
+        end = int(range_parts[1]) if range_parts[1] else file_size - 1
+        
+        # Handle suffix-byte-range-spec (e.g., 'bytes=-500' for last 500 bytes)
+        if not range_parts[0] and range_parts[1]:
+            end = file_size - 1
+            start = max(0, end - int(range_parts[1]) + 1)
+        
+        # Ensure end is within bounds
+        end = min(end, file_size - 1)
+        
+        # Validate range
+        if start >= file_size or end >= file_size or start > end or start < 0:
+            app.logger.error(f"Invalid range: {start}-{end} for file size {file_size}")
+            headers['Content-Range'] = f'bytes */{file_size}'
+            return Response('Range Not Satisfiable', status=416, headers=headers)
+            
+        # Calculate content length
+        content_length = end - start + 1
+        
+        app.logger.debug(f"Serving range: {start}-{end} (size: {content_length})")
+        
+        # Create a partial response
+        def generate():
+            with open(path, 'rb') as f:
+                f.seek(start)
+                remaining = content_length
+                chunk_size = 8192  # 8KB chunks
+                
+                while remaining > 0:
+                    chunk = f.read(min(chunk_size, remaining))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+                    yield chunk
+        
+        # Update headers for partial content
+        headers.update({
+            'Content-Range': f'bytes {start}-{end}/{file_size}',
+            'Content-Length': str(content_length),
+            'Content-Disposition': f'inline; filename="{os.path.basename(path)}"'
+        })
+        
+        response = Response(
+            generate(),
+            status=206,  # Partial Content
+            headers=headers,
+            direct_passthrough=True
+        )
+        
+        # Set appropriate caching headers for streaming
+        response.cache_control.no_cache = True
+        response.cache_control.no_store = True
+        response.cache_control.must_revalidate = True
+        response.expires = 0
+        
+        return response
+        
+    except ValueError as e:
+        app.logger.error(f"Error parsing range header: {str(e)}", exc_info=True)
+        return Response('Invalid range header', status=400, headers=headers)
+    except Exception as e:
+        app.logger.error(f"Error serving range request: {str(e)}", exc_info=True)
+        return Response('Internal Server Error', status=500, headers=headers)
+
+@app.route("/stream/<user_login>/<basename>/<path:password_hash>", methods=['GET'])
+def stream_video(user_login, basename, password_hash):
+    try:
+        app.logger.debug(f"Stream request - User: {user_login}, Video: {basename}")
+        
+        # Get user data
+        matched_users = users.get(filters=[[UserField.LOGIN.value, '=', user_login]])
+        if not matched_users:
+            app.logger.error(f"User not found: {user_login}")
+            return jsonify({"error": "user not found"}), 404
+            
+        user = matched_users[0]
+        
+        # Verify password hash
+        if password_hash != user[UserField.PASSWORD.value]:
+            app.logger.error("Invalid password hash")
+            return jsonify({"error": "unauthorized"}), 403
+        
+        # Get video file path
+        try:
+            path = _get_video_file_path(user_login, basename)
+            app.logger.debug(f"Video file path: {path}")
+            
+            # Verify file exists and is accessible
+            if not os.path.exists(path):
+                app.logger.error(f"Video file not found: {path}")
+                return jsonify({"error": "video not found"}), 404
+                
+            if not os.access(path, os.R_OK):
+                app.logger.error(f"No read permission for file: {path}")
+                return jsonify({"error": "access denied"}), 403
+                
+            # Get file stats for logging
+            file_size = os.path.getsize(path)
+            app.logger.debug(f"Video file size: {file_size} bytes")
+            
+            # Set MIME type for H.265 video in MP4 container
+            mime_type = 'video/mp4; codecs=hevc'
+            
+            # Process the range request
+            response = _range_response(path, mime_type)
+            
+            # Add CORS and other headers
+            response.headers.update({
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Range',
+                'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
+                'Content-Type': mime_type,
+                'Accept-Ranges': 'bytes',
+                'Content-Disposition': f'inline; filename="{basename}.mp4"',
+                'Cache-Control': 'no-cache',
+                'X-Content-Type-Options': 'nosniff',
+                'X-Video-Codec': 'hevc',
+                'X-Content-Duration': str(file_size)  # For debugging
+            })
+            
+            return response
+            
+        except Exception as e:
+            app.logger.error(f"Error processing video stream: {str(e)}", exc_info=True)
+            return jsonify({"error": "error processing video"}), 500
+            
+    except Exception as e:
+        app.logger.error(f"Unexpected error in stream_video: {str(e)}", exc_info=True)
+        return jsonify({"error": "internal server error"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0',port=os.getenv("SERVER_PORT"))

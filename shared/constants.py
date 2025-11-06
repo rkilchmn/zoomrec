@@ -12,6 +12,7 @@ ARDUINO_CONFIG_DIR = 'config/arduino/config' # arduino config (server only)
 # data directories 
 RECORDINGS_DIR = 'data/recordings' # recordings (client only)
 LOG_DIR = 'data/logs' # logs (client/server)
+SFTP_DATA_MOUNT_PATH = 'data/sftp-data' # mounted sftp data that can be accessed by zoomrec
 
 # imap bot config
 EMAIL_CONFIG_FILE = 'config/email_types.yaml' # email types (server only)
