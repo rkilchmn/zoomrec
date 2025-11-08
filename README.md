@@ -122,7 +122,21 @@ REQUESTS_CA_BUNDLE=$ZOOMREC_HOME/config/server.crt
 
 8. Restart client container
 
-9. (Optional if using https://github.com/rkilchmn/ESP8266_zoomrec to turn on client machine based on zoomrec schedule retrieved from server)
+9. Mount SFTP data directory for zoomrec server access
+```
+mkdir /home/zoomrec/data/sftp-data
+```
+add this line to /etc/fstab:
+```
+# Mount SFTP data directory for zoomrec server access
+/root/sftp-data  /home/zoomrec/data/sftp-data  none  bind  0  0
+```
+Mount all dirs
+```
+sudo systemctl daemon-reload
+```
+
+10. (Optional if using https://github.com/rkilchmn/ESP8266_zoomrec to turn on client machine based on zoomrec schedule retrieved from server)
 Export public key in PEM format (bas64 encoded)
 ```
 openssl pkey -in server.key -pubout -out pubkey.pem 
@@ -132,6 +146,7 @@ openssl pkey -in server.key -pubout -out pubkey.pem
  "tls_server_pubkey": "-----BEGIN PUBLIC KEY-----\\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE38HxSo9LBaFlVRhtsdFhfY5+qwfH\\nd5ZA4aTcf+MEQcHF/YiHuH7YIxn39JuV4+b/rOhlwbi2/Bostz/ll5ZGMg==\\n-----END PUBLIC KEY-----"
 
 ```
+
 
 
 ## Possible issues 

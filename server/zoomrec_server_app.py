@@ -559,42 +559,55 @@ def get_config():
         app.logger.error(f"{request.endpoint}: {error_msg}", exc_info=True)
         return jsonify({"message": "Error serving config file"}), 500
 
-@app.route("/view/<user_login>/<basename>/<path:password_hash>", methods=['GET'])
-def view_video(user_login, basename, password_hash):
-    try:
-        matched_users = users.get(filters=[[UserField.LOGIN.value, '=', user_login]])
-        if not matched_users:
-            return jsonify({"error": "user not found"}), 404
-        user = matched_users[0]
-        if password_hash != user[UserField.PASSWORD.value]:
-            return jsonify({"error": "unauthorized"}), 403
-        seconds = request.args.get('seconds', default=None, type=float)
-        seconds_js = str(seconds) if seconds is not None else "null"
-        stream_url = f"/stream/{user_login}/{basename}/{password_hash}"
-        template_path = os.path.join(os.path.dirname(__file__), 'res', 'view.html')
-        with open(template_path, 'r', encoding='utf-8') as f:
-            html = f.read()
-        html = html.replace('{{user_login}}', user_login)
-        html = html.replace('{{basename}}', basename)
-        html = html.replace('{{stream_url}}', stream_url)
-        html = html.replace('{{seconds_js}}', seconds_js)
-        return Response(html, mimetype='text/html')
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+# http based file access
 
-def _get_video_file_path(user_login: str, basename: str) -> str:
-    s = users.get(filters=[[UserField.LOGIN.value, '=', user_login]])
-    if not s:
-        raise FileNotFoundError("user not found")
-    user = s[0]
-    sftp_username = user.get(UserField.SFTP_USERNAME.value) or user[UserField.LOGIN.value]
-    safe_base = ''.join(c for c in basename if c.isalnum() or c in ('-', '_'))
-    filename = f"{safe_base}.mp4"
+def get_file_access(user_key: str, access_key: str, basename: str) -> str:
+    """
+    Validate user access and return the full file path if authorized.
     
-    # Construct the full path to the video file
-    recordings_dir = os.path.join("data", "sftp-data", sftp_username, "recordings")
-    os.makedirs(recordings_dir, exist_ok=True)
-    return os.path.join(recordings_dir, filename)
+    Args:
+        user_key: The user's key
+        access_key: The user's password hash for authentication
+        basename: The base name of the file (without path)
+        
+    Returns:
+        str: Full path to the file if access is authorized
+        
+    Raises:
+        PermissionError: If user is not authorized
+        FileNotFoundError: If user is not found
+    """
+    try:
+        # Find user by user key
+        matched_users = users.get(filters=[
+            [UserField.KEY.value, '=', user_key]
+        ])
+            
+        if not matched_users:
+            app.logger.error(f"User not found for user_key: {user_key}")
+            raise FileNotFoundError("user not found")
+            
+        user = matched_users[0]
+        
+        # Verify access key (password hash)
+        if access_key != user[UserField.PASSWORD.value]:
+            app.logger.error(f"Invalid access key for user: {user_key}")
+            raise PermissionError("unauthorized")
+            
+        sftp_username = user.get(UserField.SFTP_USERNAME.value)
+        if not sftp_username:
+            app.logger.error(f"No SFTP username configured for user: {user_key}")
+            raise PermissionError("user configuration error")
+            
+        # Construct the full path to the file
+        file_dir = os.path.join( BASE_PATH, constants.SFTP_DATA_MOUNT_PATH, sftp_username, constants.SFTP_RECORDINGS_DIR)
+        return os.path.join(file_dir, basename)
+        
+    except Exception as e:
+        app.logger.error(f"Error in get_file_access: {str(e)}", exc_info=True)
+        if isinstance(e, (PermissionError, FileNotFoundError)):
+            raise
+        raise Exception("error accessing file")
 
 def _range_response(path, mimetype='video/mp4'):
     """Generate a response with support for HTTP Range requests for H.265 video.
@@ -723,67 +736,98 @@ def _range_response(path, mimetype='video/mp4'):
         app.logger.error(f"Error serving range request: {str(e)}", exc_info=True)
         return Response('Internal Server Error', status=500, headers=headers)
 
-@app.route("/stream/<user_login>/<basename>/<path:password_hash>", methods=['GET'])
-def stream_video(user_login, basename, password_hash):
+@app.route("/view/<path:user_key>/<path:access_key>/<basename>", methods=['GET'])
+def view_video(user_key, access_key, basename):
     try:
-        app.logger.debug(f"Stream request - User: {user_login}, Video: {basename}")
-        
-        # Get user data
-        matched_users = users.get(filters=[[UserField.LOGIN.value, '=', user_login]])
-        if not matched_users:
-            app.logger.error(f"User not found: {user_login}")
-            return jsonify({"error": "user not found"}), 404
-            
-        user = matched_users[0]
-        
-        # Verify password hash
-        if password_hash != user[UserField.PASSWORD.value]:
-            app.logger.error("Invalid password hash")
-            return jsonify({"error": "unauthorized"}), 403
-        
-        # Get video file path
+        # Get file path with access validation
         try:
-            path = _get_video_file_path(user_login, basename)
+            # Get the base path without extension
+            path = get_file_access(user_key, access_key, basename)
+            
+            # Check if file with video extension exists
+            video_path = f"{path}.{constants.VIDEO_EXTENSION}"
+            if not os.path.exists(video_path):
+                app.logger.error(f"Video file not found: {video_path}")
+                return jsonify({"error": "video not found"}), 404
+            
+        except PermissionError as e:
+            app.logger.error(f"Permission denied: {str(e)}")
+            return jsonify({"error": str(e)}), 403
+        except Exception as e:
+            app.logger.error(f"Error accessing video file: {str(e)}", exc_info=True)
+            return jsonify({"error": "internal server error"}), 500
+            
+        # If we get here, the file exists and is accessible
+        seconds = request.args.get('seconds', default=None, type=float)
+        seconds_js = str(seconds) if seconds is not None else "null"
+        stream_url = f"/stream/{user_key}/{access_key}/{basename}"
+        
+        # Load and render the template
+        template_path = os.path.join(os.path.dirname(__file__), 'res', 'view.html')
+        try:
+            with open(template_path, 'r', encoding='utf-8') as f:
+                html = f.read()
+            
+            html = html.replace('{{basename}}', basename)
+            html = html.replace('{{stream_url}}', stream_url)
+            html = html.replace('{{seconds_js}}', seconds_js)
+            return Response(html, mimetype='text/html')
+            
+        except FileNotFoundError:
+            app.logger.error(f"Template file not found: {template_path}")
+            return jsonify({"error": "internal server error"}), 500
+            
+    except Exception as e:
+        app.logger.error(f"Error in view_video: {str(e)}")
+        return jsonify({"error": "internal server error"}), 500
+
+@app.route("/stream/<path:user_key>/<path:access_key>/<basename>", methods=['GET'])
+def stream_video(user_key, access_key, basename):
+    try:
+        app.logger.debug(f"Stream request - User Key: {user_key}, Video: {basename}")
+        
+        # Get file path with access validation
+        try:
+            path = get_file_access(user_key, access_key, basename)
             app.logger.debug(f"Video file path: {path}")
             
-            # Verify file exists and is accessible
-            if not os.path.exists(path):
-                app.logger.error(f"Video file not found: {path}")
+            video_path = f"{path}.{constants.VIDEO_EXTENSION}"
+            if not os.path.exists(video_path):
+                app.logger.error(f"Video file not found: {video_path}")
                 return jsonify({"error": "video not found"}), 404
-                
-            if not os.access(path, os.R_OK):
-                app.logger.error(f"No read permission for file: {path}")
-                return jsonify({"error": "access denied"}), 403
-                
-            # Get file stats for logging
-            file_size = os.path.getsize(path)
-            app.logger.debug(f"Video file size: {file_size} bytes")
             
-            # Set MIME type for H.265 video in MP4 container
-            mime_type = 'video/mp4; codecs=hevc'
-            
-            # Process the range request
-            response = _range_response(path, mime_type)
-            
-            # Add CORS and other headers
-            response.headers.update({
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': 'Range',
-                'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
-                'Content-Type': mime_type,
-                'Accept-Ranges': 'bytes',
-                'Content-Disposition': f'inline; filename="{basename}.mp4"',
-                'Cache-Control': 'no-cache',
-                'X-Content-Type-Options': 'nosniff',
-                'X-Video-Codec': 'hevc',
-                'X-Content-Duration': str(file_size)  # For debugging
-            })
-            
-            return response
-            
+        except PermissionError as e:
+            app.logger.error(f"Permission denied: {str(e)}")
+            return jsonify({"error": str(e)}), 403
         except Exception as e:
-            app.logger.error(f"Error processing video stream: {str(e)}", exc_info=True)
-            return jsonify({"error": "error processing video"}), 500
+            app.logger.error(f"Error accessing video file: {str(e)}", exc_info=True)
+            return jsonify({"error": "error accessing video file"}), 500
+        
+        # Get file stats for logging
+        file_size = os.path.getsize(video_path)
+        app.logger.debug(f"Video file size: {file_size} bytes")
+        
+        # Set MIME type for H.265 video in MP4 container
+        mime_type = 'video/mp4; codecs=hevc'
+        
+        # Process the range request
+        response = _range_response(video_path, mime_type)
+        
+        # Add CORS and other headers
+        response.headers.update({
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Range',
+            'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
+            'Content-Type': mime_type,
+            'Accept-Ranges': 'bytes',
+            'Content-Disposition': f'inline; filename="{basename}.mp4"',
+            'Cache-Control': 'no-cache',
+            'X-Content-Type-Options': 'nosniff',
+            'X-Video-Codec': 'hevc',
+            'X-Content-Duration': str(file_size)  # For debugging
+        })
+        
+        return response
             
     except Exception as e:
         app.logger.error(f"Unexpected error in stream_video: {str(e)}", exc_info=True)

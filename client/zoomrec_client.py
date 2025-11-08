@@ -133,6 +133,7 @@ def start_recording(filename):
         command = (
             f"ffmpeg -nostats -loglevel error -f pulse -ac 2 -i speaker.monitor -f x11grab "
             f"-r 30 -s {resolution} {FFMPEG_INPUT_PARAMS} -i {disp} {FFMPEG_OUTPUT_PARAMS} "
+            # f"-movflags +faststart -tag:v hvc1 -bsf:v hevc_metadata=level=120 -slice-max-size 2000 "
             f"-threads 0 -async 1 -fps_mode cfr \"{filename}\""
         )
 
