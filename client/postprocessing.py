@@ -13,15 +13,22 @@ from typing import Optional
 
 # Import with sandbox passthrough for modules that use http.client and other restricted modules
 with workflow.unsafe.imports_passed_through():
-    from shared.events import Events, EventField, EventStatus, EventInstructionAttribute, EventInstructionPostprocess
+    from shared.events import (
+        Events, EventField, EventStatus, EventInstructionAttribute, EventInstructionPostprocess,
+        INSTRUCTION_UPLOAD_KEY_DELETE, INSTRUCTION_ACCESS_HTTP_SERVER,
+        INSTRUCTION_ACCESS_KEY, INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS
+    )
     from shared.events_api import EventAPI
     from shared.users import UserField
     from shared.users_api import UserAPI
+    from shared.access_api import AccessAPI, EXPIRE_AFTER_SECONDS
+    from shared.access import AccessField, AccessType
     from shared.utilities import start_logging, start_debug
     from shared.constants import DATETIME_FORMAT, VIDEO_EXTENSION, DEBUG_MODULE_POSTPROCESS, LOG_POSTPROCESS_FILENAME, SFTP_ADMIN_USERNAME, SFTP_ADMIN_USER_IDENTITY_FILE, SFTP_RECORDINGS_DIR, RECORDINGS_DIR
 
+
 start_logging(LOG_POSTPROCESS_FILENAME)
-start_debug(DEBUG_MODULE_POSTPROCESS, os.getenv('DEBUG_PORT_POSTPROCESS'))
+start_debug(DEBUG_MODULE_POSTPROCESS, os.getenv('DEBUG_PORT_CLIENT'))
 
 def get_context_prefix() -> str:
     """Return a standardized log prefix with workflow and/or activity context.
@@ -72,7 +79,8 @@ def postprocess_order(step):
         EventInstructionPostprocess.TRANSCRIBE.value,
         EventInstructionPostprocess.TRANSLATE.value,
         EventInstructionPostprocess.CUSTOM.value,
-        EventInstructionPostprocess.UPLOAD.value
+        EventInstructionPostprocess.UPLOAD.value,
+        EventInstructionPostprocess.ACCESS.value,
     ]
 
     if not isinstance(step, dict):
@@ -139,6 +147,44 @@ async def getUserLogin(input: getUserLoginInput)->str:
     with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
         user = user_api.get(filters=[[UserField.KEY.value, "=", input.user_key]])[0]
         return user[UserField.LOGIN.value]
+
+@dataclass
+class ProvideAccessInput:
+    event: dict
+    access_config: dict
+    resource: str
+    user_key: str
+    
+@activity.defn
+async def provideAccess(input: ProvideAccessInput) -> dict:
+    """Create HTTP server access for the recording.
+    
+    Args:
+        input: ProvideAccessInput containing event, access config, resource, and user_key
+        
+    Returns:
+        dict: Result of the access creation
+    """
+    try:
+        with AccessAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as access_api:
+            # Create access with the provided configuration
+            access_record = {
+                AccessField.USER_KEY.value: input.user_key,
+                AccessField.RESOURCE.value: input.resource,
+                AccessField.ACCESS_KEY.value: input.access_config.get(INSTRUCTION_ACCESS_KEY),
+                AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS,
+            }
+            
+            # Add expiration if specified
+            if INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS in input.access_config:
+                access_record[EXPIRE_AFTER_SECONDS] = input.access_config[INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS]
+            
+            result = access_api.create(access_record)
+            logging.info(f"{get_context_prefix()} Successfully created HTTP access for {input.resource}")
+            return result
+    except Exception as e:
+        logging.error(f"{get_context_prefix()} Failed to create HTTP access: {str(e)}")
+        raise
 
 @dataclass
 class executePostprocessStepInput:
@@ -273,7 +319,7 @@ class PostprocessWorkflow:
                                 f"{SCRIPT_DIR}/sftp_upload.sh '{REC_PATH}/{input.recording_basename}' "
                                 f"'{SFTP_ADMIN_USERNAME}@{SSH_SERVER_URL}' "
                                 f"'{BASE_PATH}/{SFTP_ADMIN_USER_IDENTITY_FILE}' "
-                                f"'{user_login}/{SFTP_RECORDINGS_DIR}' {value['delete'] if 'delete' in value else 'true'}"
+                                f"'{user_login}/{SFTP_RECORDINGS_DIR}' {value[INSTRUCTION_UPLOAD_KEY_DELETE] if INSTRUCTION_UPLOAD_KEY_DELETE in value else 'true'}"
                             )
                         else:
                             logging.error(f"{get_context_prefix()} SFTP transfer to server cannot be initiated: SSH_SERVER_URL not specified.")
@@ -306,6 +352,23 @@ class PostprocessWorkflow:
                         
                         # Join commands with && to run them sequentially
                         command = " && ".join(commands) if commands else ""
+
+                    case EventInstructionPostprocess.ACCESS.value:
+                        # Handle HTTP server access configuration
+                        access_configs = step.get(EventInstructionPostprocess.ACCESS.value, [])
+                        for access_config in access_configs:
+                            if INSTRUCTION_ACCESS_HTTP_SERVER in access_config:
+                                await workflow.execute_activity(
+                                    provideAccess,
+                                    ProvideAccessInput(
+                                        event=input.event,
+                                        access_config=access_config[INSTRUCTION_ACCESS_HTTP_SERVER],
+                                        resource=input.recording_basename,
+                                        user_key=input.event[EventField.USER_KEY.value]
+                                    ),
+                                    summary=f"Create HTTP access for resource: '{input.recording_basename}'",
+                                    start_to_close_timeout=timedelta(minutes=5)
+                                )
                     case _:
                         logging.error(f"{get_context_prefix()} Unknown postprocessing step: '{key}'")
                         continue
@@ -422,7 +485,8 @@ async def main():
             updateStatus,
             consolidateRecording,
             getUserLogin,
-            executePostprocessStep
+            executePostprocessStep,
+            provideAccess
         ]
     )
     

@@ -81,6 +81,16 @@ class EventInstructionPostprocess(Enum):
     TRANSLATE = "translate"
     UPLOAD = "upload"
     CUSTOM = "custom"
+    ACCESS = "access"
+
+# Constants for instruction keys
+# Upload keys
+INSTRUCTION_UPLOAD_KEY_DELETE = "delete"
+
+# Access configuration keys
+INSTRUCTION_ACCESS_HTTP_SERVER = "http-server-access"
+INSTRUCTION_ACCESS_KEY = "access-key"
+INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS = "expire-after-seconds"
 
 EVENT_DEFAULT_VALUES = {
     EventField.ID.value: '',
@@ -91,7 +101,7 @@ EVENT_DEFAULT_VALUES = {
     EventField.RRULE.value: '',
     EventField.TYPE.value: EventType.ZOOM.value,
     EventField.STATUS.value: EventStatus.SCHEDULED.value,
-    EventField.INSTRUCTION.value: f'{{"{EventInstructionAttribute.PROCESS.value}": [{{"{EventInstructionProcess.RECORD.value}": {{}}}}], "{EventInstructionAttribute.POSTPROCESS.value}": [{{"{EventInstructionPostprocess.TRANSCRIBE.value}": {{}}}}, {{"{EventInstructionPostprocess.UPLOAD.value}": {{"delete": true}}}}]}}'
+    EventField.INSTRUCTION.value: f'{{"{EventInstructionAttribute.PROCESS.value}": [{{"{EventInstructionProcess.RECORD.value}": {{}}}}], "{EventInstructionAttribute.POSTPROCESS.value}": [{{"{EventInstructionPostprocess.TRANSCRIBE.value}": {{}}}}, {{"{EventInstructionPostprocess.UPLOAD.value}": {{INSTRUCTION_UPLOAD_KEY_DELETE: true}}}}]}}'
 }
 
 FIELDNAMES = [field.value for field in EventField]

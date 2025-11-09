@@ -137,35 +137,35 @@ class AccessAPI:
         if response.status_code not in range(200, 299):
             raise Exception(f"Failed to delete access. Response code: {response.status_code}, Response: {response.text}")
 
-    def validate(self, resource, access_key, user_key=None):
+    def validate(self, resource, access_key, access_type):
         """
-        Validate if the given resource and access_key combination is valid.
-        If user_key is provided, also validates that the access belongs to that user.
+        Validate if the given resource and access_key combination is valid for the specified access type.
         
         Args:
-            resource: The resource to validate access for
-            access_key: The access key to validate
-            user_key: Optional user key to validate ownership
+            resource: The resource to validate access for (must not be None)
+            access_key: The access key to validate (must not be None)
+            access_type: The type of access to validate (e.g., AccessType.HTTP_SERVER_ACCESS, must not be None)
             
         Returns:
             dict: The access record if valid, None otherwise
+            
+        Raises:
+            ValueError: If any required parameter is None
         """
-        url = f"{self.server_url}/{ROUTE_ACCESS}/validate"
+        if resource is None:
+            raise ValueError("resource parameter is required and cannot be None")
+        if access_key is None:
+            raise ValueError("access_key parameter is required and cannot be None")
+        if access_type is None:
+            raise ValueError("access_type parameter is required and cannot be None")
+            
         params = {
             'resource': resource,
             'access_key': access_key,
+            'access_type': access_type
         }
-        
-        if user_key:
-            params['user_key'] = user_key
             
-        response = self._make_request(
-            "GET",
-            url,
-            params=params,
-            headers={'Content-Type': 'application/json'}
-        )
-        
+        response = self._make_request('GET', f"{self.server_url}/{ROUTE_ACCESS}/validate", params=params)
         if response.status_code == 200:
             return response.json()
         elif response.status_code == 404:

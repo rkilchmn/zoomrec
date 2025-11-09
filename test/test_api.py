@@ -217,26 +217,38 @@ def test_access_api():
 
             print(f"Created access with expires after {expire_after_seconds} seconds: {created_access1}")
 
-            test_access = access_api.validate(created_access1[AccessField.RESOURCE.value], created_access1[AccessField.ACCESS_KEY.value], user_key=user_key)
+            test_access = access_api.validate(
+                created_access1[AccessField.RESOURCE.value],
+                created_access1[AccessField.ACCESS_KEY.value],
+                created_access1[AccessField.ACCESS_TYPE.value]
+            )
             print(f"Test access: {test_access}")
 
             print(f"Sleeping for {expire_after_seconds} seconds...")
             time.sleep(expire_after_seconds)
 
-            test_access = access_api.validate(created_access1[AccessField.RESOURCE.value], created_access1[AccessField.ACCESS_KEY.value], user_key=user_key)
+            test_access = access_api.validate(
+                created_access1[AccessField.RESOURCE.value],
+                created_access1[AccessField.ACCESS_KEY.value],
+                created_access1[AccessField.ACCESS_TYPE.value]
+            )
             print(f"Test access: {test_access}")
             
             # Test create with no expiry
             created_access2 = access_api.create({
+                AccessField.RESOURCE.value: f"test_resource_{int(time.time())}",
                 AccessField.USER_KEY.value: user_key,
-                AccessField.RESOURCE.value: "test-expiry",
-                AccessField.ACCESS_KEY.value: "expirekey123",
-                AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS,
-                AccessField.EXPIRES_AT.value: None
+                AccessField.ACCESS_KEY.value: f"test_key_{int(time.time())}",
+                AccessField.ACCESS_TYPE.value: AccessType.VIEW.value,
+                AccessField.EXPIRES_AFTER_SECONDS.value: 0  # No expiry
             })
             print(f"Created access without expiry: {created_access2}")
 
-            test_access2 = access_api.validate(created_access2[AccessField.RESOURCE.value], created_access2[AccessField.ACCESS_KEY.value], user_key=user_key)
+            test_access2 = access_api.validate(
+                created_access2[AccessField.RESOURCE.value],
+                created_access2[AccessField.ACCESS_KEY.value],
+                created_access2[AccessField.ACCESS_TYPE.value]
+            )
             print(f"Test access without expiry: {test_access2}")   
             
             # Test get

@@ -181,14 +181,14 @@ class Users(ABC):
                 # Convert role to int if it's a string
                 role = int(user[UserField.ROLE.value])
                 # Check if role is a valid UserRole value
-                valid_roles = [UserRole.NORMAL, UserRole.ADMIN]
+                valid_roles = [UserRole.NORMAL.value, UserRole.ADMIN.value]
                 if role not in valid_roles:
-                    valid_roles_str = ', '.join(str(r) for r in valid_roles)
+                    valid_roles_str = ', '.join(f"{UserRole.get_description(r)} ({r})" for r in valid_roles)
                     raise ValueError(f"Invalid role '{role}'. Must be one of: {valid_roles_str}")
                 # Update user with integer role
                 user[UserField.ROLE.value] = role
             except (ValueError, TypeError) as e:
-                raise ValueError(f"Role must be a number. Got: {user[UserField.ROLE.value]}") from e
+                raise ValueError(f"Role must be a number. Value provided: '{user[UserField.ROLE.value]}'") from e
 
         return user
 

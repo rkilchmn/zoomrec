@@ -101,7 +101,7 @@ class SQLLiteAccess(Access):
                     {AccessField.CREATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     {AccessField.LAST_UPDATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY ({AccessField.USER_KEY.value}) REFERENCES users({UserField.KEY.value}) ON DELETE CASCADE,
-                    PRIMARY KEY ({AccessField.RESOURCE.value}, {AccessField.ACCESS_KEY.value})
+                    PRIMARY KEY ({AccessField.ACCESS_TYPE.value}, {AccessField.RESOURCE.value}, {AccessField.ACCESS_KEY.value})
                 )
             ''')
             conn.commit()
@@ -179,38 +179,47 @@ class SQLLiteAccess(Access):
             conn.commit()
         return True
 
-    def validate(self, resource, access_key, user_key=None, now_iso=None):
+    def validate(self, resource, access_key, access_type):
         """
-        Validate if the given resource and access_key combination is valid.
-        If user_key is provided, also validates that the access belongs to that user.
+        Validate if the given resource and access_key combination is valid for the specified access type.
         
         Args:
-            resource: The resource to validate access for
-            access_key: The access key to validate
-            user_key: Optional user key to validate ownership
-            now_iso: Optional timestamp to use for expiration check (for testing)
+            resource: The resource to validate access for (must not be None)
+            access_key: The access key to validate (must not be None)
+            access_type: The type of access to validate (e.g., AccessType.HTTP_SERVER_ACCESS, must not be None)
             
         Returns:
             dict: The access record if valid, None otherwise
+            
+        Raises:
+            ValueError: If any required parameter is None
         """
-        now_iso = now_iso or datetime.now(ZoneInfo('UTC')).isoformat()
+        if resource is None:
+            raise ValueError("resource parameter is required and cannot be None")
+        if access_key is None:
+            raise ValueError("access_key parameter is required and cannot be None")
+        if access_type is None:
+            raise ValueError("access_type parameter is required and cannot be None")
+            
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            query = f'''
+            cursor.execute(f'''
                 SELECT * FROM access 
                 WHERE {AccessField.RESOURCE.value} = ?
                   AND {AccessField.ACCESS_KEY.value} = ?
-                  AND ({AccessField.EXPIRES_AT.value} IS NULL OR {AccessField.EXPIRES_AT.value} > ?)
-            '''
-            params = [resource, access_key, now_iso]
+                  AND {AccessField.ACCESS_TYPE.value} = ?
+            ''', [resource, access_key, access_type])
             
-            if user_key:
-                query += f' AND {AccessField.USER_KEY.value} = ?'
-                params.append(user_key)
+            result = cursor.fetchone()
+            if not result:
+                return None
                 
-            cursor.execute(query, params)
-            row = cursor.fetchone()
+            record = dict(zip([column[0] for column in cursor.description], result))
             
-            if row:
-                return {field.value: row[i] for i, field in enumerate(AccessField)}
-            return None
+            # Check expiration in Python
+            if record.get(AccessField.EXPIRES_AT.value) is not None:
+                expires_at = datetime.fromisoformat(record[AccessField.EXPIRES_AT.value])
+                if datetime.now(ZoneInfo('UTC')) > expires_at:
+                    return None
+                    
+            return record

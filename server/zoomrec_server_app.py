@@ -666,48 +666,39 @@ def get_config():
 
 # http based file access
 
-def get_file_access(user_key: str, access_key: str, basename: str) -> str:
+def get_file_access(access_key: str, resource: str) -> str:
     """
-    Validate user access and return the full file path if authorized.
+    Validate access and return the full file path if authorized.
     
     Args:
-        user_key: The user's key
-        access_key: The user's password hash for authentication
-        basename: The base name of the file (without path)
+        access_key: The access key for the resource
+        resource: The resource identifier (without path or extension)
         
     Returns:
         str: Full path to the file if access is authorized
         
     Raises:
-        PermissionError: If user is not authorized
-        FileNotFoundError: If user is not found
+        PermissionError: If access is not authorized
+        FileNotFoundError: If user or resource is not found
     """
     try:
-        # Find user by user key
-        matched_users = users.get(filters=[
-            [UserField.KEY.value, '=', user_key]
-        ])
-            
-        if not matched_users:
+        # First validate the access with HTTP_SERVER_ACCESS type
+        access_granted = access.validate(resource, access_key, AccessType.HTTP_SERVER_ACCESS)
+        if not access_granted:
+            raise PermissionError("unauthorized")
+        
+        user_key = access_granted[AccessField.USER_KEY.value]
+        user = users.get(filters=[[UserField.KEY.value, '=', user_key]])[0]
+        if not user:
             app.logger.error(f"User not found for user_key: {user_key}")
             raise FileNotFoundError("user not found")
-            
-        user = matched_users[0]
-        
-        # Verify access key (password hash)
-        if access_key != user[UserField.PASSWORD.value]:
-            app.logger.error(f"Invalid access key for user: {user_key}")
-            raise PermissionError("unauthorized")
-            
+
         sftp_username = user.get(UserField.SFTP_USERNAME.value)
         if not sftp_username:
-            app.logger.error(f"No SFTP username configured for user: {user_key}")
-            raise PermissionError("user configuration error")
-            
-        # Construct the full path to the file
-        file_dir = os.path.join( BASE_PATH, constants.SFTP_DATA_MOUNT_PATH, sftp_username, constants.SFTP_RECORDINGS_DIR)
-        return os.path.join(file_dir, basename)
-        
+            raise FileNotFoundError("sftp_username not found for user")
+
+        file_dir = os.path.join(BASE_PATH, constants.SFTP_DATA_MOUNT_PATH, sftp_username, constants.SFTP_RECORDINGS_DIR)
+        return os.path.join(file_dir, f"{resource}.{constants.VIDEO_EXTENSION}")
     except Exception as e:
         app.logger.error(f"Error in get_file_access: {str(e)}", exc_info=True)
         if isinstance(e, (PermissionError, FileNotFoundError)):
@@ -841,31 +832,27 @@ def _range_response(path, mimetype='video/mp4'):
         app.logger.error(f"Error serving range request: {str(e)}", exc_info=True)
         return Response('Internal Server Error', status=500, headers=headers)
 
-@app.route("/view/<path:user_key>/<path:access_key>/<basename>", methods=['GET'])
-def view_video(user_key, access_key, basename):
+@app.route("/view/<path:access_key>/<resource>", methods=['GET'])
+def view_video(access_key, resource):
     try:
-        # Get file path with access validation
         try:
-            # Get the base path without extension
-            path = get_file_access(user_key, access_key, basename)
-            
-            # Check if file with video extension exists
-            video_path = f"{path}.{constants.VIDEO_EXTENSION}"
-            if not os.path.exists(video_path):
-                app.logger.error(f"Video file not found: {video_path}")
-                return jsonify({"error": "video not found"}), 404
-            
+            video_file = get_file_access(access_key, resource)
         except PermissionError as e:
-            app.logger.error(f"Permission denied: {str(e)}")
-            return jsonify({"error": str(e)}), 403
-        except Exception as e:
-            app.logger.error(f"Error accessing video file: {str(e)}", exc_info=True)
-            return jsonify({"error": "internal server error"}), 500
+            app.logger.error(f"Permission Error in view_video: {str(e)}")
+            return jsonify({"error": "access denied"}), 403
+        except FileNotFoundError as e:
+            app.logger.error(f"File Not Found Error in view_video: {str(e)}")
+            return jsonify({"error": "video not found"}), 404
+        
+        # Check if file exists
+        if not os.path.exists(video_file):
+            app.logger.error(f"Video file not found: {video_file}")
+            return jsonify({"error": "video not found"}), 404
             
         # If we get here, the file exists and is accessible
         seconds = request.args.get('seconds', default=None, type=float)
         seconds_js = str(seconds) if seconds is not None else "null"
-        stream_url = f"/stream/{user_key}/{access_key}/{basename}"
+        stream_url = f"/stream/{access_key}/{resource}"
         
         # Load and render the template
         template_path = os.path.join(os.path.dirname(__file__), 'res', 'view.html')
@@ -873,7 +860,7 @@ def view_video(user_key, access_key, basename):
             with open(template_path, 'r', encoding='utf-8') as f:
                 html = f.read()
             
-            html = html.replace('{{basename}}', basename)
+            html = html.replace('{{resource}}', resource)
             html = html.replace('{{stream_url}}', stream_url)
             html = html.replace('{{seconds_js}}', seconds_js)
             return Response(html, mimetype='text/html')
@@ -886,37 +873,35 @@ def view_video(user_key, access_key, basename):
         app.logger.error(f"Error in view_video: {str(e)}")
         return jsonify({"error": "internal server error"}), 500
 
-@app.route("/stream/<path:user_key>/<path:access_key>/<basename>", methods=['GET'])
-def stream_video(user_key, access_key, basename):
+@app.route("/stream/<path:access_key>/<resource>", methods=['GET'])
+def stream_video(access_key, resource):
     try:
-        app.logger.debug(f"Stream request - User Key: {user_key}, Video: {basename}")
+        app.logger.debug(f"Stream request - Resource: {resource}")
         
-        # Get file path with access validation
         try:
-            path = get_file_access(user_key, access_key, basename)
-            app.logger.debug(f"Video file path: {path}")
-            
-            video_path = f"{path}.{constants.VIDEO_EXTENSION}"
-            if not os.path.exists(video_path):
-                app.logger.error(f"Video file not found: {video_path}")
-                return jsonify({"error": "video not found"}), 404
-            
+            video_file = get_file_access(access_key, resource)
         except PermissionError as e:
-            app.logger.error(f"Permission denied: {str(e)}")
-            return jsonify({"error": str(e)}), 403
-        except Exception as e:
-            app.logger.error(f"Error accessing video file: {str(e)}", exc_info=True)
-            return jsonify({"error": "error accessing video file"}), 500
+            app.logger.error(f"Permission Error in stream_video: {str(e)}")
+            return jsonify({"error": "access denied"}), 403
+        except FileNotFoundError as e:
+            app.logger.error(f"File Not Found Error in stream_video: {str(e)}")
+            return jsonify({"error": "video not found"}), 404
+            
+        app.logger.debug(f"Video file path: {video_file}")
         
+        if not os.path.exists(video_file):
+            app.logger.error(f"Video file not found: {video_file}")
+            return jsonify({"error": "video not found"}), 404
+            
         # Get file stats for logging
-        file_size = os.path.getsize(video_path)
+        file_size = os.path.getsize(video_file)
         app.logger.debug(f"Video file size: {file_size} bytes")
         
         # Set MIME type for H.265 video in MP4 container
         mime_type = 'video/mp4; codecs=hevc'
         
         # Process the range request
-        response = _range_response(video_path, mime_type)
+        response = _range_response(video_file, mime_type)
         
         # Add CORS and other headers
         response.headers.update({
@@ -925,7 +910,7 @@ def stream_video(user_key, access_key, basename):
             'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
             'Content-Type': mime_type,
             'Accept-Ranges': 'bytes',
-            'Content-Disposition': f'inline; filename="{basename}.mp4"',
+            'Content-Disposition': f'inline; filename="{resource}.{constants.VIDEO_EXTENSION}"',
             'Cache-Control': 'no-cache',
             'X-Content-Type-Options': 'nosniff',
             'X-Video-Codec': 'hevc',
