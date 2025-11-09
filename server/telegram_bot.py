@@ -17,8 +17,10 @@ import os
 
 from shared.events_api import EventAPI
 from shared.users_api import UserAPI
+from shared.access_api import AccessAPI, EXPIRE_AFTER_SECONDS
 from shared.events import Events, EventField, EventType, EventStatus, EVENT_DEFAULT_VALUES
 from shared.users import MessengerAttribute, Users, UserField, UserRole
+from shared.access import AccessField, AccessType
 from shared.constants import DATE_FORMAT, TIME_FORMAT, DATETIME_FORMAT, LOG_TELEGRAM_BOT_FILENAME, DEBUG_MODULE_TELEGRAM_BOT   
 from shared.utilities import start_logging, start_debug
 import logging
@@ -45,6 +47,9 @@ PAGE_EVENTS = 5
 # Define the number of users per page
 PAGE_USERS = 5
 
+# Define the number of access records per page
+PAGE_ACCESS = 5
+
 # Constants for event commands
 CMD_ADD_EVENT = "add_event"
 CMD_LIST_EVENT = "list_event"
@@ -61,6 +66,12 @@ CMD_LIST_USER = "list_user"
 CMD_INFO = "info"
 CMD_CLIENT = "client"
 CMD_HELP = "help"
+
+# Constants for access commands
+CMD_ADD_ACCESS = "add_access"
+CMD_LIST_ACCESS = "list_access"
+CMD_MODIFY_ACCESS = "modify_access"
+CMD_DELETE_ACCESS = "delete_access"
 
 # sample requests for events
 EXAMPLE_ADD_EVENT1   = f'/{CMD_ADD_EVENT} "important meeting" johndoe 31/12/2025 14:00 America/New_York 60 123456789 mymeetingpassword'
@@ -108,6 +119,23 @@ USAGE_CLIENT = f"/{CMD_CLIENT} <on|off> [optional: minutes]\n" + \
 
 # Usage help for other commands
 USAGE_INFO = f"/{CMD_INFO} - return some session info such as the chat id"
+
+# Examples and usage for access commands
+EXAMPLE_ADD_ACCESS = f'/{CMD_ADD_ACCESS} johndoe "Meeting-20251108_1300" 34tql0MN02KztivzqYF1 604800'
+EXAMPLE_LIST_ACCESS = f'/{CMD_LIST_ACCESS} 1'
+EXAMPLE_LIST_ACCESS_USER = f'/{CMD_LIST_ACCESS} johndoe 1'
+EXAMPLE_MODIFY_ACCESS = f'/{CMD_MODIFY_ACCESS} 1 expires_at "2025-12-31T23:59:59+11:00"'
+EXAMPLE_DELETE_ACCESS = f'/{CMD_DELETE_ACCESS} 1'
+
+USAGE_ADD_ACCESS = f"/{CMD_ADD_ACCESS} <user login> <basename> <access_key> <{EXPIRE_AFTER_SECONDS}> [optional: access_type]\n" + \
+                   f"example: {EXAMPLE_ADD_ACCESS}"
+USAGE_LIST_ACCESS = f"/{CMD_LIST_ACCESS} [optional: <user login>] [optional: <page number> or <search term>] - for admins, filter by user login and optionally page/search; for non-admins, pagination/search only.\n" + \
+                    f"example: {EXAMPLE_LIST_ACCESS}\n" + \
+                    f"example: {EXAMPLE_LIST_ACCESS_USER}"
+USAGE_MODIFY_ACCESS = f"/{CMD_MODIFY_ACCESS} <index or search term> <attribute name1> <new attribute value1> ...\n" + \
+                      f"example: {EXAMPLE_MODIFY_ACCESS}"
+USAGE_DELETE_ACCESS = f"/{CMD_DELETE_ACCESS} <index or search term>\n" + \
+                      f"example: {EXAMPLE_DELETE_ACCESS}"
 
 def parse_quoted_args(args):
     """Parse command arguments that may contain quoted strings.
@@ -207,9 +235,292 @@ async def list_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         output += f"\nEvent {index+1}:\n"
 
         for field in EventField:  # Iterate over EventField to maintain order
-            output += f"  {field.value}: {event[field.value]}\n"
+            value = event[field.value]
+            # Handle fields with descriptions
+            if field == EventField.TYPE and value is not None:
+                from shared.events import EventType
+                desc = EventType.get_description(value)
+                output += f"  {field.value}: {desc} ({value})\n"
+            elif field == EventField.STATUS and value is not None:
+                from shared.events import EventStatus
+                desc = EventStatus.get_description(value)
+                output += f"  {field.value}: {desc} ({value})\n"
+            else:
+                output += f"  {field.value}: {value}\n"
 
     await update.message.reply_text(output)
+
+async def list_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args = parse_quoted_args(context.args)
+    if len(args) > 2:
+        await update.message.reply_text("Usage: " + USAGE_LIST_ACCESS)
+        return
+
+    try:
+        with AccessAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as access_api:
+            access_list = access_api.get()
+        if not access_list:
+            await update.message.reply_text("No access records found.")
+            return
+    except Exception as error:
+        await update.message.reply_text(f"Error retrieving access records: {error}")
+        return
+
+    # Optional admin user filter: first arg as user login
+    remaining_arg = None
+    if is_admin(update.effective_user.id) and len(args) >= 1:
+        # Try resolve first arg as user login
+        try:
+            with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+                users_list = user_api.get(filters=[[UserField.LOGIN.value, "=", args[0]]])
+            if users_list:
+                user_key = users_list[0][UserField.KEY.value]
+                access_list = [rec for rec in access_list if rec.get(AccessField.USER_KEY.value) == user_key]
+                # consume first arg; next (if any) is page/search
+                remaining_arg = args[1] if len(args) == 2 else None
+            else:
+                # not a user login -> treat as single-arg page/search
+                remaining_arg = args[0] if len(args) == 1 else (args[1] if len(args) == 2 else None)
+        except Exception:
+            remaining_arg = args[0] if len(args) >= 1 else None
+    else:
+        # Non-admin: permission filter to their own records only
+        access_list = filter_access_by_permission(update.effective_user.id, update.effective_chat.id, access_list)
+        remaining_arg = args[0] if len(args) == 1 else None
+
+    current_page = 1
+    target_indices = list(range(len(access_list)))
+    if remaining_arg is not None:
+        try:
+            current_page = int(remaining_arg)
+        except ValueError:
+            # search term on any field value
+            term = remaining_arg
+            target_indices = []
+            for i, rec in enumerate(access_list):
+                if any(term.lower() in str(v).lower() for v in rec.values()):
+                    target_indices.append(i)
+            access_list = [access_list[i] for i in target_indices]
+
+    total = len(access_list)
+    start_index = (current_page - 1) * PAGE_ACCESS
+    end_index = min(start_index + PAGE_ACCESS, total)
+    to_display = access_list[start_index:end_index]
+    if not to_display:
+        await update.message.reply_text("No access records found for the specified page.")
+        return
+
+    from shared.access import Access
+    output = f"List of {total} access record(s) (Page {current_page}/{(total-1)//PAGE_ACCESS + 1}):\n"
+    for i, rec in enumerate(to_display, start=start_index):
+        index = target_indices[i] if target_indices else i
+        output += f"\n{index+1}. {Access.nameStr(rec)}\n"
+        # Add additional details (excluding resource and access_key which are already in nameStr)
+        for field in AccessField:
+            key = field.value
+            if key in rec and key not in [AccessField.RESOURCE.value, AccessField.ACCESS_KEY.value]:
+                value = rec[key]
+                # Special handling for access_type to show description
+                if key == AccessField.ACCESS_TYPE.value:
+                    from shared.access import AccessType
+                    desc = AccessType.get_description(value)
+                    value = f"{desc} ({value})"
+                output += f"  {key}: {value}\n"
+    await update.message.reply_text(output)
+
+async def add_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args = parse_quoted_args(context.args)
+    if len(args) < 4:
+        await update.message.reply_text("Usage: " + USAGE_ADD_ACCESS)
+        return
+
+    user_login = args[0]
+    resource = args[1]
+    access_key = args[2]
+    try:
+        expire_after_seconds = int(args[3])
+    except ValueError:
+        await update.message.reply_text(f"{EXPIRE_AFTER_SECONDS} must be a number")
+        return
+    access_type = None
+    if len(args) > 4:
+        try:
+            access_type = int(args[4])
+        except ValueError:
+            await update.message.reply_text("access_type must be a number if provided")
+            return
+
+    try:
+        # find user by login
+        with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+            user = user_api.get(filters=[[UserField.LOGIN.value, "=", user_login]])[0]
+        if not user:
+            await update.message.reply_text(f"User with login '{user_login}' not found.")
+            return
+
+        record = {
+            AccessField.RESOURCE.value: resource,
+            AccessField.ACCESS_KEY.value: access_key,
+            AccessField.USER_KEY.value: user[UserField.KEY.value],
+            # server computes expires_at from this
+            EXPIRE_AFTER_SECONDS: expire_after_seconds
+        }
+        if access_type is not None:
+            record[AccessField.ACCESS_TYPE.value] = access_type
+
+        with AccessAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as access_api:
+            created = access_api.create(record)
+        await update.message.reply_text(f"Created access for resource '{resource}' and user '{user_login}'")
+    except Exception as error:
+        await update.message.reply_text(f"Error adding access: {error}")
+
+async def modify_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args = parse_quoted_args(context.args)
+    if not args:
+        await update.message.reply_text("Usage: " + USAGE_MODIFY_ACCESS)
+        return
+
+    try:
+        with AccessAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as access_api:
+            access_list = access_api.get()
+        if not access_list:
+            await update.message.reply_text("No access records found.")
+            return
+    except Exception as error:
+        await update.message.reply_text(f"Error retrieving access records: {error}")
+        return
+
+    access_list = filter_access_by_permission(update.effective_user.id, update.effective_chat.id, access_list)
+
+    # Determine target by index or search term
+    if args[0].isdigit() and int(args[0]) <= 99:
+        index = int(args[0])
+        if index < 1 or index > len(access_list):
+            await update.message.reply_text(f"Index {index} is out of range. Please provide a valid index.")
+            return
+        target_index = index - 1
+    else:
+        term = args[0]
+        matches = []
+        for i, rec in enumerate(access_list):
+            if any(term.lower() in str(v).lower() for v in rec.values()):
+                matches.append(i)
+        if len(matches) != 1:
+            await update.message.reply_text(f"Expected exactly 1 match, but found {len(matches)}. Please refine your search.")
+            return
+        target_index = matches[0]
+
+    if len(args) < 3 or len(args) % 2 != 1:
+        await update.message.reply_text("Usage: " + USAGE_MODIFY_ACCESS)
+        return
+
+    target = access_list[target_index]
+    
+    # Get the composite key values before modifying the target
+    resource = target[AccessField.RESOURCE.value]
+    access_key = target[AccessField.ACCESS_KEY.value]
+    
+    # Create update dict with the composite key
+    update_dict = {
+        AccessField.RESOURCE.value: resource,
+        AccessField.ACCESS_KEY.value: access_key
+    }
+    
+    # Add the fields to update
+    for i in range(1, len(args), 2):
+        if i + 1 >= len(args):
+            break
+        attribute_name = args[i]
+        new_value = args[i+1]
+        update_dict[attribute_name] = new_value
+
+    try:
+        with AccessAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as access_api:
+            access_api.update(update_dict)
+            
+        # Get the updated record to show changes
+        updated_record = access_api.get(filters=[
+            [AccessField.RESOURCE.value, '=', resource],
+            [AccessField.ACCESS_KEY.value, '=', access_key]
+        ])[0]
+        
+        # Format the changes for the response
+        changes = []
+        for key, new_value in update_dict.items():
+            if key not in [AccessField.RESOURCE.value, AccessField.ACCESS_KEY.value]:
+                old_value = target.get(key, 'not set')
+                changes.append(f"- {key}: {old_value} → {new_value}")
+        
+        response = (
+            f"✅ Updated access for resource '{resource}' with key '{access_key}':\n"
+            f"{chr(10).join(changes)}"
+        )
+        await update.message.reply_text(response)
+    except Exception as error:
+        await update.message.reply_text(f"Error updating access: {error}")
+
+async def delete_access(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    args = parse_quoted_args(context.args)
+    if not args:
+        await update.message.reply_text("Usage: " + USAGE_DELETE_ACCESS)
+        return
+
+    try:
+        with AccessAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as access_api:
+            access_list = access_api.get()
+        if not access_list:
+            await update.message.reply_text("No access records found.")
+            return
+    except Exception as error:
+        await update.message.reply_text(f"Error retrieving access records: {error}")
+        return
+
+    access_list = filter_access_by_permission(update.effective_user.id, update.effective_chat.id, access_list)
+
+    if args[0].isdigit() and int(args[0]) <= 99:
+        index = int(args[0])
+        if index < 1 or index > len(access_list):
+            await update.message.reply_text(f"Index {index} is out of range. Please provide a valid index.")
+            return
+        target_index = index - 1
+    else:
+        term = args[0]
+        matches = []
+        for i, rec in enumerate(access_list):
+            if any(term.lower() in str(v).lower() for v in rec.values()):
+                matches.append(i)
+        if len(matches) != 1:
+            await update.message.reply_text(f"Expected exactly 1 match, but found {len(matches)}. Please refine your search.")
+            return
+        target_index = matches[0]
+
+    # Get the target access record to delete
+    target = access_list[target_index]
+    try:
+        with AccessAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as access_api:
+            access_api.delete(
+                target[AccessField.RESOURCE.value],
+                target[AccessField.ACCESS_KEY.value]
+            )
+        await update.message.reply_text(
+            f"Deleted access for resource '{target[AccessField.RESOURCE.value]}' with key '{target[AccessField.ACCESS_KEY.value]}'"
+        )
+    except Exception as error:
+        await update.message.reply_text(f"Error deleting access: {error}")
+
+def filter_access_by_permission(user_id, chat_id, access_list):
+    # Admins: full access
+    if is_admin(user_id):
+        return access_list
+    # Non-admin: show only entries for their own user
+    try:
+        current_user = get_user_by_telegram_id(chat_id)
+        if not current_user:
+            return []
+        user_key = current_user.get(UserField.KEY.value)
+        return [rec for rec in access_list if rec.get(AccessField.USER_KEY.value) == user_key]
+    except Exception:
+        return []
 
 async def add_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     args = parse_quoted_args(context.args)
@@ -601,8 +912,15 @@ async def list_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     for i, user in enumerate(users_to_display, start=start_index):
         index = target_indices[i]
         output += f"\nUser {index+1}:\n"
-        for field in UserField:  # Iterate over EventField to maintain order
-            output += f"  {field.value}: {user[field.value]}\n"
+        for field in UserField:  # Iterate over UserField to maintain order
+            value = user[field.value]
+            # Handle fields with descriptions
+            if field == UserField.ROLE and value is not None:
+                from shared.users import UserRole
+                desc = UserRole.get_description(value)
+                output += f"  {field.value}: {desc} ({value})\n"
+            else:
+                output += f"  {field.value}: {value}\n"
 
     await update.message.reply_text(output)
 
@@ -700,6 +1018,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     response += f"Use this command to control the client:\n"
     response += f"{USAGE_CLIENT}\n"
     response += f"\n"
+    response += f"Use these commands to manage access:\n"
+    response += f"{USAGE_ADD_ACCESS}\n"
+    response += f"{USAGE_LIST_ACCESS}\n"
+    response += f"{USAGE_MODIFY_ACCESS}\n"
+    response += f"{USAGE_DELETE_ACCESS}\n"
     response += f"Other useful commands:\n"
     response += f"{USAGE_INFO}\n"
     await update.message.reply_text(response)
@@ -834,6 +1157,10 @@ def start_bot() -> None:
     application.add_handler(CommandHandler(CMD_HELP, help_command))
     application.add_handler(CommandHandler(CMD_INFO, info_command))
     application.add_handler(CommandHandler(CMD_CLIENT, client_command))
+    application.add_handler(CommandHandler(CMD_ADD_ACCESS, add_access))
+    application.add_handler(CommandHandler(CMD_LIST_ACCESS, list_access))
+    application.add_handler(CommandHandler(CMD_MODIFY_ACCESS, modify_access))
+    application.add_handler(CommandHandler(CMD_DELETE_ACCESS, delete_access))
 
     # Add handler for unknown commands (must be added after all other command handlers)
     application.add_handler(MessageHandler(filters.COMMAND, unknown))

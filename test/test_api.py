@@ -2,6 +2,10 @@ from shared.events_api import EventAPI
 from shared.events import EventField, EventType, Events
 from shared.users_api import UserAPI
 from shared.users import UserField, Users
+from shared.access_api import AccessAPI, EXPIRE_AFTER_SECONDS
+from shared.access import AccessField, AccessType
+from datetime import datetime, timedelta, timezone
+import time
 
 # Configuration
 SERVER_URL = "http://localhost:8081"
@@ -113,6 +117,9 @@ def main():
         except Exception as e:
             print(f"EventAPI operation failed. Exception: {str(e)}")
 
+        # Test Access API now that we have users and events
+        # test_access_api()
+
         
         # Define a new event
         new_event2 = {
@@ -150,6 +157,7 @@ def main():
         except Exception as e:
             print(f"EventAPI operation failed. Exception: {str(e)}")
 
+
         # Delete the event
         print(f"Deleting event with key: {updated_event[EventField.KEY.value]}...")
         try:
@@ -177,5 +185,103 @@ def main():
     except Exception as e:
         print(f"Failed to delete user. Exception: {str(e)}")
 
+def test_access_api():
+    print("\n=== Testing Access API ===")
+    with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api, \
+         AccessAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as access_api:
+        
+        # Create a test user first
+        test_user = {
+            UserField.NAME.value: "Test Access User",
+            UserField.LOGIN.value: "testaccess",
+            UserField.PASSWORD.value: "testpass",
+            UserField.EMAIL.value: "test@access.com",
+            UserField.TIMEZONE.value: 'Australia/Sydney',
+        }
+        
+        try:
+            user = user_api.create(test_user)
+            user_key = user[UserField.KEY.value]
+            print(f"Created test user: {user[UserField.NAME.value]}")
+            
+            # Test create access with expiry
+            expire_after_seconds = 30
+            created_access1 = access_api.create({
+                AccessField.USER_KEY.value: user_key,
+                AccessField.RESOURCE.value: "test-recording",
+                AccessField.ACCESS_KEY.value: "testkey123",
+                AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS,
+                EXPIRE_AFTER_SECONDS: expire_after_seconds
+            })
+            
+
+            print(f"Created access with expires after {expire_after_seconds} seconds: {created_access1}")
+
+            test_access = access_api.validate(created_access1[AccessField.RESOURCE.value], created_access1[AccessField.ACCESS_KEY.value], user_key=user_key)
+            print(f"Test access: {test_access}")
+
+            print(f"Sleeping for {expire_after_seconds} seconds...")
+            time.sleep(expire_after_seconds)
+
+            test_access = access_api.validate(created_access1[AccessField.RESOURCE.value], created_access1[AccessField.ACCESS_KEY.value], user_key=user_key)
+            print(f"Test access: {test_access}")
+            
+            # Test create with no expiry
+            created_access2 = access_api.create({
+                AccessField.USER_KEY.value: user_key,
+                AccessField.RESOURCE.value: "test-expiry",
+                AccessField.ACCESS_KEY.value: "expirekey123",
+                AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS,
+                AccessField.EXPIRES_AT.value: None
+            })
+            print(f"Created access without expiry: {created_access2}")
+
+            test_access2 = access_api.validate(created_access2[AccessField.RESOURCE.value], created_access2[AccessField.ACCESS_KEY.value], user_key=user_key)
+            print(f"Test access without expiry: {test_access2}")   
+            
+            # Test get
+            access_list = access_api.get(filters=[
+                [AccessField.USER_KEY.value, '=', user_key],
+                [AccessField.RESOURCE.value, '=', 'test-expiry']
+            ])
+            print(f"Found {len(access_list)} access records for user")
+            
+            if access_list:
+                record = access_list[0]
+                resource = record[AccessField.RESOURCE.value]
+                access_key = record[AccessField.ACCESS_KEY.value]
+                
+                # Test update
+                updated_access = access_api.update({
+                    AccessField.RESOURCE.value: resource,
+                    AccessField.ACCESS_KEY.value: access_key,
+                    AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS,
+                    AccessField.EXPIRES_AT.value: (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
+                })
+                print(f"Updated access record: {updated_access}")
+                
+                # Test delete
+                access_api.delete(resource, access_key)
+                print(f"Deleted access record with resource '{resource}' and access_key '{access_key}'")
+                
+                # Verify deleted
+                try:
+                    access_api.get(filters=[
+                        [AccessField.RESOURCE.value, '=', resource],
+                        [AccessField.ACCESS_KEY.value, '=', access_key]
+                    ])
+                    print("Error: Access record still exists after deletion")
+                except Exception as e:
+                    print("Successfully verified access record deletion")
+            
+        finally:
+            # Clean up test user
+            try:
+                user_api.delete(user_key)
+                print(f"Cleaned up test user: {user_key}")
+            except Exception as e:
+                print(f"Error cleaning up test user: {str(e)}")
+
 if __name__ == "__main__":
-    main() 
+    # main()
+    test_access_api()

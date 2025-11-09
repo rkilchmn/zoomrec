@@ -82,6 +82,7 @@ ROUTE_USER = "/user"
 ROUTE_FIRMWARE = "/firmware"
 ROUTE_LOG = "/log"
 ROUTE_CONFIG = "/config"
+ROUTE_ACCESS = "/access"
 
 # stale event thresholds in seconds
 STALE_EVENT_THRESHOLD_SECS = 60 * 60 * 2 # 2h 

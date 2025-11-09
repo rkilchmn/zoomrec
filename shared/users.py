@@ -29,7 +29,7 @@ class UserField(Enum):
     CREATED_TIMESTAMP = 'created_timestamp'
     LAST_UPDATED_TIMESTAMP = 'last_updated_timestamp'
 
-class UserRole:
+class UserRole(Enum):
     NORMAL = 1
     ADMIN = 2
 
@@ -41,7 +41,7 @@ class UserRole:
         }.get(role, "Unknown Role")
 
 USER_DEFAULT_VALUES = {
-    UserField.ROLE.value: UserRole.NORMAL,
+    UserField.ROLE.value: UserRole.NORMAL.value,
     UserField.EMAIL.value: '',
     UserField.MESSENGER.value: '',
     UserField.MOBILE_NUMBER.value: '',

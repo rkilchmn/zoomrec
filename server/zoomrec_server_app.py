@@ -1,11 +1,12 @@
 from flask import Flask, request, jsonify, send_file, Response, abort
 from flask_basicauth import BasicAuth
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import os.path
 from typing import Any, Dict, List, Optional, Set, TypeVar, Union
 from shared.events import Events, EventStatus, EventField, SQLLiteEvents, EventType
 from urllib.parse import unquote
 from shared.users import SQLLiteUser, Users, UserField
+from shared.access import SQLLiteAccess, AccessField, AccessType, Access
 import logging
 import json
 from shared import constants
@@ -158,6 +159,7 @@ events = SQLLiteEvents(ZOOMREC_DB_PATH, stateChanged=event_state_changed_callbac
 
 # Initialize user manager
 users = SQLLiteUser(ZOOMREC_DB_PATH)
+access = SQLLiteAccess(ZOOMREC_DB_PATH)
 
 # Create a new user
 @app.route(f"{constants.ROUTE_USER}", methods=['POST'])
@@ -227,6 +229,109 @@ def delete_user(key):
     try:
         users.delete(key)
         return jsonify({"message": "User with key: {key} deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Access CRUD endpoints
+@app.route(f"{constants.ROUTE_ACCESS}", methods=['POST'])
+@basic_auth.required
+def create_access():
+    try:
+        record = dict(request.json)
+        # compute expires_at from expire_after_seconds if provided
+        if Access.EXPIRE_AFTER_SECONDS in record and AccessField.USER_KEY.value in record:
+            # fetch user to get timezone
+            matched_users = users.get(filters=[[UserField.KEY.value, '=', record[AccessField.USER_KEY.value]]])
+            if not matched_users:
+                return jsonify({"error": "user not found"}), 404
+            user = matched_users[0]
+            try:
+                expire_after_seconds = int(record.pop(Access.EXPIRE_AFTER_SECONDS))
+            except Exception:
+                return jsonify({"error": f"invalid {Access.EXPIRE_AFTER_SECONDS}"}), 400
+            now = Users.now(user)
+            record[AccessField.EXPIRES_AT.value] = (now + timedelta(seconds=expire_after_seconds)).isoformat()
+        # default access type if missing
+        if AccessField.ACCESS_TYPE.value not in record:
+            record[AccessField.ACCESS_TYPE.value] = AccessType.HTTP_SERVER_ACCESS
+        record = access.create(record)
+        return jsonify(record), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route(f"{constants.ROUTE_ACCESS}", methods=['GET'])
+@basic_auth.required
+def get_access():
+    filters = []
+    for key, value in request.args.items():
+        if key.startswith("Filter."):
+            parts = key.split('.')
+            if len(parts) == 3:
+                index = parts[1]
+                if len(filters) < int(index):
+                    filters.append([None, None, None])
+                if parts[2] == "Name":
+                    filters[int(index) - 1][0] = value
+                elif parts[2] == "Operator":
+                    filters[int(index) - 1][1] = value
+                elif parts[2] == "Value":
+                    filters[int(index) - 1][2] = value
+    try:
+        records = access.get(filters=filters)
+        if records:
+            return jsonify(records), 200
+        else:
+            return jsonify(), 204 # sucsess, but "204 No Content"
+    except Exception as e:
+        logging.error(f"Error in get_access: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+@app.route(f"{constants.ROUTE_ACCESS}", methods=['DELETE'])
+@basic_auth.required
+def delete_access():
+    try:
+        resource = request.args.get('resource')
+        access_key = request.args.get('access_key')
+        if not resource or not access_key:
+            return jsonify({"error": "both resource and access_key parameters are required"}), 400
+            
+        if access.delete(resource, access_key):
+            return jsonify({"status": "deleted"}), 200
+        else:
+            return jsonify({"error": "not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route(f"{constants.ROUTE_ACCESS}", methods=['PUT'])
+@basic_auth.required
+def update_access():
+    try:
+        record = request.json
+        if AccessField.RESOURCE.value not in record or AccessField.ACCESS_KEY.value not in record:
+            return jsonify({"error": "both resource and access_key are required in the request body"}), 400
+            
+        updated = access.update(record)
+        return jsonify(updated), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# Validation endpoint (no auth):
+@app.route(f"{constants.ROUTE_ACCESS}/validate", methods=['GET'])
+def validate_access():
+    try:
+        user_key = request.args.get('user_key')  # Optional
+        resource = request.args.get('resource')
+        access_key = request.args.get('access_key')
+        
+        if not resource or not access_key:
+            return jsonify({"error": "missing required params: resource, access_key"}), 400
+            
+        record = access.validate(resource, access_key, user_key=user_key)
+        if record:
+            return jsonify(record), 200
+        else:
+            return jsonify({"error": "not found or access denied"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
