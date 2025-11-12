@@ -308,6 +308,9 @@ COPY shared/* ${HOME}/shared/
 # install as package for correct imports
 COPY setup.py ${HOME}/
 RUN pip install --break-system-packages --no-cache-dir -e .
+
+# html templates for postprocessing
+COPY client/res/*.html ${HOME}/client/res/
     
 # automation folder
 COPY client/res/home/automation ${HOME}/automation/
@@ -337,6 +340,7 @@ RUN mkdir -p ${HOME}/.ssh && \
 
 # samba server setup
 COPY client/res/smb.conf /etc/samba/smb.conf
+
 # samba ports
 EXPOSE 139 445 137 138
 EXPOSE ${VNC_PORT}

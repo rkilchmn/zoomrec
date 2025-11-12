@@ -48,7 +48,7 @@ SFTP_KNOWN_HOSTS_FILE = 'config/sftp/known_hosts'
 SFTP_RECORDINGS_DIR = 'recordings'
 
 # recording
-VIDEO_EXTENSION = 'mkv'
+VIDEO_EXTENSION = 'mp4'
 DEFAULT_BASENAME_TEMPLATE = "{title}-{dtstart_instance:%Y%m%d_%H%M}"
 DEFAULT_BASENAME_JOIN_TEMPLATE = "{title}-JOIN-{dtstart_instance:%Y%m%d_%H%M}"
 
@@ -83,6 +83,7 @@ ROUTE_FIRMWARE = "/firmware"
 ROUTE_LOG = "/log"
 ROUTE_CONFIG = "/config"
 ROUTE_ACCESS = "/access"
+ROUTE_FILE = "/file"
 
 # stale event thresholds in seconds
 STALE_EVENT_THRESHOLD_SECS = 60 * 60 * 2 # 2h 

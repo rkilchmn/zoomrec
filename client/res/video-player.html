@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Player - {{resource}}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      margin: 0 0 10px 0;
+      font-size: 1.5em;
+    }
+    .video-container {
+      position: relative;
+      width: 100%;
+      max-width: 1000px;
+      margin: 0 auto;
+      background: #000;
+    }
+    video {
+      width: 100%;
+      display: block;
+    }
+    /* Style for subtitles */
+    ::cue {
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      font-size: 1.2em;
+      text-shadow: 1px 1px 2px #000;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>{{resource}}</h1>
+    <div class="video-container">
+      <video id="videoPlayer" controls>
+        <source src="{{resource}}{{video_extension}}" type="video/mp4">
+        <track 
+          label="English" 
+          kind="subtitles" 
+          srclang="en" 
+          src="{{resource}}.vtt" 
+          default>
+        Your browser does not support the video element.
+      </video>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const video = document.getElementById('videoPlayer');
+      const urlParams = new URLSearchParams(window.location.search);
+      const startTime = parseFloat(urlParams.get('seconds'));
+      
+      if (!isNaN(startTime) && startTime >= 0) {
+        video.addEventListener('loadedmetadata', function() {
+          video.currentTime = startTime;
+          video.play().catch(e => console.log('Autoplay prevented:', e));
+        });
+      }
+    });
+  </script>
+</body>
+</html>

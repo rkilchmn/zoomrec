@@ -683,7 +683,13 @@ def get_file_access(access_key: str, resource: str) -> str:
     """
     try:
         # First validate the access with HTTP_SERVER_ACCESS type
-        access_granted = access.validate(resource, access_key, AccessType.HTTP_SERVER_ACCESS)
+        (basename, file_ext) = os.path.splitext(resource)
+        # for validating access we only check everything before first .
+        if '.' in basename:
+            resource_validate = basename.split('.')[0]
+        else:
+            resource_validate = basename
+        access_granted = access.validate( resource_validate, access_key, AccessType.HTTP_SERVER_ACCESS)
         if not access_granted:
             raise PermissionError("unauthorized")
         
@@ -698,7 +704,7 @@ def get_file_access(access_key: str, resource: str) -> str:
             raise FileNotFoundError("sftp_username not found for user")
 
         file_dir = os.path.join(BASE_PATH, constants.SFTP_DATA_MOUNT_PATH, sftp_username, constants.SFTP_RECORDINGS_DIR)
-        return os.path.join(file_dir, f"{resource}.{constants.VIDEO_EXTENSION}")
+        return os.path.join(file_dir, basename + file_ext)
     except Exception as e:
         app.logger.error(f"Error in get_file_access: {str(e)}", exc_info=True)
         if isinstance(e, (PermissionError, FileNotFoundError)):
@@ -925,5 +931,51 @@ def stream_video(access_key, resource):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+import mimetypes
+
+@app.route(f"{constants.ROUTE_FILE}/<string:access_key>/<path:resource>", methods=['GET'])
+def get_file(access_key: str, resource: str):
+    """
+    Serve a file with proper MIME type based on file extension.
+    The resource should be provided without extension in the URL.
+    """
+    try:
+        # Get the full file path with access validation
+        file_path = get_file_access(access_key, resource)
+        
+        # Get MIME type based on file extension
+        (basename, file_ext) = os.path.splitext(resource)
+        mime_type, _ = mimetypes.guess_type('file' + file_ext)
+        if not mime_type:
+            mime_type = 'application/octet-stream'  # Default MIME type if unknown
+        
+        # Check if this is a range request (for video/audio)
+        range_header = request.headers.get('Range', None)
+        if range_header and any(mime_type.startswith(t) for t in ['video/', 'audio/']):
+            return _range_response(file_path, mime_type)
+            
+        # For non-range requests, use send_file which handles most file types well
+        return send_file(
+            file_path,
+            mimetype=mime_type,
+            as_attachment=False,
+            download_name=basename + file_ext
+        )
+        
+    except PermissionError as e:
+        app.logger.error(f"Permission denied: {str(e)}")
+        abort(403, description="Access denied")
+    except FileNotFoundError as e:
+        app.logger.error(f"File not found: {str(e)}")
+        abort(404, description="File not found")
+    except Exception as e:
+        app.logger.error(f"Error serving file: {str(e)}")
+        abort(500, description="Internal server error")
+
 if __name__ == '__main__':
-    app.run(debug=True,host='0.0.0.0',port=os.getenv("SERVER_PORT"))
+    # Initialize MIME types
+    mimetypes.init()
+    # Add any custom MIME types if needed
+    # mimetypes.add_type('application/wasm', '.wasm')
+    
+    app.run(debug=True, host='0.0.0.0', port=os.getenv("SERVER_PORT"))

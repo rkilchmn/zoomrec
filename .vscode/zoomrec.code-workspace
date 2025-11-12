@@ -117,10 +117,10 @@
 					"--model", "google/gemini-2.0-flash-exp:free",
 					"--api-url", "https://openrouter.ai/api/v1",
 					"--api-key-env", "AI_API_KEY",
-					"--prompt", "You are a helpful assistant. Analyze the following transcript and create a html:\\n1. Identify all major topic changes.\\n2. Summarize each topic with:\\n   - Title and timestamp range \\n   - Very Detailed Summary\\n   - highlight actionable trades with ticker symbol (if option strike/expire),limit and buy conditions (if/then)\\n - Link to recording file (example): <a href=\"vlc://{recording-link}?start-time=<replace with start timestamp in seconds>\">Open in VLC</a>)\\n   - Include chart qith size 900x340 (example TSLA): <iframe src=\"https://finviz.com/chart.ashx?t=TSLA&ty=c&ta=1&p=d&s=l\"></iframe>\\n\\nTranscript (as VTT file with timestamp format Minutes:Seconds:Milliseconds)\\n{content} \\n Use these ticker symbols if mentioned (Gold:GC1!,Crude Oil:CL1!,Silver:SI1!)",
-					"--content-filename-regex", "\\.mkv$|||.vtt",
-					"--recording-link-regex", "^/home/zoomrec/data/recordings/(.+)$|||c/Users/I047787/Downloads/\\1",
-					"--output-extension", ".html"
+					"--prompt", "You are a helpful assistant. Analyze the following transcript and create a html:\\n1. Identify all major topic changes.\\n2. Summarize each topic with:\\n   - Title and timestamp range \\n   - Very Detailed Summary\\n   - highlight actionable trades with ticker symbol (if option strike/expire),limit and buy conditions (if/then)\\n - Link to recording file (example): <a href=\"{recording-link}?seconds=<replace with start timestamp in seconds>\">Open in VLC</a>)\\n   - Include chart qith size 900x340 (example TSLA): <iframe src=\"https://finviz.com/chart.ashx?t=TSLA&ty=c&ta=1&p=d&s=l\"></iframe>\\n\\nTranscript (as VTT file with timestamp format Minutes:Seconds:Milliseconds)\\n{content} \\n Use these ticker symbols if mentioned (Gold:GC1!,Crude Oil:CL1!,Silver:SI1!)",
+					"--content-filename-regex", "\\.[^.]+$|||.vtt",
+					"--recording-link-regex", "^(?:.*\\/)?([^\\/]+)$|||\\1",
+					"--output-extension", ".html",
 				]
 			},
 			{
@@ -141,10 +141,11 @@
 					"--model", "google/gemini-2.0-flash-exp:free",
 					"--api-url", "https://openrouter.ai/api/v1",
 					"--api-key-env", "AI_API_KEY",
-					"--prompt", "You are a helpful assistant. Analyze the following transcript and create a html:\\n1. Identify all major topic changes.\\n2. Summarize each topic with:\\n   - Title and timestamp range \\n   - Very Detailed Summary\\n   - highlight actionable trades with ticker symbol (if option strike/expire),limit and buy conditions (if/then)\\n - Link to recording file (example): <a href=\"vlc://{recording-link}?start-time=<replace with start timestamp in seconds>\">Open in VLC</a>)\\n   - Include chart qith size 900x340 (example TSLA): <iframe src=\"https://finviz.com/chart.ashx?t=TSLA&ty=c&ta=1&p=d&s=l\"></iframe>\\n\\nTranscript (as VTT file with timestamp format Minutes:Seconds:Milliseconds)\\n{content} \\n Use these ticker symbols if mentioned (Gold:GC1!,Crude Oil:CL1!,Silver:SI1!)",
-					"--content-filename-regex", "\\.mkv$|||.vtt",
-					"--recording-link-regex", "^/mnt/([a-zA-Z])/([^?]+)\\.\\w+$|||\\1/\\2.mkv",
-					"--output-extension", ".html"
+					"--prompt", "You are a helpful assistant. Analyze the following transcript and create a html:\\n1. Identify all major topic changes.\\n2. Summarize each topic with:\\n   - Title and timestamp range \\n   - Very Detailed Summary\\n   - highlight actionable trades with ticker symbol (if option strike/expire),limit and buy conditions (if/then)\\n - Link to recording file (example): <a target=\"popup\" onclick=\"window.open(this.href, 'popup', 'width=1000,height=700'); return false;\" href=\"{recording-link}.video-player.html?seconds=<replace with start timestamp in seconds>\">Play Video</a>)\\n   - Include chart qith size 900x340 (example TSLA): <iframe src=\"https://finviz.com/chart.ashx?t=TSLA&ty=c&ta=1&p=d&s=l\"></iframe>\\n\\nTranscript (as VTT file with timestamp format Minutes:Seconds:Milliseconds)\\n{content} \\n Use these ticker symbols if mentioned (Gold:GC1!,Crude Oil:CL1!,Silver:SI1!)",
+					"--content-filename-regex", "\\.[^.]+$|||.vtt",
+					"--recording-link-regex", "^.*[\\/\\\\](.*)\\.(.*)$|||\\1",
+					"--output-extension", ".html",
+					"--video-player-template", "${workspaceFolder}/client/res/video-player.html"
 				]
 			},
 			{

@@ -24,6 +24,46 @@ def read_file(filepath: str) -> str:
         logger.error(f"Error reading file {filepath}: {str(e)}")
         raise
 
+def process_video_player_template(template_path: str, recording_path: str, output_extension: str = '.html') -> bool:
+    """Process video player template and save it with the recording's basename.
+    
+    Args:
+        template_path: Path to the HTML template file
+        recording_path: Path to the recording file
+        output_extension: File extension to use for the output file (default: .html)
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # Read the template
+        with open(template_path, 'r', encoding='utf-8') as f:
+            template_content = f.read()
+        
+        # Get recording basename and extension
+        basename, extension = os.path.splitext(os.path.basename(recording_path))
+        dirname = os.path.dirname(recording_path)
+        
+        # Replace placeholders in template
+        output_content = template_content\
+            .replace('{{resource}}', basename)\
+            .replace('{{video_extension}}', extension)
+        
+        # Determine output path with the specified extension
+        template_basename = os.path.splitext(os.path.basename(template_path))[0]
+        output_path = os.path.join(dirname, f"{basename}.{template_basename}{output_extension}")
+        
+        # Write the output file
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(output_content)
+        
+        logger.info(f"Video player HTML generated: {output_path}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error processing video player template: {str(e)}")
+        return False
+
 def generate_summary(content: str, recording_link: str, prompt: str, llm: LLMChat) -> Optional[str]:
     """Generate a summary of the given content using the LLM.
     
@@ -80,7 +120,9 @@ def validate_arguments(args: argparse.Namespace) -> None:
         print("  --output-extension EXT File extension for output (default: .md)")
         print("  --no-output           Write to stdout instead of file")
         print("  --max-retries N       Maximum retry attempts (default: 3)")
-        print("  --link-filename-regex REGEX Regex to transform recording filename to the link to the recording file that can be used in the prompt as {link} if it needs transformation for some reason to work.")
+        print("  --link-filename-regex REGEX Regex to transform recording filename to the link to the recording file that can be used in the prompt as {link}")
+        print("  --video-player-template FILE Path to HTML template file for video player. The template should contain {{resource}} placeholders.")
+        print("                         Generates a file named '{basename}-video-player.htm' in the same directory as the recording.")
         sys.exit(1)
 
 def main():
@@ -110,6 +152,8 @@ def main():
                          help='Environment variable containing the API key (default: %(default)s)')
     optional.add_argument('--max-retries', type=int, default=3,
                          help='Maximum retry attempts (default: %(default)d)')
+    optional.add_argument('--video-player-template', type=str,
+                         help='Path to HTML template file for video player. Will create a file named "{basename}-video-player.htm" in the same directory as recording_filename.')
     
     # Parse arguments
     args = parser.parse_args()
@@ -118,6 +162,12 @@ def main():
     if args.help:
         parser.print_help()
         sys.exit(0)
+    
+    # Process video player template if specified
+    if hasattr(args, 'video_player_template') and args.video_player_template:
+        if not os.path.isfile(args.video_player_template):
+            logger.error(f"Video player template not found: {args.video_player_template}")
+            sys.exit(10)
     
     # Validate arguments  
     validate_arguments(args)
@@ -186,6 +236,11 @@ def main():
                 with open(output_file, 'w', encoding='utf-8') as f:
                     f.write(summary)
                 logger.info(f"Summary saved to {output_file}")
+                
+                # Generate video player HTML if template was provided
+                if hasattr(args, 'video_player_template') and args.video_player_template:
+                    if not process_video_player_template(args.video_player_template, args.recording_filename, args.output_extension):
+                        logger.warning("Failed to generate video player HTML")
             except Exception as e:
                 logger.error(f"Error saving summary to file: {str(e)}")
                 exit(8)

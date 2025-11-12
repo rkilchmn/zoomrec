@@ -46,7 +46,7 @@ RUN pip install --no-cache-dir -r ${HOME}/server/requirements.txt
 RUN mkdir -p ${HOME}/server
 COPY server/* ${HOME}/server/
 RUN chmod +x ${HOME}/server/*.sh
-COPY server/res/view.html ${HOME}/server/res/view.html
+COPY server/res/*.html ${HOME}/server/res/
 
 # Copy and install Python dependencies for shared
 COPY shared/requirements.txt ${HOME}/shared/requirements.txt
