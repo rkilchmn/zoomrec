@@ -246,4 +246,4 @@ join:
 ongoing:
   # list is processed from the top until a step returns false -> meeting ended, otherwise meeting continues
   - *check_meeting_ended
-  - *close_message_info_is_here
+  # - *close_message_info_is_here
