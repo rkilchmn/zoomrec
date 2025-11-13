@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Files for {{ resource }}</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px;
+            line-height: 1.6;
+        }
+        h1 { 
+            color: #333; 
+            margin-bottom: 20px;
+        }
+        table { 
+            border-collapse: collapse; 
+            width: 100%; 
+            margin-top: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        th, td { 
+            text-align: left; 
+            padding: 12px 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        th { 
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        tr:hover { 
+            background-color: #f5f5f5; 
+        }
+        a { 
+            text-decoration: none; 
+            color: #0066cc;
+            font-weight: 500;
+        }
+        a:hover { 
+            text-decoration: underline; 
+        }
+        .file-size { 
+            text-align: right; 
+            font-family: monospace;
+            color: #555;
+        }
+        .file-modified {
+            white-space: nowrap;
+        }
+        .no-files {
+            color: #666;
+            font-style: italic;
+            margin: 20px 0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Available Files for "{{ resource }}"</h1>
+        {% if files %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Filename</th>
+                    <th class="file-size">Size</th>
+                    <th>Modified</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for file in files %}
+                <tr>
+                    <td><a href="{{ file.url }}" title="{{ file.name }}">{{ file.name }}</a></td>
+                    <td class="file-size">{{ file.size|filesizeformat }}</td>
+                    <td class="file-modified">{{ file.modified }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="no-files">No files found for this resource.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

@@ -134,12 +134,26 @@ class Users(ABC):
         return user
     
     @staticmethod
+    @staticmethod
     def send_message(user, message):
+        """
+        Send a message to the user.
+
+        Args:
+            user (dict): The user object.
+            message (str): The message to send.
+
+        Returns:
+            bool: True if the message was sent successfully, False otherwise.
+        """
         for messenger_attribute in MessengerAttribute:
             if messenger_attribute == MessengerAttribute.TELEGRAM_CHAT_ID:
                 telegram_chat_id = Users.get_messenger_attribute(messenger_attribute, user)
                 if telegram_chat_id:
-                    send_telegram_message(telegram_chat_id, message)
+                    if not send_telegram_message(telegram_chat_id, message):
+                        raise ValueError(f"Failed to Telegram message to user '{Users.nameStr(user)}' with Telegram chat ID '{telegram_chat_id}'.")
+                else:
+                    raise ValueError(f"User '{Users.nameStr(user)}' has no Telegram chat ID.")
 
     @staticmethod
     def find(search_argument, users):

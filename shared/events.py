@@ -101,7 +101,7 @@ EVENT_DEFAULT_VALUES = {
     EventField.RRULE.value: '',
     EventField.TYPE.value: EventType.ZOOM.value,
     EventField.STATUS.value: EventStatus.SCHEDULED.value,
-    EventField.INSTRUCTION.value: f'{{"{EventInstructionAttribute.PROCESS.value}": [{{"{EventInstructionProcess.RECORD.value}": {{}}}}], "{EventInstructionAttribute.POSTPROCESS.value}": [{{"{EventInstructionPostprocess.TRANSCRIBE.value}": {{}}}}, {{"{EventInstructionPostprocess.UPLOAD.value}": {{INSTRUCTION_UPLOAD_KEY_DELETE: true}}}}]}}'
+    EventField.INSTRUCTION.value: f'{{"{EventInstructionAttribute.PROCESS.value}": [{{"{EventInstructionProcess.RECORD.value}": {{}}}}], "{EventInstructionAttribute.POSTPROCESS.value}": [{{"{EventInstructionPostprocess.TRANSCRIBE.value}": {{}}}}, {{"{EventInstructionPostprocess.UPLOAD.value}": {{"{INSTRUCTION_UPLOAD_KEY_DELETE}": true}}}}]}}'
 }
 
 FIELDNAMES = [field.value for field in EventField]

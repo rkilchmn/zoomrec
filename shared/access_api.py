@@ -144,7 +144,7 @@ class AccessAPI:
         Args:
             resource: The resource to validate access for (must not be None)
             access_key: The access key to validate (must not be None)
-            access_type: The type of access to validate (e.g., AccessType.HTTP_SERVER_ACCESS, must not be None)
+            access_type: The type of access to validate (e.g., AccessType.HTTP_SERVER_ACCESS.value, must not be None)
             
         Returns:
             dict: The access record if valid, None otherwise

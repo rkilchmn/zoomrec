@@ -88,32 +88,35 @@ def main():
     with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
         try:
             
-                # Create the event
-                new_event = event_api.create(new_event)
-                print(f"Created {Events.nameStr(new_event)}")
+            # Create the event
+            new_event = event_api.create(new_event)
+            print(f"Created {Events.nameStr(new_event)}")
 
-                # Retrieve the event key (assuming the event key is returned in the response)
-                event_key = new_event[EventField.KEY.value]
-                print(f"Retrieving event with key: {event_key}...")
-                event = event_api.get(filters=[[EventField.KEY.value, "=", event_key]])[0]
-                print(f"Retrieved {Events.nameStr(event)}:")
-                print(event)
-                print(f"Retrieved {Events.nameStr(event)}")
-                print(event)
+            # Retrieve the event key (assuming the event key is returned in the response)
+            event_key = new_event[EventField.KEY.value]
+            print(f"Retrieving event with key: {event_key}...")
+            event = event_api.get(filters=[[EventField.KEY.value, "=", event_key]])[0]
+            print(f"Retrieved {Events.nameStr(event)}:")
+            print(event)
+            print(f"Retrieved {Events.nameStr(event)}")
+            print(event)
 
-                # Modify the event
-                print("Modifying event...")
-                event[EventField.TITLE.value] = "Updated Recuring Test Event Sydney"
-                event_api.update(event)
-                print(f"Updated {Events.nameStr(event)}")
+            # Modify the event
+            print("Modifying event...")
+            event[EventField.TITLE.value] = "Updated Recuring Test Event Sydney"
+            event_api.update(event)
+            print(f"Updated {Events.nameStr(event)}")
 
-                # Retrieve the modified event
-                print(f"Retrieving modified event with key: {event_key}...")
-                updated_event = event_api.get(filters=[[EventField.KEY.value, "=", event_key]])[0]
-                print(f"Retrieved {Events.nameStr(updated_event)}:")
-                print(updated_event)
-                if updated_event[EventField.TITLE.value] != event[EventField.TITLE.value]:
-                    raise Exception("Event update not successfull")
+            # Retrieve the modified event
+            print(f"Retrieving modified event with key: {event_key}...")
+            updated_event = event_api.get(filters=[[EventField.KEY.value, "=", event_key]])
+            if not updated_event:
+                raise Exception(f"Failed to retrieve updated event with key: {event_key}")
+            updated_event = updated_event[0]
+            print(f"Retrieved {Events.nameStr(updated_event)}:")
+            print(updated_event)
+            if updated_event[EventField.TITLE.value] != event[EventField.TITLE.value]:
+                raise Exception("Event update not successful")
         except Exception as e:
             print(f"EventAPI operation failed. Exception: {str(e)}")
 
@@ -154,20 +157,20 @@ def main():
                 next_event = event_api.get_next(CLIENT_ID, EventType.ZOOM.value, 60, 300)
                 print(f"Next event retrieved: {Events.nameStr(next_event)}")
                 print(next_event)
+                
+                # Delete the event if it was created successfully
+                if 'event_key2' in locals() and event_key2:
+                    print(f"Deleting event with key: {event_key2}...")
+                    try:
+                        event_api.delete(event_key2)
+                        print(f"Deleted event with key: {event_key2}")
+                    except Exception as e:
+                        print(f"Failed to delete event. Exception: {str(e)}")
+                
         except Exception as e:
             print(f"EventAPI operation failed. Exception: {str(e)}")
-
-
-        # Delete the event
-        print(f"Deleting event with key: {updated_event[EventField.KEY.value]}...")
-        try:
-            with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
-                event_api.delete(updated_event[EventField.KEY.value])
-                print(f"Deleted {Events.nameStr(updated_event)}.")
-        except Exception as e:
-            print(f"Failed to delete event. Exception: {str(e)}")
-    
-        # Delete the event
+            
+        # Delete the first event if it was created
         print(f"Deleting event with key: {event2[EventField.KEY.value]}...")
         try:
             with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
@@ -176,8 +179,32 @@ def main():
         except Exception as e:
             print(f"Failed to delete event. Exception: {str(e)}")
 
+    # Test notification before deleting user
+    print("\n=== Testing Notification ===")
+    try:
+        with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+            # Test notification with just user_key and message
+            print("Sending test notification...")
+            response = user_api.notify(
+                user_key=updated_user[UserField.KEY.value],
+                message=f"Test notification for {Users.nameStr(updated_user)}"
+            )
+            print(f"Notification sent successfully: {response}")
+            
+            # Test notification with additional emails
+            print("Sending notification with additional emails...")
+            response = user_api.notify(
+                user_key=updated_user[UserField.KEY.value],
+                message=f"Test notification with additional recipients for {Users.nameStr(updated_user)}",
+                emails=["test1@example.com", "test2@example.com"]
+            )
+            print(f"Notification with additional emails sent successfully: {response}")
+            
+    except Exception as e:
+        print(f"Notification test failed: {str(e)}")
+    
     # Delete the user
-    print(f"Deleting user with key: {updated_user[UserField.KEY.value]}...")
+    print(f"\nDeleting user with key: {updated_user[UserField.KEY.value]}...")
     try:
         with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
             user_api.delete(updated_user[UserField.KEY.value])
@@ -210,7 +237,7 @@ def test_access_api():
                 AccessField.USER_KEY.value: user_key,
                 AccessField.RESOURCE.value: "test-recording",
                 AccessField.ACCESS_KEY.value: "testkey123",
-                AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS,
+                AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS.value,
                 EXPIRE_AFTER_SECONDS: expire_after_seconds
             })
             
@@ -239,8 +266,8 @@ def test_access_api():
                 AccessField.RESOURCE.value: f"test_resource_{int(time.time())}",
                 AccessField.USER_KEY.value: user_key,
                 AccessField.ACCESS_KEY.value: f"test_key_{int(time.time())}",
-                AccessField.ACCESS_TYPE.value: AccessType.VIEW.value,
-                AccessField.EXPIRES_AFTER_SECONDS.value: 0  # No expiry
+                AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS.value,
+                AccessField.EXPIRES_AT.value: None,
             })
             print(f"Created access without expiry: {created_access2}")
 
@@ -267,7 +294,7 @@ def test_access_api():
                 updated_access = access_api.update({
                     AccessField.RESOURCE.value: resource,
                     AccessField.ACCESS_KEY.value: access_key,
-                    AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS,
+                    AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS.value,
                     AccessField.EXPIRES_AT.value: (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
                 })
                 print(f"Updated access record: {updated_access}")
@@ -295,5 +322,5 @@ def test_access_api():
                 print(f"Error cleaning up test user: {str(e)}")
 
 if __name__ == "__main__":
-    # main()
+    main()
     test_access_api()

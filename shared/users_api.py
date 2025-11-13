@@ -5,7 +5,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 from requests.exceptions import RequestException
 
 from .users import Users, UserField
-from .constants import ROUTE_USER
+from .constants import ROUTE_USER, ROUTE_USER_NOTIFY
 
 class UserAPI:
     def __init__(self, server_url, username, password, retries=3, backoff_factor=0.5, status_forcelist=None):
@@ -18,9 +18,13 @@ class UserAPI:
         self._setup_session()
 
     def _setup_session(self):
-        """Set up the session with retry configuration."""
+        """Set up the session with retry configuration and basic authentication."""
         self.session = requests.Session()
-        self.session.headers.update({"Connection": "keep-alive"})
+        self.session.auth = (self.username, self.password)
+        self.session.headers.update({
+            "Connection": "keep-alive",
+            "Content-Type": "application/json"
+        })
         
         retry_strategy = Retry(
             total=self.retries,
@@ -39,6 +43,35 @@ class UserAPI:
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.session.close()
+        
+    def notify(self, user_key: str, message: str, emails: list = None) -> dict:
+        """
+        Send a notification to a user.
+        
+        Args:
+            user_key: The key of the user to notify
+            message: The message to send
+            emails: Optional list of additional email addresses to notify
+            
+        Returns:
+            dict: Response from the server
+        """
+        data = {
+            "user_key": user_key,
+            "message": message,
+            "emails": emails or []
+        }
+        
+        response = self._make_request(
+            "POST",
+            f"{self.server_url}{ROUTE_USER_NOTIFY}",
+            json=data
+        )
+        
+        if response.status_code == 200:
+            return response.json()
+        else:
+            response.raise_for_status()
         
     def _make_request(self, method, url, **kwargs):
         """Make an HTTP request with retries on connection errors and return the last response on failure."""

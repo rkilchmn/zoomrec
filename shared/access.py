@@ -19,13 +19,13 @@ class AccessField(Enum):
     CREATED_TIMESTAMP = 'created_timestamp'
     LAST_UPDATED_TIMESTAMP = 'last_updated_timestamp'
 
-class AccessType:
+class AccessType(Enum):
     HTTP_SERVER_ACCESS = 1
 
     @classmethod
     def get_description(cls, access_type):
         return {
-            cls.HTTP_SERVER_ACCESS: 'HTTP Server Access',
+            cls.HTTP_SERVER_ACCESS.value: 'HTTP Server Access',
         }.get(access_type, 'Unknown Access Type')
 
 

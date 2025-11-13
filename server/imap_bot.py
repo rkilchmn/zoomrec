@@ -428,12 +428,19 @@ def run_bot():
                                     # Format the event as a command string before continuing
                                     try:
                                         logging.error(f"Event '{eventStr}' failed validation: '{error}'")
-                                        Users.send_message(user, f"Event '{eventStr}' not valid. {error}")
-                                        # format add event command to help user create the event manually
-                                        add_event_msg = format_event_command(event, type['user_login'])
-                                        Users.send_message(user, f"{add_event_msg}")
+                                        with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+                                            user_api.notify(
+                                                user_key=user[UserField.KEY.value],
+                                                message=f"Event '{eventStr}' not valid. {error}"
+                                            )
+                                            # format add event command to help user create the event manually
+                                            add_event_msg = format_event_command(event, type['user_login'])
+                                            user_api.notify(
+                                                user_key=user[UserField.KEY.value],
+                                                message=add_event_msg
+                                            )
                                     except Exception as format_error:
-                                        logging.error(f"Error formatting event: {format_error}")
+                                        logging.error(f"Error sending notification: {format_error}")
                                         
                                     continue
                             

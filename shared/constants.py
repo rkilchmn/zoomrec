@@ -79,11 +79,13 @@ ARDUINO_FIRMWARE_EXTENSION = '.ino.bin'
 ROUTE_EVENT = "/event"
 ROUTE_EVENT_NEXT = "next"
 ROUTE_USER = "/user"
+ROUTE_USER_NOTIFY = "/user/notify"
 ROUTE_FIRMWARE = "/firmware"
 ROUTE_LOG = "/log"
 ROUTE_CONFIG = "/config"
 ROUTE_ACCESS = "/access"
 ROUTE_FILE = "/file"
+ROUTE_LIST = "/list"
 
 # stale event thresholds in seconds
 STALE_EVENT_THRESHOLD_SECS = 60 * 60 * 2 # 2h 

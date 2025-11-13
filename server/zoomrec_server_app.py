@@ -1,14 +1,17 @@
-from flask import Flask, request, jsonify, send_file, Response, abort
+from flask import Flask, request, jsonify, send_file, Response, abort, render_template_string
 from flask_basicauth import BasicAuth
 from datetime import datetime, timezone, timedelta
 import os.path
-from typing import Any, Dict, List, Optional, Set, TypeVar, Union
+import glob
+from typing import Any, Dict, List, Optional, Set, TypeVar, Union, Tuple
 from shared.events import Events, EventStatus, EventField, SQLLiteEvents, EventType
-from urllib.parse import unquote
+from urllib.parse import unquote, quote
 from shared.users import SQLLiteUser, Users, UserField
 from shared.access import SQLLiteAccess, AccessField, AccessType, Access
 import logging
 import json
+import mimetypes
+
 from shared import constants
 from shared.utilities import start_debug
 from shared.arduino_utils import (
@@ -228,8 +231,50 @@ def update_user(key):
 def delete_user(key):
     try:
         users.delete(key)
-        return jsonify({"message": "User with key: {key} deleted successfully"}), 200
+        return jsonify({"message": f"User with key: {key} deleted successfully"}), 200
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Send notification to user
+@app.route(f"{constants.ROUTE_USER_NOTIFY}", methods=['POST'])
+@basic_auth.required
+def notify_user():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+            
+        user_key = data.get('user_key')
+        message = data.get('message')
+        emails = data.get('emails', [])
+        
+        if not user_key or not message:
+            return jsonify({"error": "user_key and message are required"}), 400
+            
+        # Get the user
+        users_list = users.get(filters=[[UserField.KEY.value, '=', user_key]])
+        if not users_list:
+            return jsonify({"error": "User not found"}), 404
+            
+        user = users_list[0]
+        
+        # Send the message
+        users.send_message(user, message)
+
+        # # If additional emails are provided, send to them as well
+        # if emails and isinstance(emails, list):
+        #     for email in emails:
+        #         if email:  # Skip empty emails
+        #             email_user = user.copy()
+        #             email_user[UserField.EMAIL.value] = email
+        #             try:
+        #                 users.send_message(email_user, message)
+        #             except Exception as e:
+        #                 app.logger.error(f"Error sending notification to {email}: {str(e)}")
+        
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        app.logger.error(f"Error sending notification: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 # Access CRUD endpoints
@@ -320,14 +365,14 @@ def update_access():
 @app.route(f"{constants.ROUTE_ACCESS}/validate", methods=['GET'])
 def validate_access():
     try:
-        user_key = request.args.get('user_key')  # Optional
         resource = request.args.get('resource')
         access_key = request.args.get('access_key')
+        access_type = request.args.get('access_type')
         
-        if not resource or not access_key:
-            return jsonify({"error": "missing required params: resource, access_key"}), 400
+        if not resource or not access_key or not access_type:
+            return jsonify({"error": "missing required params: resource, access_key, access_type"}), 400
             
-        record = access.validate(resource, access_key, user_key=user_key)
+        record = access.validate(resource, access_key, access_type)
         if record:
             return jsonify(record), 200
         else:
@@ -689,7 +734,7 @@ def get_file_access(access_key: str, resource: str) -> str:
             resource_validate = basename.split('.')[0]
         else:
             resource_validate = basename
-        access_granted = access.validate( resource_validate, access_key, AccessType.HTTP_SERVER_ACCESS)
+        access_granted = access.validate( resource_validate, access_key, AccessType.HTTP_SERVER_ACCESS.value)
         if not access_granted:
             raise PermissionError("unauthorized")
         
@@ -838,101 +883,72 @@ def _range_response(path, mimetype='video/mp4'):
         app.logger.error(f"Error serving range request: {str(e)}", exc_info=True)
         return Response('Internal Server Error', status=500, headers=headers)
 
-@app.route("/view/<path:access_key>/<resource>", methods=['GET'])
-def view_video(access_key, resource):
+# List files for a resource
+@app.route(f"{constants.ROUTE_LIST}/<access_key>/<path:resource>")
+def list_files(access_key, resource):
+    """
+    List all files for a resource that the access key has access to.
+    
+    Args:
+        access_key: The access key for the resource
+        resource: The resource identifier (without path or extension)
+        
+    Returns:
+        HTML page with links to all accessible files
+    """
     try:
+        # Validate access and get the base path
         try:
-            video_file = get_file_access(access_key, resource)
-        except PermissionError as e:
-            app.logger.error(f"Permission Error in view_video: {str(e)}")
-            return jsonify({"error": "access denied"}), 403
-        except FileNotFoundError as e:
-            app.logger.error(f"File Not Found Error in view_video: {str(e)}")
-            return jsonify({"error": "video not found"}), 404
-        
-        # Check if file exists
-        if not os.path.exists(video_file):
-            app.logger.error(f"Video file not found: {video_file}")
-            return jsonify({"error": "video not found"}), 404
+            # Get the base directory from the first matching file
+            base_path = get_file_access(access_key, resource)
+            base_dir = os.path.dirname(base_path)
+            resource_base = os.path.basename(resource)
             
-        # If we get here, the file exists and is accessible
-        seconds = request.args.get('seconds', default=None, type=float)
-        seconds_js = str(seconds) if seconds is not None else "null"
-        stream_url = f"/stream/{access_key}/{resource}"
-        
-        # Load and render the template
-        template_path = os.path.join(os.path.dirname(__file__), 'res', 'view.html')
-        try:
-            with open(template_path, 'r', encoding='utf-8') as f:
-                html = f.read()
+            # Find all files starting with the resource base name
+            pattern = os.path.join(base_dir, f"{resource_base}*")
+            matching_files = glob.glob(pattern)
             
-            html = html.replace('{{resource}}', resource)
-            html = html.replace('{{stream_url}}', stream_url)
-            html = html.replace('{{seconds_js}}', seconds_js)
-            return Response(html, mimetype='text/html')
+            # Process files
+            files = []
+            for file_path in matching_files:
+                if os.path.isfile(file_path):
+                    file_name = os.path.basename(file_path)
+                    file_url = f"{constants.ROUTE_FILE}/{access_key}/{quote(file_name)}"
+                    file_stat = os.stat(file_path)
+                    files.append({
+                        'name': file_name,
+                        'url': file_url,
+                        'size': file_stat.st_size,
+                        'modified': datetime.fromtimestamp(file_stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+                    })
             
-        except FileNotFoundError:
-            app.logger.error(f"Template file not found: {template_path}")
-            return jsonify({"error": "internal server error"}), 500
+            # Sort files by name
+            files.sort(key=lambda x: x['name'])
+            
+            # Get template directory
+            template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'res')
+            template_path = os.path.join(template_dir, 'list_template.html')
+            
+            # Read and render template
+            with open(template_path, 'r') as f:
+                template = f.read()
+            
+            return render_template_string(
+                template,
+                files=files,
+                resource=resource,
+                filesizeformat=lambda x: f"{x/1024/1024:.1f} MB" if x > 1024*1024 else f"{x/1024:.1f} KB"
+            )
+            
+        except (PermissionError, FileNotFoundError) as e:
+            app.logger.warning(f"Access denied or file not found: {str(e)}")
+            return "Access denied or resource not found", 404
             
     except Exception as e:
-        app.logger.error(f"Error in view_video: {str(e)}")
-        return jsonify({"error": "internal server error"}), 500
+        app.logger.error(f"Error listing files: {str(e)}")
+        return "An error occurred while processing your request", 500
 
-@app.route("/stream/<path:access_key>/<resource>", methods=['GET'])
-def stream_video(access_key, resource):
-    try:
-        app.logger.debug(f"Stream request - Resource: {resource}")
-        
-        try:
-            video_file = get_file_access(access_key, resource)
-        except PermissionError as e:
-            app.logger.error(f"Permission Error in stream_video: {str(e)}")
-            return jsonify({"error": "access denied"}), 403
-        except FileNotFoundError as e:
-            app.logger.error(f"File Not Found Error in stream_video: {str(e)}")
-            return jsonify({"error": "video not found"}), 404
-            
-        app.logger.debug(f"Video file path: {video_file}")
-        
-        if not os.path.exists(video_file):
-            app.logger.error(f"Video file not found: {video_file}")
-            return jsonify({"error": "video not found"}), 404
-            
-        # Get file stats for logging
-        file_size = os.path.getsize(video_file)
-        app.logger.debug(f"Video file size: {file_size} bytes")
-        
-        # Set MIME type for H.265 video in MP4 container
-        mime_type = 'video/mp4; codecs=hevc'
-        
-        # Process the range request
-        response = _range_response(video_file, mime_type)
-        
-        # Add CORS and other headers
-        response.headers.update({
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Range',
-            'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
-            'Content-Type': mime_type,
-            'Accept-Ranges': 'bytes',
-            'Content-Disposition': f'inline; filename="{resource}.{constants.VIDEO_EXTENSION}"',
-            'Cache-Control': 'no-cache',
-            'X-Content-Type-Options': 'nosniff',
-            'X-Video-Codec': 'hevc',
-            'X-Content-Duration': str(file_size)  # For debugging
-        })
-        
-        return response
-            
-    except Exception as e:
-        app.logger.error(f"Unexpected error in stream_video: {str(e)}", exc_info=True)
-        return jsonify({"error": "internal server error"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-import mimetypes
-
+# http access to return resource files
 @app.route(f"{constants.ROUTE_FILE}/<string:access_key>/<path:resource>", methods=['GET'])
 def get_file(access_key: str, resource: str):
     """
@@ -971,6 +987,99 @@ def get_file(access_key: str, resource: str):
     except Exception as e:
         app.logger.error(f"Error serving file: {str(e)}")
         abort(500, description="Internal server error")
+
+# @app.route("/view/<path:access_key>/<resource>", methods=['GET'])
+# def view_video(access_key, resource):
+#     try:
+#         try:
+#             video_file = get_file_access(access_key, resource)
+#         except PermissionError as e:
+#             app.logger.error(f"Permission Error in view_video: {str(e)}")
+#             return jsonify({"error": "access denied"}), 403
+#         except FileNotFoundError as e:
+#             app.logger.error(f"File Not Found Error in view_video: {str(e)}")
+#             return jsonify({"error": "video not found"}), 404
+        
+#         # Check if file exists
+#         if not os.path.exists(video_file):
+#             app.logger.error(f"Video file not found: {video_file}")
+#             return jsonify({"error": "video not found"}), 404
+            
+#         # If we get here, the file exists and is accessible
+#         seconds = request.args.get('seconds', default=None, type=float)
+#         seconds_js = str(seconds) if seconds is not None else "null"
+#         stream_url = f"/stream/{access_key}/{resource}"
+        
+#         # Load and render the template
+#         template_path = os.path.join(os.path.dirname(__file__), 'res', 'view.html')
+#         try:
+#             with open(template_path, 'r', encoding='utf-8') as f:
+#                 html = f.read()
+            
+#             html = html.replace('{{resource}}', resource)
+#             html = html.replace('{{stream_url}}', stream_url)
+#             html = html.replace('{{seconds_js}}', seconds_js)
+#             return Response(html, mimetype='text/html')
+            
+#         except FileNotFoundError:
+#             app.logger.error(f"Template file not found: {template_path}")
+#             return jsonify({"error": "internal server error"}), 500
+            
+#     except Exception as e:
+#         app.logger.error(f"Error in view_video: {str(e)}")
+#         return jsonify({"error": "internal server error"}), 500
+
+# @app.route("/stream/<path:access_key>/<resource>", methods=['GET'])
+# def stream_video(access_key, resource):
+#     try:
+#         app.logger.debug(f"Stream request - Resource: {resource}")
+        
+#         try:
+#             video_file = get_file_access(access_key, resource)
+#         except PermissionError as e:
+#             app.logger.error(f"Permission Error in stream_video: {str(e)}")
+#             return jsonify({"error": "access denied"}), 403
+#         except FileNotFoundError as e:
+#             app.logger.error(f"File Not Found Error in stream_video: {str(e)}")
+#             return jsonify({"error": "video not found"}), 404
+            
+#         app.logger.debug(f"Video file path: {video_file}")
+        
+#         if not os.path.exists(video_file):
+#             app.logger.error(f"Video file not found: {video_file}")
+#             return jsonify({"error": "video not found"}), 404
+            
+#         # Get file stats for logging
+#         file_size = os.path.getsize(video_file)
+#         app.logger.debug(f"Video file size: {file_size} bytes")
+        
+#         # Set MIME type for H.265 video in MP4 container
+#         mime_type = 'video/mp4; codecs=hevc'
+        
+#         # Process the range request
+#         response = _range_response(video_file, mime_type)
+        
+#         # Add CORS and other headers
+#         response.headers.update({
+#             'Access-Control-Allow-Origin': '*',
+#             'Access-Control-Allow-Headers': 'Range',
+#             'Access-Control-Expose-Headers': 'Content-Range, Content-Length, Accept-Ranges',
+#             'Content-Type': mime_type,
+#             'Accept-Ranges': 'bytes',
+#             'Content-Disposition': f'inline; filename="{resource}.{constants.VIDEO_EXTENSION}"',
+#             'Cache-Control': 'no-cache',
+#             'X-Content-Type-Options': 'nosniff',
+#             'X-Video-Codec': 'hevc',
+#             'X-Content-Duration': str(file_size)  # For debugging
+#         })
+        
+#         return response
+            
+#     except Exception as e:
+#         app.logger.error(f"Unexpected error in stream_video: {str(e)}", exc_info=True)
+#         return jsonify({"error": "internal server error"}), 500
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     # Initialize MIME types

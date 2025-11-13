@@ -24,7 +24,7 @@ with workflow.unsafe.imports_passed_through():
     from shared.access_api import AccessAPI, EXPIRE_AFTER_SECONDS
     from shared.access import AccessField, AccessType
     from shared.utilities import start_logging, start_debug
-    from shared.constants import DATETIME_FORMAT, VIDEO_EXTENSION, DEBUG_MODULE_POSTPROCESS, LOG_POSTPROCESS_FILENAME, SFTP_ADMIN_USERNAME, SFTP_ADMIN_USER_IDENTITY_FILE, SFTP_RECORDINGS_DIR, RECORDINGS_DIR
+    from shared.constants import DATETIME_FORMAT, VIDEO_EXTENSION, DEBUG_MODULE_POSTPROCESS, LOG_POSTPROCESS_FILENAME, SFTP_ADMIN_USERNAME, SFTP_ADMIN_USER_IDENTITY_FILE, SFTP_RECORDINGS_DIR, RECORDINGS_DIR, ROUTE_LIST
 
 
 start_logging(LOG_POSTPROCESS_FILENAME)
@@ -172,15 +172,51 @@ async def provideAccess(input: ProvideAccessInput) -> dict:
                 AccessField.USER_KEY.value: input.user_key,
                 AccessField.RESOURCE.value: input.resource,
                 AccessField.ACCESS_KEY.value: input.access_config.get(INSTRUCTION_ACCESS_KEY),
-                AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS,
+                AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS.value,
             }
             
             # Add expiration if specified
+            expire_time = None
             if INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS in input.access_config:
-                access_record[EXPIRE_AFTER_SECONDS] = input.access_config[INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS]
-            
+                expire_seconds = input.access_config[INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS]
+                if expire_seconds:
+                    expire_time = (datetime.now() + timedelta(seconds=int(expire_seconds))).strftime('%Y-%m-%d %H:%M:%S')
+                    access_record[EXPIRE_AFTER_SECONDS] = expire_seconds
+                else:
+                    access_record[AccessField.EXPIRES_AT.value] = None
+        
             result = access_api.create(access_record)
             logging.info(f"{get_context_prefix()} Successfully created HTTP access for {input.resource}")
+
+            # Send notification about the available resource
+            if 'notify-user' in input.access_config and input.access_config['notify-user']:
+                try:
+                    # Get the base URL from environment or use a default
+                    base_url = os.getenv('HTTP_CONTENT_URL_PREFIX') + ROUTE_LIST
+                    resource_url = f"{base_url.rstrip('/')}/{access_record[AccessField.ACCESS_KEY.value]}/{input.resource}"
+                    
+                    # Prepare the notification message
+                    message = f"A new resource is now available: <a href='{resource_url}'>{resource_url}</a>"
+                    
+                    # Add expiration info if available
+                    if expire_time:
+                        message += f"\nThis link will expire on: {expire_time}"
+
+                    # Get additional emails from access config if available
+                    additional_emails = []
+                    if 'emails' in input.access_config and isinstance(input.access_config['emails'], list):
+                        additional_emails = [email for email in input.access_config['emails'] if isinstance(email, str) and '@' in email]
+                                            
+                    # Send the notification
+                    with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+                        user_api.notify(
+                            user_key=input.user_key,
+                            message=message,
+                            emails=additional_emails
+                        )
+                    logging.info(f"{get_context_prefix()} Successfully sent notification for {input.resource} to user and {len(additional_emails)} additional email(s)")
+                except Exception as e:
+                    logging.error(f"{get_context_prefix()} Failed to send notification: {str(e)}")
             return result
     except Exception as e:
         logging.error(f"{get_context_prefix()} Failed to create HTTP access: {str(e)}")

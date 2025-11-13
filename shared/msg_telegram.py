@@ -8,7 +8,7 @@ TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 TELEGRAM_RETRIES = 5
 
 def send_telegram_message( chat_id, text, retries=TELEGRAM_RETRIES):
-    url_req = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage" + "?chat_id=" + chat_id + "&text=" + quote(text)
+    url_req = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage" + "?chat_id=" + chat_id + "&text=" + quote(text)+"&parse_mode=HTML"
     tries = 0
     success = False
     while not success:
