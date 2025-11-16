@@ -51,7 +51,7 @@ def process_video_player_template(template_path: str, recording_path: str, outpu
         
         # Determine output path with the specified extension
         template_basename = os.path.splitext(os.path.basename(template_path))[0]
-        output_path = os.path.join(dirname, f"{basename}.{template_basename}.summary{output_extension}")
+        output_path = os.path.join(dirname, f"{basename}.{template_basename}{output_extension}")
         
         # Write the output file
         with open(output_path, 'w', encoding='utf-8') as f:
@@ -230,7 +230,7 @@ def main():
                 base_name = os.path.splitext(args.recording_filename)[0]
                 # Ensure extension starts with a dot
                 extension = args.output_extension if args.output_extension.startswith('.') else f'.{args.output_extension}'
-                output_file = f"{base_name}{extension}"
+                output_file = f"{base_name}.summary{extension}"
             
             try:
                 with open(output_file, 'w', encoding='utf-8') as f:
