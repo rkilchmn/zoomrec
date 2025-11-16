@@ -4,13 +4,14 @@ import os
 from enum import Enum
 from abc import ABC, abstractmethod
 from .msg_telegram import send_telegram_message
+from .email_sender import send_email
 from datetime import datetime
 try:
     from zoneinfo import ZoneInfo  # >= 3.9
 except ImportError:
     from backports.zoneinfo import ZoneInfo  # < 3.9
 from . import password
-from .constants import SFTP_ADMIN_USERNAME, SKIP_SFTP_USER_CREATION
+from .constants import SFTP_ADMIN_USERNAME, SKIP_SFTP_USER_CREATION, DEFAULT_NOTIFICATION_FROM_EMAIL
 from .sftp_user import create_sftp_user
 
 # IMPORTANT: ordering needs to align with table create
@@ -134,7 +135,6 @@ class Users(ABC):
         return user
     
     @staticmethod
-    @staticmethod
     def send_message(user, message):
         """
         Send a message to the user.
@@ -154,6 +154,32 @@ class Users(ABC):
                         raise ValueError(f"Failed to Telegram message to user '{Users.nameStr(user)}' with Telegram chat ID '{telegram_chat_id}'.")
                 else:
                     raise ValueError(f"User '{Users.nameStr(user)}' has no Telegram chat ID.")
+
+    @staticmethod
+    def notify(user, msg_body, subject="ZoomRec Notification", msg_body_html=None, additional_emails=None):
+
+        # Send the message
+        Users.send_message(user, msg_body)
+
+        # Handle case when additional_emails is None
+        if additional_emails is None:
+            additional_emails = []
+        
+        # Add user's email to first element to additional emails
+        if user.get('email', ''):
+            additional_emails.insert(0, user.get('email', ''))
+
+        # If additional emails are provided, send to them as well
+        if additional_emails:
+            # Remove duplicates
+            additional_emails = list(set(additional_emails))
+            send_email(
+                to_emails=additional_emails,
+                from_email=os.getenv('EMAIL_FROM', os.getenv('SMTP_USERNAME', DEFAULT_NOTIFICATION_FROM_EMAIL)),
+                subject=subject,
+                body=msg_body,
+                body_html=msg_body_html
+            )
 
     @staticmethod
     def find(search_argument, users):

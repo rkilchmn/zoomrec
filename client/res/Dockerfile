@@ -18,8 +18,8 @@ ENV HOME=/home/zoomrec \
     SAMBA_PASSWORD= \
     IMAP_SERVER="" \
     IMAP_PORT="" \
-    EMAIL_ADDRESS="" \
-    EMAIL_PASSWORD="" 
+    IMAP_USERNAME="" \
+    IMAP_PASSWORD="" 
 
 # build container for specific GPU type
 ARG GPU_BUILD=""

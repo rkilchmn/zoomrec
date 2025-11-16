@@ -37,8 +37,8 @@ docker run -d --restart unless-stopped --env-file $1 --name zoomrec_server \
     # -e SERVER_PASSWORD="$SERVER_PASSWORD" \
     # -e IMAP_SERVER="$IMAP_SERVER" \
     # -e IMAP_PORT="$IMAP_PORT" \
-    # -e EMAIL_ADDRESS="$EMAIL_ADDRESS" \
-    # -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
+    # -e IMAP_USERNAME="$IMAP_USERNAME" \
+    # -e IMAP_PASSWORD="$IMAP_PASSWORD" \
     # -e TELEGRAM_BOT_TOKEN="$TELEGRAM_BOT_TOKEN" \
     # -e TELEGRAM_BOT_ADMIN_USERIDS="$TELEGRAM_BOT_ADMIN_USERIDS" \
     # -v $ZOOMREC_HOME/zoomrec_server_db:/home/zoomrec/zoomrec_server_db \

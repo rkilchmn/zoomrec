@@ -16,7 +16,8 @@ with workflow.unsafe.imports_passed_through():
     from shared.events import (
         Events, EventField, EventStatus, EventInstructionAttribute, EventInstructionPostprocess,
         INSTRUCTION_UPLOAD_KEY_DELETE, INSTRUCTION_ACCESS_HTTP_SERVER,
-        INSTRUCTION_ACCESS_KEY, INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS
+        INSTRUCTION_ACCESS_KEY, INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS,
+        INSTRUCTION_ACCESS_NOTIFY_USER, INSTRUCTION_ACCESS_ADDITIONAL_EMAILS
     )
     from shared.events_api import EventAPI
     from shared.users import UserField
@@ -167,57 +168,24 @@ async def provideAccess(input: ProvideAccessInput) -> dict:
     """
     try:
         with AccessAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as access_api:
-            # Create access with the provided configuration
-            access_record = {
+            # Extract optional parameters
+            expire_after_seconds = None
+            if INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS in input.access_config:
+                expire_after_seconds = input.access_config[INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS]
+            
+            notify_user = input.access_config.get(INSTRUCTION_ACCESS_NOTIFY_USER)
+            additional_emails = input.access_config.get(INSTRUCTION_ACCESS_ADDITIONAL_EMAILS)
+        
+            access = access_api.create({
                 AccessField.USER_KEY.value: input.user_key,
                 AccessField.RESOURCE.value: input.resource,
                 AccessField.ACCESS_KEY.value: input.access_config.get(INSTRUCTION_ACCESS_KEY),
                 AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS.value,
-            }
-            
-            # Add expiration if specified
-            expire_time = None
-            if INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS in input.access_config:
-                expire_seconds = input.access_config[INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS]
-                if expire_seconds:
-                    expire_time = (datetime.now() + timedelta(seconds=int(expire_seconds))).strftime('%Y-%m-%d %H:%M:%S')
-                    access_record[EXPIRE_AFTER_SECONDS] = expire_seconds
-                else:
-                    access_record[AccessField.EXPIRES_AT.value] = None
-        
-            result = access_api.create(access_record)
+                AccessField.NOTIFY_USER.value: notify_user,
+                AccessField.ADDITIONAL_EMAILS.value: additional_emails
+            }, expire_after_seconds=expire_after_seconds)
             logging.info(f"{get_context_prefix()} Successfully created HTTP access for {input.resource}")
-
-            # Send notification about the available resource
-            if 'notify-user' in input.access_config and input.access_config['notify-user']:
-                try:
-                    # Get the base URL from environment or use a default
-                    base_url = os.getenv('HTTP_CONTENT_URL_PREFIX') + ROUTE_LIST
-                    resource_url = f"{base_url.rstrip('/')}/{access_record[AccessField.ACCESS_KEY.value]}/{input.resource}"
-                    
-                    # Prepare the notification message
-                    message = f"A new resource is now available: <a href='{resource_url}'>{resource_url}</a>"
-                    
-                    # Add expiration info if available
-                    if expire_time:
-                        message += f"\nThis link will expire on: {expire_time}"
-
-                    # Get additional emails from access config if available
-                    additional_emails = []
-                    if 'emails' in input.access_config and isinstance(input.access_config['emails'], list):
-                        additional_emails = [email for email in input.access_config['emails'] if isinstance(email, str) and '@' in email]
-                                            
-                    # Send the notification
-                    with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
-                        user_api.notify(
-                            user_key=input.user_key,
-                            message=message,
-                            emails=additional_emails
-                        )
-                    logging.info(f"{get_context_prefix()} Successfully sent notification for {input.resource} to user and {len(additional_emails)} additional email(s)")
-                except Exception as e:
-                    logging.error(f"{get_context_prefix()} Failed to send notification: {str(e)}")
-            return result
+            return access
     except Exception as e:
         logging.error(f"{get_context_prefix()} Failed to create HTTP access: {str(e)}")
         raise

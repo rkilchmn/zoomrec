@@ -2,6 +2,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from datetime import datetime, timedelta
 
 from .access import Access, AccessField, AccessType
 from .constants import ROUTE_ACCESS
@@ -64,8 +65,14 @@ class AccessAPI:
                 return last_response
             raise
 
-    def create(self, access):
+    def create(self, access, expire_after_seconds=None):
+
         access = Access.clean(access)
+        
+        # Add expire_after_seconds as a separate field
+        if expire_after_seconds is not None:
+            access[Access.EXPIRE_AFTER_SECONDS] = expire_after_seconds
+        
         url = f"{self.server_url}/{ROUTE_ACCESS}"
         headers = {'Content-Type': 'application/json'}
         response = self._make_request(
@@ -104,8 +111,12 @@ class AccessAPI:
         else:
             raise Exception(f"Failed to retrieve access records. Response code: {response.status_code}, Response: {response.text}")
 
-    def update(self, access):
+    def update(self, access, expire_after_seconds=None):
         access = Access.clean(access)
+        
+        # Add expire_after_seconds as a separate field
+        payload = dict(access)
+        payload[Access.EXPIRE_AFTER_SECONDS] = expire_after_seconds
         if AccessField.RESOURCE.value not in access or AccessField.ACCESS_KEY.value not in access:
             raise ValueError("Both resource and access_key are required for update")
             
@@ -113,7 +124,7 @@ class AccessAPI:
         response = self._make_request(
             "PUT",
             url,
-            json=access,
+            json=payload,
             headers={'Content-Type': 'application/json'},
             auth=(self.username, self.password) if self.username and self.password else None
         )
@@ -122,11 +133,12 @@ class AccessAPI:
         else:
             raise Exception(f"Failed to update access. Response code: {response.status_code}, Response: {response.text}")
 
-    def delete(self, resource, access_key):
+    def delete(self, resource, access_key, access_type):
         url = f"{self.server_url}/{ROUTE_ACCESS}"
         params = {
-            'resource': resource,
-            'access_key': access_key
+            AccessField.RESOURCE.value: resource,
+            AccessField.ACCESS_KEY.value: access_key,
+            AccessField.ACCESS_TYPE.value: access_type
         }
         response = self._make_request(
             "DELETE",
@@ -160,15 +172,17 @@ class AccessAPI:
             raise ValueError("access_type parameter is required and cannot be None")
             
         params = {
-            'resource': resource,
-            'access_key': access_key,
-            'access_type': access_type
+            AccessField.RESOURCE.value: resource,
+            AccessField.ACCESS_KEY.value: access_key,
+            AccessField.ACCESS_TYPE.value: access_type
         }
             
         response = self._make_request('GET', f"{self.server_url}/{ROUTE_ACCESS}/validate", params=params)
         if response.status_code == 200:
+            # has access, return access data    
             return response.json()
-        elif response.status_code == 404:
+        elif response.status_code == 204:
+            # no access, return None
             return None
         else:
             raise Exception(f"Failed to validate access. Response code: {response.status_code}, Response: {response.text}")

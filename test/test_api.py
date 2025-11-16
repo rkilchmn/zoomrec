@@ -6,22 +6,73 @@ from shared.access_api import AccessAPI, EXPIRE_AFTER_SECONDS
 from shared.access import AccessField, AccessType
 from datetime import datetime, timedelta, timezone
 import time
+import os
 
-# Configuration
-SERVER_URL = "http://localhost:8081"
-SERVER_USERNAME = "myuser"
-SERVER_PASSWORD = "mypassword"
-CLIENT_ID = "550e8400-e29b-41d4-a716-446655440000"
+# use vs-code launch config:
+# {
+#     "name": "Python: Test API",
+#     "type": "debugpy",
+#     "request": "launch",
+#     "program": "${workspaceFolder}/test/test_api.py",
+#     "console": "integratedTerminal",
+#     "justMyCode": false,
+#     "envFile": "${userHome}/.client.env",
+#     "env": {
+#         "SERVER_URL": "http://localhost:8081",			
+#     }
+# },
+SERVER_URL = os.getenv("SERVER_URL")
+SERVER_USERNAME = os.getenv("SERVER_USERNAME")
+SERVER_PASSWORD = os.getenv("SERVER_PASSWORD")
+CLIENT_ID = os.getenv("CLIENT_ID")
+
+# set this with "export TEST_TELEGRAM_CHAT_ID=123456789"
+# set this with "export TEST_USER_EMAIL_ADDRESS=sample@example.com"
+# set this with "export TEST_ADDITIONAL_EMAIL_ADDRESS=sample2@example.com"
+TEST_TELEGRAM_CHAT_ID = os.getenv("TEST_TELEGRAM_CHAT_ID")
+TEST_USER_EMAIL_ADDRESS = os.getenv("TEST_USER_EMAIL_ADDRESS")
+TEST_ADDITIONAL_EMAIL_ADDRESS = os.getenv("TEST_ADDITIONAL_EMAIL_ADDRESS")
 
 def main():
+    # Validate required environment variables
+    missing_vars = []
+    
+    if not TEST_TELEGRAM_CHAT_ID:
+        missing_vars.append("TEST_TELEGRAM_CHAT_ID")
+    if not TEST_USER_EMAIL_ADDRESS:
+        missing_vars.append("TEST_USER_EMAIL_ADDRESS")
+    if not TEST_ADDITIONAL_EMAIL_ADDRESS:
+        missing_vars.append("TEST_ADDITIONAL_EMAIL_ADDRESS")
+    
+    if missing_vars:
+        print("❌ Missing required environment variables:")
+        for var in missing_vars:
+            print(f"   - {var}")
+        
+        print("\n📝 How to set them:")
+        print("   export TEST_TELEGRAM_CHAT_ID=123456789")
+        print("   export TEST_USER_EMAIL_ADDRESS=sample@example.com")
+        print("   export TEST_ADDITIONAL_EMAIL_ADDRESS=sample2@example.com")
+        
+        print("\n💡 Examples:")
+        print("   export TEST_TELEGRAM_CHAT_ID=987654321")
+        print("   export TEST_USER_EMAIL_ADDRESS=testuser@gmail.com")
+        print("   export TEST_ADDITIONAL_EMAIL_ADDRESS=additional@example.com")
+        
+        print("\n🔧 You can also add these to your ~/.bashrc or ~/.zshrc for persistence")
+        return
+    
+    print("✅ All required environment variables are set")
+    
     with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
         # Create a new user
         new_user = {
             UserField.NAME.value : "John Doe",
             UserField.LOGIN.value: "johndoe",
             UserField.PASSWORD.value: "securepassword",
-            UserField.EMAIL.value: "john@doe.net",
+            UserField.EMAIL.value: f"{TEST_USER_EMAIL_ADDRESS}",
             UserField.TIMEZONE.value: "America/New_York",
+            UserField.MESSENGER.value: f"telegram_chat_id={TEST_TELEGRAM_CHAT_ID}",
         }    
         created_user = user = updated_user = None
 
@@ -187,7 +238,8 @@ def main():
             print("Sending test notification...")
             response = user_api.notify(
                 user_key=updated_user[UserField.KEY.value],
-                message=f"Test notification for {Users.nameStr(updated_user)}"
+                message=f"Test notification for {Users.nameStr(updated_user)}",
+                subject="Test Notification subject"
             )
             print(f"Notification sent successfully: {response}")
             
@@ -196,7 +248,8 @@ def main():
             response = user_api.notify(
                 user_key=updated_user[UserField.KEY.value],
                 message=f"Test notification with additional recipients for {Users.nameStr(updated_user)}",
-                emails=["test1@example.com", "test2@example.com"]
+                subject="Test Notification with Additional Emails",
+                additional_emails=[f"{TEST_ADDITIONAL_EMAIL_ADDRESS}"]
             )
             print(f"Notification with additional emails sent successfully: {response}")
             
@@ -222,7 +275,8 @@ def test_access_api():
             UserField.NAME.value: "Test Access User",
             UserField.LOGIN.value: "testaccess",
             UserField.PASSWORD.value: "testpass",
-            UserField.EMAIL.value: "test@access.com",
+            UserField.EMAIL.value: f"{TEST_USER_EMAIL_ADDRESS}",
+            UserField.MESSENGER.value: f"telegram_chat_id={TEST_TELEGRAM_CHAT_ID}",
             UserField.TIMEZONE.value: 'Australia/Sydney',
         }
         
@@ -233,13 +287,17 @@ def test_access_api():
             
             # Test create access with expiry
             expire_after_seconds = 30
-            created_access1 = access_api.create({
-                AccessField.USER_KEY.value: user_key,
-                AccessField.RESOURCE.value: "test-recording",
-                AccessField.ACCESS_KEY.value: "testkey123",
-                AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS.value,
-                EXPIRE_AFTER_SECONDS: expire_after_seconds
-            })
+            created_access1 = access_api.create(
+                access={
+                    AccessField.USER_KEY.value: user_key,
+                    AccessField.RESOURCE.value: "test-recording",
+                    AccessField.ACCESS_KEY.value: "testkey123",
+                    AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS.value,
+                    AccessField.NOTIFY_USER.value: True,
+                    AccessField.ADDITIONAL_EMAILS.value: [f"{TEST_ADDITIONAL_EMAIL_ADDRESS}"]
+                },
+                expire_after_seconds=expire_after_seconds
+            )
             
 
             print(f"Created access with expires after {expire_after_seconds} seconds: {created_access1}")
@@ -260,58 +318,60 @@ def test_access_api():
                 created_access1[AccessField.ACCESS_TYPE.value]
             )
             print(f"Test access: {test_access}")
-            
-            # Test create with no expiry
-            created_access2 = access_api.create({
-                AccessField.RESOURCE.value: f"test_resource_{int(time.time())}",
-                AccessField.USER_KEY.value: user_key,
-                AccessField.ACCESS_KEY.value: f"test_key_{int(time.time())}",
-                AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS.value,
-                AccessField.EXPIRES_AT.value: None,
-            })
-            print(f"Created access without expiry: {created_access2}")
 
-            test_access2 = access_api.validate(
-                created_access2[AccessField.RESOURCE.value],
-                created_access2[AccessField.ACCESS_KEY.value],
-                created_access2[AccessField.ACCESS_TYPE.value]
+            # Test update
+            created_access1[AccessField.EXPIRES_AT.value] = None
+            updated_access = access_api.update(
+                created_access1,
+
             )
-            print(f"Test access without expiry: {test_access2}")   
+            print(f"Updated access record: {updated_access}")
+
+            test_access = access_api.validate(
+                created_access1[AccessField.RESOURCE.value],
+                created_access1[AccessField.ACCESS_KEY.value],
+                created_access1[AccessField.ACCESS_TYPE.value]
+            )
+            print(f"Test access without expiry: {test_access}")   
             
             # Test get
             access_list = access_api.get(filters=[
                 [AccessField.USER_KEY.value, '=', user_key],
-                [AccessField.RESOURCE.value, '=', 'test-expiry']
+                [AccessField.ACCESS_TYPE.value, '=', AccessType.HTTP_SERVER_ACCESS.value]
             ])
             print(f"Found {len(access_list)} access records for user")
+
+            access = access_list[0]
+
+             # Test update
+            updated_access = access_api.update(
+                access,
+                expire_after_seconds=86400  # 24 hours
+            )
+            print(f"Updated access record: {updated_access}")
+
+            read_access = access_api.get(filters=[
+                [AccessField.RESOURCE.value, '=', access[AccessField.RESOURCE.value]],
+                [AccessField.ACCESS_KEY.value, '=', access[AccessField.ACCESS_KEY.value]],   
+                [AccessField.ACCESS_TYPE.value, '=', access[AccessField.ACCESS_TYPE.value]]
+            ])[0]
+            print(f"Read access record: {read_access}")
+            compare_access = updated_access == read_access
+            print(f"Access record comparison: {compare_access}")
             
-            if access_list:
-                record = access_list[0]
-                resource = record[AccessField.RESOURCE.value]
-                access_key = record[AccessField.ACCESS_KEY.value]
-                
-                # Test update
-                updated_access = access_api.update({
-                    AccessField.RESOURCE.value: resource,
-                    AccessField.ACCESS_KEY.value: access_key,
-                    AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS.value,
-                    AccessField.EXPIRES_AT.value: (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()
-                })
-                print(f"Updated access record: {updated_access}")
-                
-                # Test delete
-                access_api.delete(resource, access_key)
-                print(f"Deleted access record with resource '{resource}' and access_key '{access_key}'")
-                
-                # Verify deleted
-                try:
-                    access_api.get(filters=[
-                        [AccessField.RESOURCE.value, '=', resource],
-                        [AccessField.ACCESS_KEY.value, '=', access_key]
-                    ])
-                    print("Error: Access record still exists after deletion")
-                except Exception as e:
-                    print("Successfully verified access record deletion")
+            # Test delete
+            access_api.delete(read_access[AccessField.RESOURCE.value], read_access[AccessField.ACCESS_KEY.value], read_access[AccessField.ACCESS_TYPE.value])
+            print(f"Deleted access record with resource '{read_access[AccessField.RESOURCE.value]}' and access_key '{read_access[AccessField.ACCESS_KEY.value]}'")
+            
+            # Verify deleted
+            access_list = access_api.get(filters=[
+                [AccessField.USER_KEY.value, '=', user_key],
+                [AccessField.ACCESS_TYPE.value, '=', AccessType.HTTP_SERVER_ACCESS.value]
+            ])
+            if len(access_list) > 0:
+                print("Error: Access record still exists after deletion")
+            else:
+                print("Successfully verified access record deletion")
             
         finally:
             # Clean up test user
@@ -322,5 +382,5 @@ def test_access_api():
                 print(f"Error cleaning up test user: {str(e)}")
 
 if __name__ == "__main__":
-    main()
+    # main()
     test_access_api()

@@ -8,11 +8,11 @@ from shared.events import Events, EventStatus, EventField, SQLLiteEvents, EventT
 from urllib.parse import unquote, quote
 from shared.users import SQLLiteUser, Users, UserField
 from shared.access import SQLLiteAccess, AccessField, AccessType, Access
+from shared import constants
 import logging
 import json
 import mimetypes
 
-from shared import constants
 from shared.utilities import start_debug
 from shared.arduino_utils import (
     parse_version_string, get_config_file_path, find_compatible_firmware,
@@ -162,7 +162,134 @@ events = SQLLiteEvents(ZOOMREC_DB_PATH, stateChanged=event_state_changed_callbac
 
 # Initialize user manager
 users = SQLLiteUser(ZOOMREC_DB_PATH)
-access = SQLLiteAccess(ZOOMREC_DB_PATH)
+
+# Define the access_state_changed_callback function
+def access_state_changed_callback(old_access, new_access):
+    """
+    Callback function for access state changes.
+    
+    Args:
+        old_access: The previous access state (None for creation)
+        new_access: The new access state (None for deletion)
+    """
+    try:
+        access = new_access if new_access is not None else old_access
+
+        # Skip notification if notify_user is disabled
+        if access[AccessField.NOTIFY_USER.value] == False:
+            logging.debug(f"Access notification disabled for {Access.nameStr(access)}")
+            return
+            
+        # Determine action type
+        if old_access is None:
+            action_type = 'created'
+            subject = f"Access created for {access[AccessField.RESOURCE.value]}"
+        elif new_access is None:
+            action_type = 'deleted'
+            subject = f"Access deleted for {access[AccessField.RESOURCE.value]}"
+        else:
+            action_type = 'updated'
+            subject = f"Access updated for {access[AccessField.RESOURCE.value]}"
+
+        # generate plain text body
+        plain_body = render_notify_access_template(access, action_type, html=False)
+        
+        # Generate HTML body
+        html_body = render_notify_access_template(access, action_type, html=True)
+
+        # Send notification
+        user = users.get(filters=[[UserField.KEY.value, "=", access[AccessField.USER_KEY.value]]])[0] 
+        users.notify(
+            user,
+            plain_body,
+            subject,
+            html_body,
+            additional_emails=access[AccessField.ADDITIONAL_EMAILS.value]
+        )
+        
+    except Exception as e:
+        logging.error(f"Error in access_state_changed_callback: {str(e)}", exc_info=True)
+
+# Initialize access manager with callback
+access_persistence = SQLLiteAccess(ZOOMREC_DB_PATH, stateChanged=access_state_changed_callback)
+
+
+def render_notify_access_template(access, action_type, html=True):
+    """
+    Render the access notification template for different actions using Jinja2.
+    
+    Args:
+        access: The access response dictionary
+        action_type: The type of action ('created', 'updated', 'deleted')
+        html: Whether to render HTML (True) or plain text (False)
+        
+    Returns:
+        Rendered content as string (HTML or plain text)
+    """
+    try:
+        # Choose template based on format
+        template_extension = 'html' if html else 'txt'
+        template_path = os.path.join(os.path.dirname(__file__), 'res', f'notify_access_template.{template_extension}')
+        with open(template_path, 'r', encoding='utf-8') as f:
+            template_content = f.read()
+        
+        # Get the base URL from environment or use a default
+        base_url = os.getenv('HTTP_CONTENT_URL_PREFIX', '') + constants.ROUTE_LIST
+        resource_url = f"{base_url.rstrip('/')}/{access[AccessField.ACCESS_KEY.value]}/{access[AccessField.RESOURCE.value]}"
+        
+        # Format expiration time if present
+        expires_at = None
+        if AccessField.EXPIRES_AT.value in access and access[AccessField.EXPIRES_AT.value]:
+            try:
+                from datetime import datetime
+                expires_at = datetime.fromisoformat(access[AccessField.EXPIRES_AT.value].replace('Z', '+00:00')).strftime('%Y-%m-%d %H:%M:%S UTC')
+            except:
+                expires_at = access[AccessField.EXPIRES_AT.value]
+        
+        # Set action-specific content
+        action_config = {
+            'created': {
+                'title': '✅ Access Granted',
+                'icon': '✅',
+                'message': f'You have been granted access to the following resource:'
+            },
+            'updated': {
+                'title': '🔄 Access Updated',
+                'icon': '🔄',
+                'message': f'Your access to the following resource has been updated:'
+            },
+            'deleted': {
+                'title': '🗑️ Access Revoked',
+                'icon': '🗑️',
+                'message': f'Your access to the following resource has been revoked:'
+            }
+        }
+        
+        config = action_config.get(action_type, action_config['created'])
+        
+        # Use Jinja2 template rendering
+        return render_template_string(
+            template_content,
+            action_type=action_type,
+            action_title=config['title'],
+            action_icon=config['icon'],
+            action_message=config['message'],
+            resource=access[AccessField.RESOURCE.value],
+            access_key=access[AccessField.ACCESS_KEY.value],
+            access_type=AccessType.get_description(access[AccessField.ACCESS_TYPE.value]),
+            resource_url=resource_url,
+            expires_at=expires_at
+        )
+        
+    except Exception as e:
+        logging.error(f"Error rendering access template: {str(e)}")
+        # Fallback to simple message
+        action_messages = {
+            'created': f"Access created for {access[AccessField.RESOURCE.value]}",
+            'updated': f"Access updated for {access[AccessField.RESOURCE.value]}",
+            'deleted': f"Access deleted for {access[AccessField.RESOURCE.value]}"
+        }
+        return action_messages.get(action_type, f"Access changed for {access[AccessField.RESOURCE.value]}")
 
 # Create a new user
 @app.route(f"{constants.ROUTE_USER}", methods=['POST'])
@@ -241,66 +368,35 @@ def delete_user(key):
 def notify_user():
     try:
         data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-            
         user_key = data.get('user_key')
+        subject = data.get('subject', constants.DEFAULT_NOTIFICATION_SUBJECT)
         message = data.get('message')
-        emails = data.get('emails', [])
+        additional_emails = data.get('additional_emails', [])
         
         if not user_key or not message:
             return jsonify({"error": "user_key and message are required"}), 400
-            
-        # Get the user
+
         users_list = users.get(filters=[[UserField.KEY.value, '=', user_key]])
         if not users_list:
             return jsonify({"error": "User not found"}), 404
             
         user = users_list[0]
-        
-        # Send the message
-        users.send_message(user, message)
-
-        # # If additional emails are provided, send to them as well
-        # if emails and isinstance(emails, list):
-        #     for email in emails:
-        #         if email:  # Skip empty emails
-        #             email_user = user.copy()
-        #             email_user[UserField.EMAIL.value] = email
-        #             try:
-        #                 users.send_message(email_user, message)
-        #             except Exception as e:
-        #                 app.logger.error(f"Error sending notification to {email}: {str(e)}")
+        users.notify(user, message, subject, additional_emails=additional_emails)
         
         return jsonify({"status": "success"}), 200
     except Exception as e:
         app.logger.error(f"Error sending notification: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"Error sending notification": str(e)}), 500
 
 # Access CRUD endpoints
 @app.route(f"{constants.ROUTE_ACCESS}", methods=['POST'])
 @basic_auth.required
 def create_access():
     try:
-        record = dict(request.json)
-        # compute expires_at from expire_after_seconds if provided
-        if Access.EXPIRE_AFTER_SECONDS in record and AccessField.USER_KEY.value in record:
-            # fetch user to get timezone
-            matched_users = users.get(filters=[[UserField.KEY.value, '=', record[AccessField.USER_KEY.value]]])
-            if not matched_users:
-                return jsonify({"error": "user not found"}), 404
-            user = matched_users[0]
-            try:
-                expire_after_seconds = int(record.pop(Access.EXPIRE_AFTER_SECONDS))
-            except Exception:
-                return jsonify({"error": f"invalid {Access.EXPIRE_AFTER_SECONDS}"}), 400
-            now = Users.now(user)
-            record[AccessField.EXPIRES_AT.value] = (now + timedelta(seconds=expire_after_seconds)).isoformat()
-        # default access type if missing
-        if AccessField.ACCESS_TYPE.value not in record:
-            record[AccessField.ACCESS_TYPE.value] = AccessType.HTTP_SERVER_ACCESS
-        record = access.create(record)
-        return jsonify(record), 201
+        access_request = request.json
+        access_request = Access.set_expiry(access_request, access_request.pop(Access.EXPIRE_AFTER_SECONDS, None))
+        access_response = access_persistence.create(access_request)
+        return jsonify(access_response), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -322,7 +418,7 @@ def get_access():
                 elif parts[2] == "Value":
                     filters[int(index) - 1][2] = value
     try:
-        records = access.get(filters=filters)
+        records = access_persistence.get(filters=filters)
         if records:
             return jsonify(records), 200
         else:
@@ -337,10 +433,11 @@ def delete_access():
     try:
         resource = request.args.get('resource')
         access_key = request.args.get('access_key')
-        if not resource or not access_key:
+        access_type = request.args.get('access_type')
+        if not resource or not access_key or not access_type:
             return jsonify({"error": "both resource and access_key parameters are required"}), 400
             
-        if access.delete(resource, access_key):
+        if access_persistence.delete(resource, access_key, access_type):
             return jsonify({"status": "deleted"}), 200
         else:
             return jsonify({"error": "not found"}), 404
@@ -351,32 +448,31 @@ def delete_access():
 @basic_auth.required
 def update_access():
     try:
-        record = request.json
-        if AccessField.RESOURCE.value not in record or AccessField.ACCESS_KEY.value not in record:
-            return jsonify({"error": "both resource and access_key are required in the request body"}), 400
-            
-        updated = access.update(record)
-        return jsonify(updated), 200
+        access_request = request.json
+        access_request = Access.set_expiry(access_request, access_request.pop(Access.EXPIRE_AFTER_SECONDS, None))
+        access_response = access_persistence.update(access_request)
+        return jsonify(access_response), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 # Validation endpoint (no auth):
 @app.route(f"{constants.ROUTE_ACCESS}/validate", methods=['GET'])
 def validate_access():
     try:
-        resource = request.args.get('resource')
-        access_key = request.args.get('access_key')
-        access_type = request.args.get('access_type')
+        resource = request.args.get(AccessField.RESOURCE.value)
+        access_key = request.args.get(AccessField.ACCESS_KEY.value)
+        access_type = request.args.get(AccessField.ACCESS_TYPE.value)
         
         if not resource or not access_key or not access_type:
             return jsonify({"error": "missing required params: resource, access_key, access_type"}), 400
             
-        record = access.validate(resource, access_key, access_type)
-        if record:
-            return jsonify(record), 200
+        access = access_persistence.validate_access(resource, access_key, access_type)
+        if access:
+            # access provided, return access information
+            return jsonify(access), 200
         else:
-            return jsonify({"error": "not found or access denied"}), 404
+            # no access provided, return empty response
+            return jsonify(), 204
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -450,10 +546,11 @@ def delete_event(key):
 @app.route(f"{constants.ROUTE_EVENT}", methods=['GET'])
 @basic_auth.required
 def get_event():
-    filters = []
+    
     fields_param = request.args.get('fields')
 
     # Retrieve filter parameters from the request
+    filters = []
     for key, value in request.args.items():
         if key.startswith("Filter."):
             # Extract the filter index
@@ -734,7 +831,7 @@ def get_file_access(access_key: str, resource: str) -> str:
             resource_validate = basename.split('.')[0]
         else:
             resource_validate = basename
-        access_granted = access.validate( resource_validate, access_key, AccessType.HTTP_SERVER_ACCESS.value)
+        access_granted = access_persistence.validate_access( resource_validate, access_key, AccessType.HTTP_SERVER_ACCESS.value)
         if not access_granted:
             raise PermissionError("unauthorized")
         

@@ -44,14 +44,15 @@ class UserAPI:
     def __exit__(self, exc_type, exc_value, traceback):
         self.session.close()
         
-    def notify(self, user_key: str, message: str, emails: list = None) -> dict:
+    def notify(self, user_key: str, message: str, subject: str = None, additional_emails: list = None) -> dict:
         """
         Send a notification to a user.
         
         Args:
             user_key: The key of the user to notify
             message: The message to send
-            emails: Optional list of additional email addresses to notify
+            subject: Optional subject for the notification
+            additional_emails: Optional list of additional email addresses to notify
             
         Returns:
             dict: Response from the server
@@ -59,7 +60,8 @@ class UserAPI:
         data = {
             "user_key": user_key,
             "message": message,
-            "emails": emails or []
+            "subject": subject,
+            "additional_emails": additional_emails or []
         }
         
         response = self._make_request(

@@ -153,8 +153,8 @@ fi
 #     -e SAMBA_PASSWORD="$SAMBA_PASSWORD" \
 #     -e IMAP_SERVER="$IMAP_SERVER" \
 #     -e IMAP_PORT="$IMAP_PORT" \
-#     -e EMAIL_ADDRESS="$EMAIL_ADDRESS" \
-#     -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
+#     -e IMAP_USERNAME="$IMAP_USERNAME" \
+#     -e IMAP_PASSWORD="$IMAP_PASSWORD" \
 #     -e FFMPEG_INPUT_PARAMS="-hwaccel cuvid" \
 #     -e FFMPEG_OUTPUT_PARAMS="-c:v hevc_nvenc -b:v 1M -gpu 0 -preset slow -acodec aac -b:a 128k" \
 #     -e SERVER_USERNAME="$SERVER_USERNAME" \
@@ -185,8 +185,8 @@ fi
 #     -e SAMBA_PASSWORD="$SAMBA_PASSWORD" \
 #     -e IMAP_SERVER="$IMAP_SERVER" \
 #     -e IMAP_PORT="$IMAP_PORT" \
-#     -e EMAIL_ADDRESS="$EMAIL_ADDRESS" \
-#     -e EMAIL_PASSWORD="$EMAIL_PASSWORD" \
+#     -e IMAP_USERNAME="$IMAP_USERNAME" \
+#     -e IMAP_PASSWORD="$IMAP_PASSWORD" \
 #     -e SERVER_USERNAME="$SERVER_USERNAME" \
 #     -e SERVER_PASSWORD="$SERVER_PASSWORD" \
 #     -e SERVER_URL="$SERVER_URL" \

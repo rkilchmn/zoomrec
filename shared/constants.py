@@ -93,4 +93,7 @@ STALE_EVENT_THRESHOLD_SECS = 60 * 60 * 2 # 2h
 # environment variables to suppress sftp user creation for debugging in non docker environment
 SKIP_SFTP_USER_CREATION = 'SKIP_SFTP_USER_CREATION'
 
+DEFAULT_NOTIFICATION_SUBJECT = "ZoomRec Notification"
+DEFAULT_NOTIFICATION_FROM_EMAIL = 'no-reply@zoomrec-default-email.com'
+
 

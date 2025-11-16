@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ action_title }} - {{ resource }}</title>
+</head>
+<body>
+    <h1>{{ action_icon }} {{ action_title }}</h1>
+    
+    <p>Hello,</p>
+    <p>{{ action_message }}</p>
+    
+    {% if action_type != 'deleted' %}
+    <p><strong>Resource:</strong> {{ resource }}<br>
+    <strong>Access Key:</strong> {{ access_key }}<br>
+    <strong>Access Type:</strong> {{ access_type }}</p>
+    
+    {% if action_type == 'created' or action_type == 'updated' %}
+    <p><a href="{{ resource_url }}">📁 Access Resource Now</a></p>
+    {% endif %}
+    
+    {% if expires_at %}
+    <p><strong>⏰ Important:</strong> This access will expire on <strong>{{ expires_at }}</strong>. 
+    {% if action_type != 'deleted' %}Please make sure to access the resource before this date.{% endif %}</p>
+    {% endif %}
+    {% else %}
+    <p><strong>Resource:</strong> {{ resource }}<br>
+    <strong>Access Key:</strong> {{ access_key }}<br>
+    <strong>Access Type:</strong> {{ access_type }}</p>
+    {% endif %}
+    
+    <p>If you have any questions or need assistance, please contact the system administrator.</p>
+    
+    <hr>
+    <p><small>This is an automated notification from the ZoomRec system.</small></p>
+</body>
+</html>

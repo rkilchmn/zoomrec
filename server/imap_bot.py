@@ -121,8 +121,8 @@ BASE_PATH = os.getenv('ZOOMREC_HOME')
 EMAIL_TYPE_PATH = os.path.join(BASE_PATH, constants.EMAIL_CONFIG_FILE)
 IMAP_SERVER = os.getenv('IMAP_SERVER')
 IMAP_PORT = os.getenv('IMAP_PORT')
-EMAIL_ADDRESS = os.getenv('EMAIL_ADDRESS')
-EMAIL_PASSWORD  = os.getenv('EMAIL_PASSWORD')
+IMAP_USERNAME = os.getenv('IMAP_USERNAME')
+IMAP_PASSWORD  = os.getenv('IMAP_PASSWORD')
 
 SERVER_URL  = os.getenv('SERVER_URL')
 SERVER_USERNAME  = os.getenv('SERVER_USERNAME')
@@ -241,7 +241,7 @@ def run_bot():
             resp, caps = imap.capability()
             if b'STARTTLS' in caps[0]:
                 imap.starttls()
-            imap.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+            imap.login(IMAP_USERNAME, IMAP_PASSWORD)
             imap.select('inbox')
 
             # search for all unseen emails
@@ -431,13 +431,15 @@ def run_bot():
                                         with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
                                             user_api.notify(
                                                 user_key=user[UserField.KEY.value],
-                                                message=f"Event '{eventStr}' not valid. {error}"
+                                                message=f"Event '{eventStr}' not valid. {error}",
+                                                subject="Event Validation Failed"
                                             )
                                             # format add event command to help user create the event manually
                                             add_event_msg = format_event_command(event, type['user_login'])
                                             user_api.notify(
                                                 user_key=user[UserField.KEY.value],
-                                                message=add_event_msg
+                                                message=add_event_msg,
+                                                subject="Event Creation Command"
                                             )
                                     except Exception as format_error:
                                         logging.error(f"Error sending notification: {format_error}")
@@ -501,7 +503,7 @@ def run_bot():
                 logging.error(f"An error occurred: {e}", exc_info=True)  # Enhanced to include full stack trace
             
 if __name__ == "__main__":
-    if not (EMAIL_PASSWORD and IMAP_SERVER and IMAP_PORT and EMAIL_ADDRESS and SERVER_URL and SERVER_USERNAME and SERVER_PASSWORD):
+    if not (IMAP_PASSWORD and IMAP_SERVER and IMAP_PORT and IMAP_USERNAME and SERVER_URL and SERVER_USERNAME and SERVER_PASSWORD):
         print("IMAP details missing or API server details missing. Starting IMAP email bot failed!")
     else:
         run_bot()

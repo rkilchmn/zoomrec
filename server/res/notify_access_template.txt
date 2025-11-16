@@ -1,0 +1,29 @@
+{{ action_icon }} {{ action_title }}
+
+Hello,
+
+{{ action_message }}
+
+{% if action_type != 'deleted' %}
+Resource: {{ resource }}
+Access Key: {{ access_key }}
+Access Type: {{ access_type }}
+
+{% if action_type == 'created' or action_type == 'updated' %}
+Access Resource Now: {{ resource_url }}
+{% endif %}
+
+{% if expires_at %}
+Important: This access will expire on {{ expires_at }}.
+{% if action_type != 'deleted' %}Please make sure to access the resource before this date.{% endif %}
+{% endif %}
+{% else %}
+Resource: {{ resource }}
+Access Key: {{ access_key }}
+Access Type: {{ access_type }}
+{% endif %}
+
+If you have any questions or need assistance, please contact the system administrator.
+
+---
+This is an automated notification from the ZoomRec system.
