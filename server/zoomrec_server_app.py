@@ -13,7 +13,6 @@ from shared import constants
 import logging
 import json
 import mimetypes
-from urllib.parse import urljoin
 
 from shared.utilities import start_debug
 from shared.arduino_utils import (
@@ -57,7 +56,8 @@ FIRMWARE_PATH = os.path.join(BASE_PATH, constants.ARDUINO_FIRMWARE_DIR)
 LOG_PATH = os.path.join(BASE_PATH, constants.LOG_DIR)
 CONFIG_PATH = os.path.join(BASE_PATH, constants.ARDUINO_CONFIG_DIR)
 
-HTTP_CONTENT_URL_PREFIX = os.getenv('HTTP_CONTENT_URL_PREFIX')
+HTTP_CONTENT_URL_PREFIX = os.getenv('HTTP_CONTENT_URL_PREFIX').rstrip('/')
+
 
 # Configure basic authentication
 app.config['BASIC_AUTH_USERNAME'] = os.getenv('SERVER_USERNAME')
@@ -242,8 +242,8 @@ def render_notify_access_template(access, action_type, html=True):
             template_content = f.read()
         
         # Get the base URL from environment or use a default
-        base_url = urljoin(HTTP_CONTENT_URL_PREFIX, constants.ROUTE_LIST)
-        resource_url = urljoin(base_url, f"{quote(access[AccessField.ACCESS_KEY.value])}/{quote(access[AccessField.RESOURCE.value])}")
+        base_url = f"{HTTP_CONTENT_URL_PREFIX}{constants.ROUTE_LIST}"
+        resource_url = f"{base_url}/{quote(access[AccessField.ACCESS_KEY.value])}/{quote(access[AccessField.RESOURCE.value])}"
         
         # Format expiration time if present
         expires_at = None
@@ -1018,9 +1018,7 @@ def list_files(access_key, resource):
             for file_path in matching_files:
                 if os.path.isfile(file_path):
                     file_name = os.path.basename(file_path)
-                    file_part = f"{constants.ROUTE_FILE}/{quote(access_key)}/{quote(file_name)}"
-                    file_url = urljoin(HTTP_CONTENT_URL_PREFIX,file_part)
-                    app.logger.debug(f"assemble file_url: HTTP_CONTENT_URL_PREFIX: '{HTTP_CONTENT_URL_PREFIX}' file_part: '{file_part}' file_url: '{file_url}'")
+                    file_url = f"{HTTP_CONTENT_URL_PREFIX}{constants.ROUTE_FILE}/{quote(access_key)}/{quote(file_name)}"
                     file_stat = os.stat(file_path)
                     files.append({
                         'name': file_name,
