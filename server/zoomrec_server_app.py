@@ -31,20 +31,20 @@ app = Flask(__name__)
 # Configure logging
 if __name__ != '__main__':
     # When running with Gunicorn
-    gunicorn_logger = logging.getLogger('gunicorn.error')
+    gunicorn_logger = app.logger.getLogger('gunicorn.error')
     if gunicorn_logger.handlers:
         app.logger.handlers = gunicorn_logger.handlers
         app.logger.setLevel(gunicorn_logger.level)
 else:
     # When running standalone
-    logging.basicConfig(
+    app.logger.basicConfig(
         level=os.getenv("LOG_LEVEL", "INFO"),
         format='%(asctime)s %(levelname)s %(message)s',
         handlers=[
-            logging.StreamHandler()
+            app.logger.StreamHandler()
         ]
     )
-    app.logger = logging.getLogger(__name__)
+    app.logger = app.logger.getLogger(__name__)
 
 BASE_PATH = os.getenv('ZOOMREC_HOME')
 ZOOMREC_DB_PATH = os.path.join(BASE_PATH, constants.ZOOMREC_DB_FILENAME)
@@ -181,7 +181,7 @@ def access_state_changed_callback(old_access, new_access):
 
         # Skip notification if notify_user is disabled
         if access[AccessField.NOTIFY_USER.value] == False:
-            logging.debug(f"Access notification disabled for {Access.nameStr(access)}")
+            app.logger.debug(f"Access notification disabled for {Access.nameStr(access)}")
             return
             
         # Determine action type
@@ -212,7 +212,7 @@ def access_state_changed_callback(old_access, new_access):
         )
         
     except Exception as e:
-        logging.error(f"Error in access_state_changed_callback: {str(e)}", exc_info=True)
+        app.logger.error(f"Error in access_state_changed_callback: {str(e)}", exc_info=True)
 
 # Initialize access manager with callback
 access_persistence = SQLLiteAccess(ZOOMREC_DB_PATH, stateChanged=access_state_changed_callback)
@@ -286,7 +286,7 @@ def render_notify_access_template(access, action_type, html=True):
         )
         
     except Exception as e:
-        logging.error(f"Error rendering access template: {str(e)}")
+        app.logger.error(f"Error rendering access template: {str(e)}")
         # Fallback to simple message
         action_messages = {
             'created': f"Access created for {access[AccessField.RESOURCE.value]}",
@@ -428,7 +428,7 @@ def get_access():
         else:
             return jsonify(), 204 # sucsess, but "204 No Content"
     except Exception as e:
-        logging.error(f"Error in get_access: {str(e)}", exc_info=True)
+        app.logger.error(f"Error in get_access: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 @app.route(f"{constants.ROUTE_ACCESS}", methods=['DELETE'])
@@ -1016,7 +1016,7 @@ def list_files(access_key, resource):
                     file_name = os.path.basename(file_path)
                     file_part = f"{constants.ROUTE_FILE}/{quote(access_key)}/{quote(file_name)}"
                     file_url = urljoin(HTTP_CONTENT_URL_PREFIX,file_part)
-                    logging.debug(f"{HTTP_CONTENT_URL_PREFIX} {file_part} {file_url}")
+                    app.logger.debug(f"{HTTP_CONTENT_URL_PREFIX} {file_part} {file_url}")
                     file_stat = os.stat(file_path)
                     files.append({
                         'name': file_name,
