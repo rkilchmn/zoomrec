@@ -504,6 +504,6 @@ def run_bot():
             
 if __name__ == "__main__":
     if not (IMAP_PASSWORD and IMAP_SERVER and IMAP_PORT and IMAP_USERNAME and SERVER_URL and SERVER_USERNAME and SERVER_PASSWORD):
-        print("IMAP details missing or API server details missing. Starting IMAP email bot failed!")
+        logging.error("IMAP details missing or API server details missing. Starting IMAP email bot failed!")
     else:
         run_bot()
