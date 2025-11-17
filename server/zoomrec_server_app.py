@@ -30,12 +30,13 @@ app = Flask(__name__)
 
 # Configure logging
 if __name__ != '__main__':
-    # When running with Gunicorn
-    gunicorn_logger = app.logger.getLogger('gunicorn.error')
+    # When running under Gunicorn
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+
     if gunicorn_logger.handlers:
         app.logger.handlers = gunicorn_logger.handlers
         app.logger.setLevel(gunicorn_logger.level)
-else:
+        app.logger.propagate = False
     # When running standalone
     app.logger.basicConfig(
         level=os.getenv("LOG_LEVEL", "INFO"),
