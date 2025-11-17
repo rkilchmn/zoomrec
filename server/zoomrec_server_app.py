@@ -30,22 +30,25 @@ app = Flask(__name__)
 
 # Configure logging
 if __name__ != '__main__':
-    # When running under Gunicorn
+    # ------------------------------
+    # Running under Gunicorn
+    # ------------------------------
     gunicorn_logger = logging.getLogger('gunicorn.error')
 
     if gunicorn_logger.handlers:
         app.logger.handlers = gunicorn_logger.handlers
         app.logger.setLevel(gunicorn_logger.level)
         app.logger.propagate = False
-    # When running standalone
-    app.logger.basicConfig(
+
+else:
+    # ------------------------------
+    # Running standalone (python app.py)
+    # ------------------------------
+    logging.basicConfig(
         level=os.getenv("LOG_LEVEL", "INFO"),
         format='%(asctime)s %(levelname)s %(message)s',
-        handlers=[
-            app.logger.StreamHandler()
-        ]
+        handlers=[logging.StreamHandler()]
     )
-    app.logger = app.logger.getLogger(__name__)
 
 BASE_PATH = os.getenv('ZOOMREC_HOME')
 ZOOMREC_DB_PATH = os.path.join(BASE_PATH, constants.ZOOMREC_DB_FILENAME)
