@@ -1013,7 +1013,7 @@ def list_files(access_key, resource):
             for file_path in matching_files:
                 if os.path.isfile(file_path):
                     file_name = os.path.basename(file_path)
-                    file_url = urljoin(HTTP_CONTENT_URL_PREFIX, f"{constants.ROUTE_LIST}/{access_key}/{quote(file_name)}")
+                    file_url = urljoin(HTTP_CONTENT_URL_PREFIX, f"{constants.ROUTE_FILE}/{access_key}/{quote(file_name)}")
                     file_stat = os.stat(file_path)
                     files.append({
                         'name': file_name,
