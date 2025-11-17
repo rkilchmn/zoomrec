@@ -263,10 +263,12 @@ class SQLLiteAccess(Access):
         return result
 
     def validate_access(self, resource, access_key, access_type):
-        access = self.get(filters=[[AccessField.RESOURCE.value, '=', resource], [AccessField.ACCESS_KEY.value, '=', access_key], [AccessField.ACCESS_TYPE.value, '=', access_type]])[0]
-        if access is None:
+        access_list = self.get(filters=[[AccessField.RESOURCE.value, '=', resource], [AccessField.ACCESS_KEY.value, '=', access_key], [AccessField.ACCESS_TYPE.value, '=', access_type]])
+        if len(access_list) != 1:
+            # should only be exactly 1 otherwise somethings wrong
             return None
         else:
+            access = access_list[0]
             if access[AccessField.EXPIRES_AT.value] is None:
                 # no expiry, always valid
                 return access
