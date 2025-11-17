@@ -1,3 +1,4 @@
+from doctest import debug
 from flask import Flask, request, jsonify, send_file, Response, abort, render_template_string
 from flask_basicauth import BasicAuth
 from datetime import datetime, timezone, timedelta
@@ -238,7 +239,7 @@ def render_notify_access_template(access, action_type, html=True):
         
         # Get the base URL from environment or use a default
         base_url = urljoin(HTTP_CONTENT_URL_PREFIX, constants.ROUTE_LIST)
-        resource_url = urljoin(base_url, f"{access[AccessField.ACCESS_KEY.value]}/{access[AccessField.RESOURCE.value]}")
+        resource_url = urljoin(base_url, f"{quote(access[AccessField.ACCESS_KEY.value])}/{quote(access[AccessField.RESOURCE.value])}")
         
         # Format expiration time if present
         expires_at = None
@@ -1013,7 +1014,9 @@ def list_files(access_key, resource):
             for file_path in matching_files:
                 if os.path.isfile(file_path):
                     file_name = os.path.basename(file_path)
-                    file_url = urljoin(HTTP_CONTENT_URL_PREFIX, f"{constants.ROUTE_FILE}/{access_key}/{quote(file_name)}")
+                    file_part = f"{constants.ROUTE_FILE}/{quote(access_key)}/{quote(file_name)}"
+                    file_url = urljoin(HTTP_CONTENT_URL_PREFIX,file_part)
+                    logging.debug(f"{HTTP_CONTENT_URL_PREFIX} {file_part} {file_url}")
                     file_stat = os.stat(file_path)
                     files.append({
                         'name': file_name,
