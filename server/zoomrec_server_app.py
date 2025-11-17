@@ -1016,7 +1016,7 @@ def list_files(access_key, resource):
                     file_name = os.path.basename(file_path)
                     file_part = f"{constants.ROUTE_FILE}/{quote(access_key)}/{quote(file_name)}"
                     file_url = urljoin(HTTP_CONTENT_URL_PREFIX,file_part)
-                    app.logger.debug(f"{HTTP_CONTENT_URL_PREFIX} {file_part} {file_url}")
+                    app.logger.debug(f"assemble file_url: HTTP_CONTENT_URL_PREFIX: '{HTTP_CONTENT_URL_PREFIX}' file_part: '{file_part}' file_url: '{file_url}'")
                     file_stat = os.stat(file_path)
                     files.append({
                         'name': file_name,
