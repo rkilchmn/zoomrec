@@ -105,6 +105,21 @@ class Access(ABC):
                 except ValueError:
                     raise ValueError("Invalid expires_at format in access record. Must be in ISO format.")
 
+        # Validate additional_emails
+        if AccessField.ADDITIONAL_EMAILS.value in access and access[AccessField.ADDITIONAL_EMAILS.value] is not None:
+            additional_emails = access[AccessField.ADDITIONAL_EMAILS.value]
+            if not isinstance(additional_emails, list):
+                raise ValueError("Invalid additional_emails format. Must be a list of email addresses.")
+            
+            # Validate each email in the list
+            import validators
+            for email in additional_emails:
+                if not isinstance(email, str) or not validators.email(email):
+                    raise ValueError(f"Invalid email address in additional_emails: '{email}'. Must be a valid email address.")
+
+        return access
+
+
     @staticmethod
     def set_missing_defaults(access):
         """Set default values for missing fields in access record."""
@@ -230,8 +245,7 @@ class SQLLiteAccess(Access):
             try:
                 access[AccessField.ADDITIONAL_EMAILS.value] = json.loads(access[AccessField.ADDITIONAL_EMAILS.value])
             except (json.JSONDecodeError, TypeError):
-                # Keep as string if JSON parsing fails
-                pass
+                raise ValueError("Invalid additional_emails format in access record. Must be a JSON string.")
 
         return access
 

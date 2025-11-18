@@ -175,6 +175,8 @@ async def provideAccess(input: ProvideAccessInput) -> dict:
             
             notify_user = input.access_config.get(INSTRUCTION_ACCESS_NOTIFY_USER)
             additional_emails = input.access_config.get(INSTRUCTION_ACCESS_ADDITIONAL_EMAILS)
+            if additional_emails:
+                additional_emails = [email.strip() for email in additional_emails.split(',')]
         
             access = access_api.create({
                 AccessField.USER_KEY.value: input.user_key,
