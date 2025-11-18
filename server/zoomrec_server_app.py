@@ -15,6 +15,31 @@ import json
 import mimetypes
 
 from shared.utilities import start_debug
+
+def parse_filter_parameters(request_args) -> List[List[Optional[str]]]:
+    """Parse filter parameters from request arguments.
+    
+    Returns a list of filters where each filter is [Name, Operator, Value].
+    """
+    filters = []
+    
+    # Retrieve filter parameters from the request
+    for key, value in request_args.items():
+        if key.startswith("Filter."):
+            # Extract the filter index
+            parts = key.split('.')
+            if len(parts) == 3:  # Ensure we have the correct format
+                index = parts[1]
+                if len(filters) < int(index):  # Ensure the filters list is long enough
+                    filters.append([None, None, None])  # Initialize with None
+                if parts[2] == "Name":
+                    filters[int(index) - 1][0] = value  # Set attribute
+                elif parts[2] == "Operator":
+                    filters[int(index) - 1][1] = value  # Set operator
+                elif parts[2] == "Value":
+                    filters[int(index) - 1][2] = value  # Set value
+    
+    return filters
 from shared.arduino_utils import (
     parse_version_string, get_config_file_path, find_compatible_firmware,
     ERROR_CONFIG_DIR_NOT_FOUND, ERROR_CONFIG_DIR_READ, ERROR_NO_COMPATIBLE_CONFIG,
@@ -318,23 +343,7 @@ def create_user():
 @app.route(f"{constants.ROUTE_USER}", methods=['GET'])
 @basic_auth.required
 def get_user():
-    filters = []
-
-    # Retrieve filter parameters from the request
-    for key, value in request.args.items():
-        if key.startswith("Filter."):
-            # Extract the filter index
-            parts = key.split('.')
-            if len(parts) == 3:  # Ensure we have the correct format
-                index = parts[1]
-                if len(filters) < int(index):  # Ensure the filters list is long enough
-                    filters.append([None, None, None])  # Initialize with None
-                if parts[2] == "Name":
-                    filters[int(index) - 1][0] = value  # Set attribute
-                elif parts[2] == "Operator":
-                    filters[int(index) - 1][1] = value  # Set operator
-                elif parts[2] == "Value":
-                    filters[int(index) - 1][2] = value  # Set value
+    filters = parse_filter_parameters(request.args)
 
     try:
         returned_users = users.get(filters=filters)  # Pass the filters to the get method
@@ -411,20 +420,7 @@ def create_access():
 @app.route(f"{constants.ROUTE_ACCESS}", methods=['GET'])
 @basic_auth.required
 def get_access():
-    filters = []
-    for key, value in request.args.items():
-        if key.startswith("Filter."):
-            parts = key.split('.')
-            if len(parts) == 3:
-                index = parts[1]
-                if len(filters) < int(index):
-                    filters.append([None, None, None])
-                if parts[2] == "Name":
-                    filters[int(index) - 1][0] = value
-                elif parts[2] == "Operator":
-                    filters[int(index) - 1][1] = value
-                elif parts[2] == "Value":
-                    filters[int(index) - 1][2] = value
+    filters = parse_filter_parameters(request.args)
     try:
         records = access_persistence.get(filters=filters)
         if records:
@@ -557,22 +553,7 @@ def get_event():
     
     fields_param = request.args.get('fields')
 
-    # Retrieve filter parameters from the request
-    filters = []
-    for key, value in request.args.items():
-        if key.startswith("Filter."):
-            # Extract the filter index
-            parts = key.split('.')
-            if len(parts) == 3:  # Ensure we have the correct format
-                index = parts[1]
-                if len(filters) < int(index):  # Ensure the filters list is long enough
-                    filters.append([None, None, None])  # Initialize with None
-                if parts[2] == "Name":
-                    filters[int(index) - 1][0] = value  # Set attribute
-                elif parts[2] == "Operator":
-                    filters[int(index) - 1][1] = value  # Set operator
-                elif parts[2] == "Value":
-                    filters[int(index) - 1][2] = value  # Set value
+    filters = parse_filter_parameters(request.args)
 
     try:
         returned_events = events.get(filters=filters)  # Pass the filters to the get method
