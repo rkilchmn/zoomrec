@@ -10,6 +10,7 @@ import subprocess
 import logging
 import os
 from typing import Optional
+import secrets
 
 # Import with sandbox passthrough for modules that use http.client and other restricted modules
 with workflow.unsafe.imports_passed_through():
@@ -177,11 +178,16 @@ async def provideAccess(input: ProvideAccessInput) -> dict:
             additional_emails = input.access_config.get(INSTRUCTION_ACCESS_ADDITIONAL_EMAILS)
             if additional_emails:
                 additional_emails = [email.strip() for email in additional_emails.split(',')]
-        
+
+            access_key = input.access_config.get(INSTRUCTION_ACCESS_KEY)
+            if access_key is None:
+                # generate random access key
+                access_key = secrets.token_hex(16)
+
             access = access_api.create({
                 AccessField.USER_KEY.value: input.user_key,
                 AccessField.RESOURCE.value: input.resource,
-                AccessField.ACCESS_KEY.value: input.access_config.get(INSTRUCTION_ACCESS_KEY),
+                AccessField.ACCESS_KEY.value: access_key,
                 AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS.value,
                 AccessField.NOTIFY_USER.value: notify_user,
                 AccessField.ADDITIONAL_EMAILS.value: additional_emails
