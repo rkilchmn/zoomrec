@@ -4,7 +4,7 @@
     <title>Files for {{ resource }}</title>
     <style>
         body { 
-            font-family: Arial, sans-serif; 
+            font-family: Arial, sans-serif;
             margin: 20px;
             line-height: 1.6;
         }
@@ -12,14 +12,41 @@
             color: #333; 
             margin-bottom: 20px;
         }
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .controls button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        .controls button:hover {
+            background-color: #0056b3;
+        }
+        .controls button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .select-all-container {
+            margin-bottom: 10px;
+        }
         table { 
-            border-collapse: collapse; 
+            border-collapse: collapse;
             width: 100%; 
             margin-top: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         th, td { 
-            text-align: left; 
+            text-align: left;
             padding: 12px 15px;
             border-bottom: 1px solid #ddd;
         }
@@ -29,18 +56,26 @@
             color: #333;
         }
         tr:hover { 
-            background-color: #f5f5f5; 
+            background-color: #f5f5f5;
+        }
+        .checkbox-cell {
+            width: 40px;
+            text-align: center;
+        }
+        input[type="checkbox"] {
+            transform: scale(1.2);
+            cursor: pointer;
         }
         a { 
-            text-decoration: none; 
+            text-decoration: none;
             color: #0066cc;
             font-weight: 500;
         }
         a:hover { 
-            text-decoration: underline; 
+            text-decoration: underline;
         }
         .file-size { 
-            text-align: right; 
+            text-align: right;
             font-family: monospace;
             color: #555;
         }
@@ -63,9 +98,21 @@
     <div class="container">
         <h1>Available Files for "{{ resource }}"</h1>
         {% if files %}
+        <div class="controls">
+            <div class="select-all-container">
+                <label>
+                    <input type="checkbox" id="selectAll"> Select All Files
+                </label>
+            </div>
+            <button id="downloadSelected" disabled>Download Selected Files</button>
+            <span id="selectedCount">0 files selected</span>
+        </div>
         <table>
             <thead>
                 <tr>
+                    <th class="checkbox-cell">
+                        <input type="checkbox" id="headerCheckbox">
+                    </th>
                     <th>Filename</th>
                     <th class="file-size">Size</th>
                     <th>Modified</th>
@@ -74,6 +121,9 @@
             <tbody>
                 {% for file in files %}
                 <tr>
+                    <td class="checkbox-cell">
+                        <input type="checkbox" class="file-checkbox" data-url="{{ file.url }}" data-name="{{ file.name }}">
+                    </td>
                     <td><a href="{{ file.url }}" title="{{ file.name }}">{{ file.name }}</a></td>
                     <td class="file-size">{{ file.size|filesizeformat }}</td>
                     <td class="file-modified">{{ file.modified }}</td>
@@ -85,5 +135,84 @@
         <p class="no-files">No files found for this resource.</p>
         {% endif %}
     </div>
+
+    <script>
+        // Get all checkboxes and buttons
+        const headerCheckbox = document.getElementById('headerCheckbox');
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const fileCheckboxes = document.querySelectorAll('.file-checkbox');
+        const downloadButton = document.getElementById('downloadSelected');
+        const selectedCount = document.getElementById('selectedCount');
+
+        // Function to update selected count and button state
+        function updateSelection() {
+            const selected = document.querySelectorAll('.file-checkbox:checked');
+            selectedCount.textContent = `${selected.length} file${selected.length !== 1 ? 's' : ''} selected`;
+            downloadButton.disabled = selected.length === 0;
+            
+            // Update header checkbox state
+            if (fileCheckboxes.length === 0) {
+                headerCheckbox.checked = false;
+                headerCheckbox.indeterminate = false;
+            } else if (selected.length === 0) {
+                headerCheckbox.checked = false;
+                headerCheckbox.indeterminate = false;
+            } else if (selected.length === fileCheckboxes.length) {
+                headerCheckbox.checked = true;
+                headerCheckbox.indeterminate = false;
+            } else {
+                headerCheckbox.checked = false;
+                headerCheckbox.indeterminate = true;
+            }
+            
+            // Sync select all checkbox
+            selectAllCheckbox.checked = headerCheckbox.checked;
+            selectAllCheckbox.indeterminate = headerCheckbox.indeterminate;
+        }
+
+        // Header checkbox toggle
+        headerCheckbox.addEventListener('change', function() {
+            const isChecked = this.checked;
+            fileCheckboxes.forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+            updateSelection();
+        });
+
+        // Select all checkbox toggle
+        selectAllCheckbox.addEventListener('change', function() {
+            const isChecked = this.checked;
+            fileCheckboxes.forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+            updateSelection();
+        });
+
+        // Individual checkbox changes
+        fileCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', updateSelection);
+        });
+
+        // Download selected files
+        downloadButton.addEventListener('click', function() {
+            const selected = document.querySelectorAll('.file-checkbox:checked');
+            selected.forEach(checkbox => {
+                const url = checkbox.dataset.url;
+                const name = checkbox.dataset.name;
+                
+                // Create a temporary link to trigger download
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = name;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+        });
+
+        // Initialize selection state
+        updateSelection();
+    </script>
 </body>
 </html>
