@@ -134,6 +134,7 @@ add this line to /etc/fstab:
 Mount all dirs
 ```
 sudo systemctl daemon-reload
+sudo mount -a
 ```
 
 10. (Optional if using https://github.com/rkilchmn/ESP8266_zoomrec to turn on client machine based on zoomrec schedule retrieved from server)
