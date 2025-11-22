@@ -223,19 +223,29 @@ def fetch_calendar_from_html(html_body: str) -> Optional[Calendar]:
         return None
 
 def run_bot():   
-    # Load the YAML config file
-    with open( EMAIL_TYPE_PATH, 'r') as file:
-        config = yaml.safe_load(file)
+
 
     # Configure the logging
     logLevel = getattr(logging, os.getenv( "LOG_LEVEL", "INFO"), logging.INFO)
     logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logLevel)
 
-    logging.info( f"Config file {EMAIL_TYPE_PATH} found") 
+    # Load the YAML config file
+    with open( EMAIL_TYPE_PATH, 'r') as file:
+        config = yaml.safe_load(file)
+
+    logging.info( f"Config file {EMAIL_TYPE_PATH} read") 
 
     # Loop and evaluate every new message based on the configuration
     while True:
         try:
+            # Load the YAML config file every time before processing as it might have been updated
+            with open( EMAIL_TYPE_PATH, 'r') as file:
+                new_config = yaml.safe_load(file)
+
+            if config != new_config:
+                config = new_config
+                logging.info( f"Config file {EMAIL_TYPE_PATH} was updated") 
+
             # Connect to IMAP server
             imap = imaplib.IMAP4(IMAP_SERVER, IMAP_PORT)
             resp, caps = imap.capability()
