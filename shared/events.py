@@ -75,17 +75,23 @@ class EventField(Enum):
 
 class EventInstructionProcess(Enum):
     RECORD = "record"
-    POSTPROCESS = "postprocess"
+    JOIN = "join"
 class EventInstructionPostprocess(Enum):
     TRANSCRIBE = "transcribe"
-    TRANSLATE = "translate"
     UPLOAD = "upload"
     CUSTOM = "custom"
     ACCESS = "access"
 
-# Constants for instruction keys
+# instructions for process
+INSTRUCTION_JOIN_DISPLAY_NAME = "display-name"
+
+# Constants for postprocess instruction keys
+
 # Upload keys
 INSTRUCTION_UPLOAD_KEY_DELETE = "delete"
+
+# transcribe keys
+INSTRUCTION_TRANSCRIBE_KEY_LANGUAGE = "language"
 
 # Access configuration keys
 INSTRUCTION_ACCESS_HTTP_SERVER = "http-server-access"

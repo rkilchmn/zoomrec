@@ -13,7 +13,7 @@ from pathlib import Path
 from datetime import datetime
 import asyncio
 
-from shared.events import Events, EventType, EventField, EventStatus, EventInstructionAttribute, EventInstructionProcess  
+from shared.events import Events, EventType, EventField, EventStatus, EventInstructionAttribute, EventInstructionProcess, INSTRUCTION_JOIN_DISPLAY_NAME
 from shared.events_api import EventAPI
 from shared.utilities import start_debug, end_process, convert_to_safe_filename, create_unique_filename, start_logging, format_template
 import shared.constants as constants
@@ -248,10 +248,22 @@ async def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lea
                 time.sleep(1)
 
             logging.info("Zoom started!")
+
+            # get instructions for process
+            process_instructions = Events.get_instruction_attribute(EventInstructionAttribute.PROCESS, event) 
+            display_name = DISPLAY_NAME  # Default value
+            if isinstance(process_instructions, list):
+                for step in process_instructions:
+                    if isinstance(step, dict) and EventInstructionProcess.JOIN.value in step:
+                        join_config = step[EventInstructionProcess.JOIN.value]
+                        if (isinstance(join_config, dict) and 
+                            INSTRUCTION_JOIN_DISPLAY_NAME in join_config):
+                            display_name = join_config[INSTRUCTION_JOIN_DISPLAY_NAME]
+                            break
             
             variables = {
                 constants.AUTOMATION_VARIABLE_MEET_ID: meet_id,
-                constants.AUTOMATION_VARIABLE_DISPLAY_NAME: DISPLAY_NAME,
+                constants.AUTOMATION_VARIABLE_DISPLAY_NAME: display_name,
                 constants.AUTOMATION_VARIABLE_PASSWORD: meet_pw,
                 constants.AUTOMATION_VARIABLE_HOST_ENDED_MEETING: False
             }
@@ -285,8 +297,8 @@ async def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lea
             meeting_joined = Events.now(event)
             logging.info(f"Joined meeting at {meeting_joined.strftime(constants.DATETIME_FORMAT)}")
 
-            process = Events.get_instruction_attribute(EventInstructionAttribute.PROCESS, event)       
-            should_record = any(isinstance(step, dict) and EventInstructionProcess.RECORD.value in step for step in process) if isinstance(process, list) else False
+            # check process instructions for recording
+            should_record = any(isinstance(step, dict) and EventInstructionProcess.RECORD.value in step for step in process_instructions) if isinstance(process_instructions, list) else False
             recording_basename = None
             if should_record:
                 basename_template = os.getenv('BASENAME_TEMPLATE', constants.DEFAULT_BASENAME_TEMPLATE)

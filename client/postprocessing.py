@@ -18,7 +18,8 @@ with workflow.unsafe.imports_passed_through():
         Events, EventField, EventStatus, EventInstructionAttribute, EventInstructionPostprocess,
         INSTRUCTION_UPLOAD_KEY_DELETE, INSTRUCTION_ACCESS_HTTP_SERVER,
         INSTRUCTION_ACCESS_KEY, INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS,
-        INSTRUCTION_ACCESS_NOTIFY_USER, INSTRUCTION_ACCESS_ADDITIONAL_EMAILS
+        INSTRUCTION_ACCESS_NOTIFY_USER, INSTRUCTION_ACCESS_ADDITIONAL_EMAILS,
+        INSTRUCTION_TRANSCRIBE_KEY_LANGUAGE
     )
     from shared.events_api import EventAPI
     from shared.users import UserField
@@ -79,7 +80,6 @@ _temporal_client = None
 def postprocess_order(step):
     EXECUTION_ORDER = [
         EventInstructionPostprocess.TRANSCRIBE.value,
-        EventInstructionPostprocess.TRANSLATE.value,
         EventInstructionPostprocess.CUSTOM.value,
         EventInstructionPostprocess.UPLOAD.value,
         EventInstructionPostprocess.ACCESS.value,
@@ -314,9 +314,10 @@ class PostprocessWorkflow:
             for key, value in step.items():
                 match key:
                     case EventInstructionPostprocess.TRANSCRIBE.value:
-                        command = f"{SCRIPT_DIR}/transcribe_video.sh {key} {filename_postprocess}"
-                    case EventInstructionPostprocess.TRANSLATE.value:
-                        command = f"{SCRIPT_DIR}/transcribe_video.sh {key}={value['language'] if 'language' in value else 'en'} {filename_postprocess}"
+                        if INSTRUCTION_TRANSCRIBE_KEY_LANGUAGE in value:
+                            command = f"{SCRIPT_DIR}/transcribe_video.sh {key}={value[INSTRUCTION_TRANSCRIBE_KEY_LANGUAGE]} {filename_postprocess}"
+                        else:
+                            command = f"{SCRIPT_DIR}/transcribe_video.sh {key} {filename_postprocess}"
                     case EventInstructionPostprocess.UPLOAD.value:
                         if SSH_SERVER_URL:
                             user_login = await workflow.execute_activity(
