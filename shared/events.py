@@ -91,7 +91,8 @@ INSTRUCTION_JOIN_DISPLAY_NAME = "display-name"
 INSTRUCTION_UPLOAD_KEY_DELETE = "delete"
 
 # transcribe keys
-INSTRUCTION_TRANSCRIBE_KEY_LANGUAGE = "language"
+INSTRUCTION_TRANSCRIBE_TASK = "task"
+INSTRUCTION_TRANSCRIBE_SOURCE_LANGUAGE = "source-language"
 
 # Access configuration keys
 INSTRUCTION_ACCESS_HTTP_SERVER = "http-server-access"

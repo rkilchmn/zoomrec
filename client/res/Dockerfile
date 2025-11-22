@@ -313,7 +313,7 @@ RUN pip install --break-system-packages --no-cache-dir -e .
 COPY client/res/*.html ${HOME}/client/res/
     
 # automation folder
-COPY client/res/home/automation ${HOME}/automation/
+COPY client/res/automation ${HOME}/automation/
 
 # vaapi test scripts
 ADD client/res/test_vaapi.sh ${HOME}/

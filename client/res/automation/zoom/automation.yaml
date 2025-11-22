@@ -211,8 +211,6 @@ check_meeting_ended: &check_meeting_ended
 close_message_info_is_here: &close_message_info_is_here
   locate_image: 
     image: 'message_meeting_info_is_here.png'
-    iterate: 3
-    sleep: 1
     #  set these variables: variables[name].center_x, `center_y, width, height, left, top, right, bottom
     set_variable: "message_meeting_info_is_here"
     on_error: "True" # no message shown, continue meeting
@@ -220,14 +218,12 @@ close_message_info_is_here: &close_message_info_is_here
       # click close icon
       locate_image: 
         image: 'message_close_icon.png'
-        iterate: 3
-        sleep: 1
         click: "True"  # default is "False"
         region:
           top_left_x:  variables['message_meeting_info_is_here'].center_x
-          top_left_y:  variables['message_meeting_info_is_here'].center_y - variables['custom_message_meeting_info_is_here'].height
-          bottom_right_x: variables['message_meeting_info_is_here'].center_x + (2* variables['custom_message_meeting_info_is_here'].width)
-          bottom_right_y: variables['message_meeting_info_is_here'].center_y + variables['custom_message_meeting_info_is_here'].height
+          top_left_y:  variables['message_meeting_info_is_here'].center_y - variables['message_meeting_info_is_here'].height
+          bottom_right_x: variables['message_meeting_info_is_here'].center_x + (2* variables['message_meeting_info_is_here'].width)
+          bottom_right_y: variables['message_meeting_info_is_here'].center_y + variables['message_meeting_info_is_here'].height
         on_success: "True" # continue meeting
         on_error:   "True" # continue meeting
 
@@ -245,4 +241,4 @@ join:
 ongoing:
   # list is processed from the top until a step returns false -> meeting ended, otherwise meeting continues
   - *check_meeting_ended
-  # - *close_message_info_is_here
+  - *close_message_info_is_here

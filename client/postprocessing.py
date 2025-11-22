@@ -19,7 +19,7 @@ with workflow.unsafe.imports_passed_through():
         INSTRUCTION_UPLOAD_KEY_DELETE, INSTRUCTION_ACCESS_HTTP_SERVER,
         INSTRUCTION_ACCESS_KEY, INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS,
         INSTRUCTION_ACCESS_NOTIFY_USER, INSTRUCTION_ACCESS_ADDITIONAL_EMAILS,
-        INSTRUCTION_TRANSCRIBE_KEY_LANGUAGE
+        INSTRUCTION_TRANSCRIBE_TASK, INSTRUCTION_TRANSCRIBE_SOURCE_LANGUAGE 
     )
     from shared.events_api import EventAPI
     from shared.users import UserField
@@ -314,10 +314,20 @@ class PostprocessWorkflow:
             for key, value in step.items():
                 match key:
                     case EventInstructionPostprocess.TRANSCRIBE.value:
-                        if INSTRUCTION_TRANSCRIBE_KEY_LANGUAGE in value:
-                            command = f"{SCRIPT_DIR}/transcribe_video.sh {key}={value[INSTRUCTION_TRANSCRIBE_KEY_LANGUAGE]} {filename_postprocess}"
+                        if isinstance(value, dict):
+                            task = value.get(INSTRUCTION_TRANSCRIBE_TASK, "transcribe")
+                            source_language = value.get(INSTRUCTION_TRANSCRIBE_SOURCE_LANGUAGE)
                         else:
-                            command = f"{SCRIPT_DIR}/transcribe_video.sh {key} {filename_postprocess}"
+                            task = "transcribe"
+                            source_language = None
+
+                        if source_language:
+                            task_parma = f"{task}={source_language}"
+                        else:
+                            task_parma = task
+
+                        command = f"{SCRIPT_DIR}/transcribe_video.sh {task_parma} {filename_postprocess}"
+                                              
                     case EventInstructionPostprocess.UPLOAD.value:
                         if SSH_SERVER_URL:
                             user_login = await workflow.execute_activity(
