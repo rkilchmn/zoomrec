@@ -34,6 +34,26 @@ echo -e "\nConnect to $VNC_IP:$VNC_PORT"
 # Start xfce4
 "$START_DIR"/xfce.sh &> /home/zoomrec/data/logs/xfce.log
 
+# # Cleanup to ensure pulseaudio is stateless
+# rm -rf /var/run/pulse /var/lib/pulse /home/zoomrec/.config/pulse
+
+# # Start audio
+# pulseaudio -D --exit-idle-time=-1 --log-level=error
+
+# # Create speaker Dummy-Output
+# pactl load-module module-null-sink sink_name=speaker sink_properties=device.description="speaker" > /dev/null
+# pactl set-source-volume 1 100%
+
+# # Create microphone Dummy-Output
+# pactl load-module module-null-sink sink_name=microphone sink_properties=device.description="microphone" > /dev/null
+# pactl set-source-volume 2 100%
+
+# # Map microphone-Output to microphone-Input
+# pactl load-module module-loopback latency_msec=1 source=2 sink=microphone > /dev/null
+# pactl load-module module-remap-source master=microphone.monitor source_name=microphone source_properties=device.description="microphone" > /dev/null
+# # Set microphone Volume
+# pactl set-source-volume 3 60%
+
 # Cleanup to ensure pulseaudio is stateless
 rm -rf /var/run/pulse /var/lib/pulse /home/zoomrec/.config/pulse
 
@@ -48,9 +68,12 @@ pactl set-source-volume 1 100%
 pactl load-module module-null-sink sink_name=microphone sink_properties=device.description="microphone" > /dev/null
 pactl set-source-volume 2 100%
 
-# Map microphone-Output to microphone-Input
-pactl load-module module-loopback latency_msec=1 source=2 sink=microphone > /dev/null
+# REMOVED: garbling/loopback problem
+# pactl load-module module-loopback latency_msec=1 source=2 sink=microphone > /dev/null
+
+# Map microphone-Output to microphone-Input (this part is correct)
 pactl load-module module-remap-source master=microphone.monitor source_name=microphone source_properties=device.description="microphone" > /dev/null
+
 # Set microphone Volume
 pactl set-source-volume 3 60%
 
