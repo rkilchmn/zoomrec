@@ -15,6 +15,7 @@ import asyncio
 
 from shared.events import Events, EventType, EventField, EventStatus, EventInstructionAttribute, EventInstructionProcess, INSTRUCTION_JOIN_DISPLAY_NAME
 from shared.events_api import EventAPI
+from shared.users_api import UserAPI
 from shared.utilities import start_debug, end_process, convert_to_safe_filename, create_unique_filename, start_logging, format_template
 import shared.constants as constants
 from client.automation import Automation
@@ -311,6 +312,20 @@ async def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lea
                 filename_recording = os.path.join(REC_PATH, create_unique_filename(REC_PATH, recording_basename, constants.VIDEO_EXTENSION))
 
                 ffmpeg_recording_proc = start_recording(filename_recording)
+                if ffmpeg_recording_proc is None:
+                    try:
+                        user_key = event.get('user_key')
+                        if user_key:
+                            with UserAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as user_api:
+                                user_api.notify(
+                                    user_key=user_key,
+                                    message=f"⚠️ Failed to start recording for event: {Events.nameStr(event)}",
+                                    subject="⚠️ Recording Failed"
+                                )
+                        else:
+                            logging.error("No user_key found in event for notification")
+                    except Exception as e:
+                        logging.error(f"Error sending recording failure notification: {e}")
 
             # update event
             try:
