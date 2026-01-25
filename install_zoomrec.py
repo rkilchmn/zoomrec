@@ -76,6 +76,7 @@ def setup_user(zoomrec_home):
         logging.info("# Add user to docker group")
         logging.info(f"sudo usermod -aG docker {ZOOMREC_USER}")
         logging.info("=================================")
+        logging.info(f"After user '{ZOOMREC_USER}' is created, switch to user '{ZOOMREC_USER}', clone the repo and rerun the install script.")
         return False
 
 def setup_client(zoomrec_home, acceleration):
