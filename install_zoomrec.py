@@ -10,8 +10,7 @@ from shared.constants import (
     CONFIG_DIR, SFTP_CONFIG_DIR, AUTOMATION_DIR, IMG_DIR, AUDIO_DIR,
     RECORDINGS_DIR, LOG_DIR, SCREENSHOT_DIR, SFTP_KNOWN_HOSTS_FILE,
     SFTP_HOST_KEY_FILE, SFTP_ADMIN_USER_IDENTITY_FILE, ARDUINO_FIRMWARE_DIR,
-    ARDUINO_CONFIG_DIR, SFTP_DATA_PATH, SFTP_ADMIN_USERNAME, EMAIL_CONFIG_FILE,
-    ZOOMREC_USER, DEFAULT_ZOOMREC_USER_GID
+    ARDUINO_CONFIG_DIR, SFTP_DATA_PATH, SFTP_ADMIN_USERNAME, EMAIL_CONFIG_FILE, ZOOMREC_USER, DEFAULT_ZOOMREC_USER_GID
 )
 
 def copy_if_not_exists(src, dst):
@@ -32,7 +31,7 @@ def show_help():
     print(f"Usage: {sys.argv[0]} <ZOOMREC_HOME> <TYPE> [ACCELERATION]")
     print("")
     print("Parameters:")
-    print("  ZOOMREC_HOME   Path to install/setup {ZOOMREC_USER} (e.g., /home/{ZOOMREC_USER})")
+    print(f"  ZOOMREC_HOME   Path to install/setup {ZOOMREC_USER} (e.g., /home/{ZOOMREC_USER})")
     print("  COMPONENT      CLIENT | SERVER | BOTH")
     print("  ACCELERATION   VAAPI | NVIDIA | (blank for none)")
     print("")
@@ -64,17 +63,17 @@ def setup_user(zoomrec_home):
     """Create zoomrec user if not exists and set up groups."""
     try:
         pwd.getpwnam(ZOOMREC_USER)
-        logging.info("User '{ZOOMREC_USER}' exists.")
+        logging.info(f"User '{ZOOMREC_USER}' exists.")
         return True
     except KeyError:
         ZOOMREC_USER_GID = os.getenv('ZOOMREC_USER_GID',DEFAULT_ZOOMREC_USER_GID)
-        logging.info("User '{ZOOMREC_USER}' does not exist. It needs to be created manually:")
+        logging.info(f"User '{ZOOMREC_USER}' does not exist. It needs to be created manually:")
         logging.info("=== User Setup (requires sudo) ===")
-        logging.info("# Create {ZOOMREC_USER} user and set password:")
+        logging.info(f"# Create {ZOOMREC_USER} user and set password:")
         logging.info(f"sudo useradd -s /bin/bash -d \"{zoomrec_home}\" -m -u {ZOOMREC_USER_GID} -g {ZOOMREC_USER}")
-        logging.info("sudo passwd {ZOOMREC_USER}")
+        logging.info(f"sudo passwd {ZOOMREC_USER}")
         logging.info("# Add user to docker group")
-        logging.info("sudo usermod -aG docker {ZOOMREC_USER}")
+        logging.info(f"sudo usermod -aG docker {ZOOMREC_USER}")
         logging.info("=================================")
         return False
 
@@ -120,7 +119,7 @@ def setup_client(zoomrec_home, acceleration):
     # check admin private key
     admin_key_path = os.path.join(zoomrec_home, SFTP_ADMIN_USER_IDENTITY_FILE)
     if not os.path.exists(admin_key_path):
-        logging.info("SFTP admin private key not found. Copy it from the server to {admin_key_path} and rerun the install script to verify this error is resolved.")
+        logging.info(f"SFTP admin private key not found. Copy it from the server to {admin_key_path} and rerun the install script to verify this error is resolved.")
 
     # Copy example files
     copy_if_not_exists('example/.env', os.path.join(zoomrec_home, '.env'))
@@ -129,9 +128,9 @@ def setup_client(zoomrec_home, acceleration):
 
     if acceleration == "VAAPI":
         logging.info("=== VAAPI Acceleration Setup (requires root) ===")
-        logging.info("# Add '{ZOOMREC_USER}' user to video and render groups for VAAPI acceleration:")
-        logging.info("sudo usermod -aG video {ZOOMREC_USER}")
-        logging.info("sudo usermod -aG render {ZOOMREC_USER}")
+        logging.info(f"# Add '{ZOOMREC_USER}' user to video and render groups for VAAPI acceleration:")
+        logging.info(f"sudo usermod -aG video {ZOOMREC_USER}")
+        logging.info(f"sudo usermod -aG render {ZOOMREC_USER}")
         logging.info("==========================================")
 
 def setup_server(zoomrec_home):
