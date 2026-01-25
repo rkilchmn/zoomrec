@@ -1,4 +1,5 @@
 # because server uses sftp server, where we setup dummy user above 2000 which is the range for special accounts/automated accounts
+ZOOMREC_USER = 'zoomrec'
 DEFAULT_ZOOMREC_USER_GID = 1999 
 
 # date and time
