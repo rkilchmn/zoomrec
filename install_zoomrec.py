@@ -71,7 +71,7 @@ def setup_user(zoomrec_home):
         logging.info(f"User '{ZOOMREC_USER}' does not exist. It needs to be created manually:")
         logging.info("=== User Setup (requires sudo) ===")
         logging.info(f"# Create {ZOOMREC_USER} user and set password:")
-        logging.info(f"sudo useradd -s /bin/bash -d \"{zoomrec_home}\" -m -u {ZOOMREC_USER_GID} -g {ZOOMREC_USER}")
+        logging.info(f"sudo useradd -s /bin/bash -d \"{zoomrec_home}\" -m -u {ZOOMREC_USER_GID} -U {ZOOMREC_USER}")
         logging.info(f"sudo passwd {ZOOMREC_USER}")
         logging.info("# Add user to docker group")
         logging.info(f"sudo usermod -aG docker {ZOOMREC_USER}")
