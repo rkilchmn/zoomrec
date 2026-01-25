@@ -11,7 +11,7 @@ from shared.constants import (
     RECORDINGS_DIR, LOG_DIR, SCREENSHOT_DIR, SFTP_KNOWN_HOSTS_FILE,
     SFTP_HOST_KEY_FILE, SFTP_ADMIN_USER_IDENTITY_FILE, ARDUINO_FIRMWARE_DIR,
     ARDUINO_CONFIG_DIR, SFTP_DATA_PATH, SFTP_ADMIN_USERNAME, EMAIL_CONFIG_FILE,
-    ZOOMREC_USER,DEFAULT_ZOOMREC_USER_GID
+    ZOOMREC_USER, DEFAULT_ZOOMREC_USER_GID
 )
 
 def copy_if_not_exists(src, dst):
@@ -32,12 +32,12 @@ def show_help():
     print(f"Usage: {sys.argv[0]} <ZOOMREC_HOME> <TYPE> [ACCELERATION]")
     print("")
     print("Parameters:")
-    print("  ZOOMREC_HOME   Path to install/setup zoomrec (e.g., /home/zoomrec)")
+    print("  ZOOMREC_HOME   Path to install/setup {ZOOMREC_USER} (e.g., /home/{ZOOMREC_USER})")
     print("  COMPONENT      CLIENT | SERVER | BOTH")
     print("  ACCELERATION   VAAPI | NVIDIA | (blank for none)")
     print("")
     print("Example:")
-    print(f"  {sys.argv[0]} /home/zoomrec BOTH VAAPI")
+    print(f"  {sys.argv[0]} /home/{ZOOMREC_USER} BOTH VAAPI")
     sys.exit(1)
 
 def validate_args():
@@ -63,18 +63,18 @@ def validate_args():
 def setup_user(zoomrec_home):
     """Create zoomrec user if not exists and set up groups."""
     try:
-        pwd.getpwnam('zoomrec')
-        logging.info("User 'zoomrec' exists.")
+        pwd.getpwnam(ZOOMREC_USER)
+        logging.info("User '{ZOOMREC_USER}' exists.")
         return True
     except KeyError:
         ZOOMREC_USER_GID = os.getenv('ZOOMREC_USER_GID',DEFAULT_ZOOMREC_USER_GID)
-        logging.info("User 'zoomrec' does not exist. It needs to be created manually:")
+        logging.info("User '{ZOOMREC_USER}' does not exist. It needs to be created manually:")
         logging.info("=== User Setup (requires sudo) ===")
-        logging.info("# Create zoomrec user and set password:")
-        logging.info(f"sudo useradd -s /bin/bash -d \"{zoomrec_home}\" -m -u {ZOOMREC_USER_GID} -g zoomrec")
-        logging.info("sudo passwd zoomrec")
+        logging.info("# Create {ZOOMREC_USER} user and set password:")
+        logging.info(f"sudo useradd -s /bin/bash -d \"{zoomrec_home}\" -m -u {ZOOMREC_USER_GID} -g {ZOOMREC_USER}")
+        logging.info("sudo passwd {ZOOMREC_USER}")
         logging.info("# Add user to docker group")
-        logging.info("sudo usermod -aG docker zoomrec")
+        logging.info("sudo usermod -aG docker {ZOOMREC_USER}")
         logging.info("=================================")
         return False
 
@@ -129,9 +129,9 @@ def setup_client(zoomrec_home, acceleration):
 
     if acceleration == "VAAPI":
         logging.info("=== VAAPI Acceleration Setup (requires root) ===")
-        logging.info("# Add zoomrec user to video and render groups for VAAPI acceleration:")
-        logging.info("sudo usermod -aG video zoomrec")
-        logging.info("sudo usermod -aG render zoomrec")
+        logging.info("# Add '{ZOOMREC_USER}' user to video and render groups for VAAPI acceleration:")
+        logging.info("sudo usermod -aG video {ZOOMREC_USER}")
+        logging.info("sudo usermod -aG render {ZOOMREC_USER}")
         logging.info("==========================================")
 
 def setup_server(zoomrec_home):
@@ -186,9 +186,9 @@ def setup_server(zoomrec_home):
     
     # Command to copy the admin's private key
     admin_key_path = os.path.join(zoomrec_home, SFTP_ADMIN_USER_IDENTITY_FILE)
-    logging.info("# Copy zoomrec admin's private key (run as root):")
+    logging.info("# Copy 'zoomrec' admin's private key (run as root):")
     logging.info(f"sudo cp {SFTP_DATA_PATH}/{SFTP_ADMIN_USERNAME}/.ssh/id_rsa {admin_key_path}")
-    logging.info(f"sudo chown zoomrec:zoomrec {admin_key_path}")
+    logging.info(f"sudo chown {ZOOMREC_USER}:{ZOOMREC_USER} {admin_key_path}")
     logging.info(f"chmod 600 {admin_key_path}")
     logging.info("===========================================")
 
@@ -211,7 +211,7 @@ def main():
             setup_client(zoomrec_home, acceleration)
 
         # # Set final permissions
-        # os.system(f'chown -R zoomrec:zoomrec {zoomrec_home}')
+        # os.system(f'chown -R {ZOOMREC_USER}:{ZOOMREC_USER} {zoomrec_home}')
         # os.system(f'chmod -R 755 {zoomrec_home}')
 
         logging.info("Setup complete.")
