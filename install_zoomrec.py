@@ -10,7 +10,8 @@ from shared.constants import (
     CONFIG_DIR, SFTP_CONFIG_DIR, AUTOMATION_DIR, IMG_DIR, AUDIO_DIR,
     RECORDINGS_DIR, LOG_DIR, SCREENSHOT_DIR, SFTP_KNOWN_HOSTS_FILE,
     SFTP_HOST_KEY_FILE, SFTP_ADMIN_USER_IDENTITY_FILE, ARDUINO_FIRMWARE_DIR,
-    ARDUINO_CONFIG_DIR, SFTP_DATA_PATH, SFTP_ADMIN_USERNAME, EMAIL_CONFIG_FILE
+    ARDUINO_CONFIG_DIR, SFTP_DATA_PATH, SFTP_ADMIN_USERNAME, EMAIL_CONFIG_FILE,
+    ZOOMREC_USER,DEFAULT_ZOOMREC_USER_GID
 )
 
 def copy_if_not_exists(src, dst):
@@ -66,16 +67,16 @@ def setup_user(zoomrec_home):
         logging.info("User 'zoomrec' exists.")
         return True
     except KeyError:
-        ZOOMREC_USER_GID = os.getenv('ZOOMREC_USER_GID')
+        ZOOMREC_USER_GID = os.getenv('ZOOMREC_USER_GID',DEFAULT_ZOOMREC_USER_GID)
         logging.info("User 'zoomrec' does not exist. It needs to be created manually:")
         logging.info("=== User Setup (requires sudo) ===")
         logging.info("# Create zoomrec user and set password:")
         logging.info(f"sudo useradd -s /bin/bash -d \"{zoomrec_home}\" -m -u {ZOOMREC_USER_GID} -g zoomrec")
         logging.info("sudo passwd zoomrec")
         logging.info("# Add user to docker group")
-        logging.info("# sudo usermod -aG docker zoomrec")
+        logging.info("sudo usermod -aG docker zoomrec")
         logging.info("=================================")
-        return True
+        return False
 
 def setup_client(zoomrec_home, acceleration):
     """Set up client components."""
@@ -195,13 +196,13 @@ def main():
     # Get and validate command line arguments
     zoomrec_home, component, acceleration = validate_args()
     logging.info("")
-    logging.info(f"Setting up zoomrec environment at {zoomrec_home}")
-
-    # Create base directory
-    os.makedirs(zoomrec_home, exist_ok=True)
 
     # Set up user and groups
     if setup_user(zoomrec_home):
+        logging.info(f"Setting up zoomrec environment at {zoomrec_home}")
+
+        # Create base directory
+        os.makedirs(zoomrec_home, exist_ok=True)
         
         if component in ["SERVER", "BOTH"]:
             setup_server(zoomrec_home)

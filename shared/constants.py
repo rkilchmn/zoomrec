@@ -1,3 +1,7 @@
+# because server uses sftp server, where we setup dummy user above 2000 which is the range for special accounts/automated accounts
+DEFAULT_ZOOMREC_USER_GID = 1999 
+
+# date and time
 DATE_FORMAT = '%d/%m/%Y'
 TIME_FORMAT = '%H:%M'
 DATETIME_FORMAT = DATE_FORMAT + ' ' + TIME_FORMAT
