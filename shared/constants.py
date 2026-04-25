@@ -54,6 +54,8 @@ SFTP_RECORDINGS_DIR = 'recordings'
 
 # recording
 VIDEO_EXTENSION = 'mp4'
+MIN_FREE_DISK_SPACE = 'MIN_FREE_DISK_SPACE'
+DEFAULT_MIN_FREE_DISK_SPACE = '5 GB'
 DEFAULT_BASENAME_TEMPLATE = "{title}-{dtstart_instance:%Y%m%d_%H%M}"
 DEFAULT_BASENAME_JOIN_TEMPLATE = "{title}-JOIN-{dtstart_instance:%Y%m%d_%H%M}"
 

@@ -1,5 +1,6 @@
 import logging
 import os
+import psutil
 import re
 import traceback
 import sys
@@ -7,8 +8,11 @@ import debugpy
 import signal
 from datetime import datetime
 from typing import Any, Dict, Optional, Match
+from humanfriendly import parse_size
 
 from . import constants
+from .users_api import UserAPI
+from .events import Events
 
 # Pre-compile regex pattern for better performance
 _TEMPLATE_PATTERN = re.compile(r'\{(?P<field>[a-zA-Z0-9_.]+)(?::(?P<format>[^}]*))?\}')
@@ -192,6 +196,50 @@ def format_template(
     # Restore escaped braces if needed
     if '\x00' in result or '\x01' in result:
         result = result.replace('\x00', '{').replace('\x01', '}')
-    
+
     return result
+
+def notify_low_disk_space(user_key, check_path, min_disk_size, context, server_url, server_username, server_password):
+    """Check free disk space and notify user if below threshold.
+
+    Args:
+        user_key (str): User key for notification.
+        check_path (str): Path to the directory to check.
+        min_disk_size (str): Minimum free disk space as human-readable string (e.g. '5 GB').
+        context (str): Context string for logging/notification (e.g. event name).
+        server_url (str): Server URL for UserAPI.
+        server_username (str): Server username for UserAPI.
+        server_password (str): Server password for UserAPI.
+
+    Parses min_disk_size to bytes and checks if free space is below threshold.
+    """
+    try:
+        min_free_space_bytes = parse_size(min_disk_size)
+    except Exception:
+        logging.error(f"Invalid min_disk_size value '{min_disk_size}'. Skipping disk space check.")
+        return
+
+    try:
+        disk_usage = psutil.disk_usage(check_path)
+        if disk_usage.free < min_free_space_bytes:
+            free_gb = disk_usage.free / (1024 ** 3)
+            threshold_gb = min_free_space_bytes / (1024 ** 3)
+            warning_msg = (
+                f"⚠️ Low disk space: only {free_gb:.2f} GB free "
+                f"(threshold: {threshold_gb:.2f} GB) on {check_path}. "
+                f"{context}."
+            )
+            logging.warning(warning_msg)
+            try:
+                if user_key:
+                    with UserAPI(server_url, server_username, server_password) as user_api:
+                        user_api.notify(
+                            user_key=user_key,
+                            message=warning_msg,
+                            subject="⚠️ Low Disk Space Warning"
+                        )
+            except Exception as e:
+                logging.error(f"Error sending low disk space notification: {e}")
+    except Exception as e:
+        logging.error(f"Error checking disk space: {e}")
         

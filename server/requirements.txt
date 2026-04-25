@@ -8,6 +8,8 @@ gunicorn
 flask
 flask-basicauth
 python-dateutil
+psutil
+humanfriendly
 shortuuid
 ics
 pam

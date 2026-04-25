@@ -1,7 +1,7 @@
 from errno import ELIBACC
 import logging
 import os
-import psutil 
+import psutil
 import random
 import signal
 import subprocess
@@ -16,7 +16,7 @@ import asyncio
 from shared.events import Events, EventType, EventField, EventStatus, EventInstructionAttribute, EventInstructionProcess, INSTRUCTION_JOIN_DISPLAY_NAME
 from shared.events_api import EventAPI
 from shared.users_api import UserAPI
-from shared.utilities import start_debug, end_process, convert_to_safe_filename, create_unique_filename, start_logging, format_template
+from shared.utilities import start_debug, end_process, convert_to_safe_filename, create_unique_filename, start_logging, format_template, notify_low_disk_space
 import shared.constants as constants
 from client.automation import Automation
 from client.postprocessing import schedulePostprocess
@@ -302,6 +302,10 @@ async def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lea
             should_record = any(isinstance(step, dict) and EventInstructionProcess.RECORD.value in step for step in process_instructions) if isinstance(process_instructions, list) else False
             recording_basename = None
             if should_record:
+                min_disk_size = os.getenv(constants.MIN_FREE_DISK_SPACE, constants.DEFAULT_MIN_FREE_DISK_SPACE)
+                context = f"Recording for {Events.nameStr(event)} may be impacted."
+                notify_low_disk_space(event.get('user_key'), REC_PATH, min_disk_size, context, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
+
                 basename_template = os.getenv('BASENAME_TEMPLATE', constants.DEFAULT_BASENAME_TEMPLATE)
                 # Generate basename using the template
                 recording_basename = format_template(
