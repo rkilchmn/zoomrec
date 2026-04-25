@@ -489,6 +489,66 @@ class Automation:
                     return self.execute_operation(breadcrumbs, on_error, variables)
             return False
             
+    def execute_check_variable(self, breadcrumbs, check_variable, variables=None):
+        """
+        Execute a check_variable operation
+        
+        Args:
+            breadcrumbs: String tracking execution path
+            check_variable: Dictionary containing check_variable configuration
+            variables: Dictionary of variables to check against
+            
+        Returns:
+            Result based on success or failure of the condition
+        """
+        if variables is None:
+            variables = {}
+        
+        name = check_variable.get('name')
+        result_expr = check_variable.get('result')
+        
+        # Process template variables in result expression if it's a string
+        if isinstance(result_expr, str):
+            result_expr = self.process_template_vars(result_expr, variables)
+        
+        breadcrumbs += f"/CheckVariable[{name}={result_expr}]"
+        logging.debug(f"{breadcrumbs}")
+        
+        try:
+            # Evaluate the result expression
+            result = bool(eval(str(result_expr), {}, variables))
+            logging.debug(f"Checked variable '{name}': {result_expr} -> {result}")
+            
+            if result:
+                # Handle on_success
+                on_success = check_variable.get('on_success')
+                if on_success is not None:
+                    if isinstance(on_success, str):
+                        return self.str_to_bool(on_success)
+                    elif isinstance(on_success, dict):
+                        return self.execute_operation(breadcrumbs, on_success, variables)
+                return True
+            else:
+                # Handle on_error
+                on_error = check_variable.get('on_error')
+                if on_error is not None:
+                    if isinstance(on_error, str):
+                        return self.str_to_bool(on_error)
+                    elif isinstance(on_error, dict):
+                        return self.execute_operation(breadcrumbs, on_error, variables)
+                return False
+                
+        except Exception as e:
+            logging.error(f"Error checking variable '{name}' with expression '{result_expr}': {e}", exc_info=True)
+            # Handle error case
+            on_error = check_variable.get('on_error')
+            if on_error is not None:
+                if isinstance(on_error, str):
+                    return self.str_to_bool(on_error)
+                elif isinstance(on_error, dict):
+                    return self.execute_operation(breadcrumbs, on_error, variables)
+            return False
+
     def execute_operation(self, breadcrumbs, operation, variables=None):
         """
         Execute a YAML operation based on its type
@@ -512,6 +572,8 @@ class Automation:
             return self.execute_play_audio(breadcrumbs, operation.get('play_audio'), variables)
         elif 'set_variable' in operation:
             return self.execute_set_variable(breadcrumbs, operation.get('set_variable'), variables)
+        elif 'check_variable' in operation:
+            return self.execute_check_variable(breadcrumbs, operation.get('check_variable'), variables)
         else:
             # For nested operations, try to process each key
             for key, value in operation.items():

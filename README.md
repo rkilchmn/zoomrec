@@ -23,9 +23,18 @@ Planned version 2 features: (note: features completed have only undergone basic 
 
 ## Quickstart
 
+0. Install git and python virtual env
+
+   ```
+   sudo apt update
+   sudo apt install git python3-venv
+   ```  
+
 1. Create python environment, activate it and install dependencies:
 
    ```
+   cd ~
+   git clone https://github.com/zoomrec/zoomrec.git
    python3 -m venv venv
    source venv/bin/activate
    pip install --upgrade pip
