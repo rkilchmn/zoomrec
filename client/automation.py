@@ -19,7 +19,7 @@ class Automation:
     Class for handling YAML configuration operations automation.
     """
     
-    def __init__(self, default_path, config_path=None, audio_path=None, screenshot_path=None):
+    def __init__(self, default_path, config_path=None, audio_path=None, screenshot_path=None, event_basename=None):
         """
         Initialize the Automation class
         
@@ -34,6 +34,7 @@ class Automation:
         self.config_path = os.path.abspath(config_path) if config_path else None
         self.audio_path = os.path.abspath(audio_path) if audio_path else None
         self.screenshot_path = screenshot_path
+        self.event_basename = event_basename
         
         # Import constants
         from shared import constants
@@ -207,8 +208,9 @@ class Automation:
         minSearchTime = locate_image.get('minSearchTime', 0)
         region_def = locate_image.get('region')
         set_variable = locate_image.get('set_variable')
+        debug_screenshot = locate_image.get('debug_screenshot', 'True')
 
-        breadcrumbs += f"/LocateImage:[{image}]"
+        breadcrumbs += f"/LocateImage:[{os.path.splitext(image)[0]}]"
         logging.debug(f"{breadcrumbs}")
 
         success = False
@@ -273,10 +275,13 @@ class Automation:
             return True
         else:
             # Debug screenshot
-            if logging.getLogger().level == logging.DEBUG and self.screenshot_path is not None:
+            if logging.getLogger().level == logging.DEBUG and \
+                self.screenshot_path is not None and \
+                self.event_basename is not None and \
+                debug_screenshot:
                 pyautogui.screenshot( 
                     os.path.join(self.screenshot_path, 
-                        convert_to_safe_filename(time.strftime(constants.DATETIME_FORMAT_LOG) + "-" + image)))
+                        convert_to_safe_filename(time.strftime(constants.DATETIME_FORMAT_LOG) + "_" + breadcrumbs + ".png")))
                     
             # Handle on_error or on_error
             on_error = locate_image.get('on_error')
@@ -599,7 +604,7 @@ class Automation:
             return False
         
         instruction_list = self.config[instruction_name]
-        breadcrumbs = instruction_name
+        breadcrumbs = self.event_basename + "/" + instruction_name
         # If instruction_list is a list, process each item
         result = True
         if isinstance(instruction_list, list):

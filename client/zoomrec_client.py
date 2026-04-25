@@ -277,13 +277,23 @@ async def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lea
             config_path = os.path.join(BASE_PATH, constants.CONFIG_DIR, constants.AUTOMATION_DIR, event_type_subdir)
             audio_path = os.path.join(BASE_PATH, constants.AUDIO_DIR)
             screenshot_path = os.path.join(BASE_PATH, constants.SCREENSHOT_DIR)
+
+            # Generate basename using the template
+            basename_template = os.getenv('BASENAME_TEMPLATE', constants.DEFAULT_BASENAME_TEMPLATE)
+            event_basename = format_template(
+                template=basename_template,
+                data=event
+            )
+            event_basename = convert_to_safe_filename(event_basename)
             
             # Create instance of Automation with the configured paths
             auto_yaml = Automation(
                 default_path=default_path,
                 config_path=config_path if os.path.exists(config_path) else None,
                 audio_path=audio_path if os.path.exists(audio_path) else None,
-                screenshot_path=screenshot_path
+                screenshot_path=screenshot_path,
+                event_basename=event_basename
+
             )
             # Join meeting executing automation by config
             joined = auto_yaml.execute_instruction('join', variables)
@@ -300,20 +310,12 @@ async def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lea
 
             # check process instructions for recording
             should_record = any(isinstance(step, dict) and EventInstructionProcess.RECORD.value in step for step in process_instructions) if isinstance(process_instructions, list) else False
-            recording_basename = None
             if should_record:
                 min_disk_size = os.getenv(constants.MIN_FREE_DISK_SPACE, constants.DEFAULT_MIN_FREE_DISK_SPACE)
                 context = f"Recording for {Events.nameStr(event)} may be impacted."
                 notify_low_disk_space(event.get('user_key'), REC_PATH, min_disk_size, context, SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD)
-
-                basename_template = os.getenv('BASENAME_TEMPLATE', constants.DEFAULT_BASENAME_TEMPLATE)
-                # Generate basename using the template
-                recording_basename = format_template(
-                    template=basename_template,
-                    data=event
-                )
-                recording_basename = convert_to_safe_filename(recording_basename)
-                filename_recording = os.path.join(REC_PATH, create_unique_filename(REC_PATH, recording_basename, constants.VIDEO_EXTENSION))
+                
+                filename_recording = os.path.join(REC_PATH, create_unique_filename(REC_PATH, event_basename, constants.VIDEO_EXTENSION))
 
                 ffmpeg_recording_proc = start_recording(filename_recording)
                 if ffmpeg_recording_proc is None:
