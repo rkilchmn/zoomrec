@@ -4,7 +4,7 @@ join_popup_audio_video_settings: &join_popup_audio_video_settings
     image: 'custom_audio_combination.png'
     iterate: 30   # default is 1
     sleep: 1      # default is 0
-    on_error: "True" # webinars don't show this popop, so continue
+    on_error: True # webinars don't show this popop, so continue
     on_success:
       keyboard_input: 
         sequence:
@@ -20,10 +20,10 @@ join_popup_audio_video_settings: &join_popup_audio_video_settings
 join_popup_with_name: &join_popup_with_name
   locate_image: 
     image: 'please_enter_your_name.png'
-    click: "True"  # default is "False"
+    click: True  # default is False
     iterate: 30 # zoom has started but it has to connect with URL so that might take a bit longer, default is 1
     sleep: 1 # default is 0
-    on_error: "True" # webinars don't show this popop, so continue
+    on_error: True # webinars don't show this popop, so continue
     on_success:
       keyboard_input: 
         sequence:
@@ -41,7 +41,7 @@ join_popup_with_name: &join_popup_with_name
 join_popup_with_id: &join_popup_with_id
   locate_image: 
     image: 'join_meeting_button.png'
-    click: "True"  # default is "False"
+    click: True  # default is False
     iterate: 15 # zoom is starting, give it some time for this first popoup, default is 1
     sleep: 1    # default is 0
     on_error: *join_popup_with_name
@@ -95,21 +95,21 @@ check_toolbar: &check_toolbar
     image: 'toolbar_leave.png'
     iterate: 20
     sleep: 1
-    on_success: "True" # default is "True", but explicit here for clarity
-    on_error: "True" # default is "False", but explicit here for clarity
+    on_success: True # default is True, but explicit here for clarity
+    on_error: True # default is False, but explicit here for clarity
 
 audio_mute: &audio_mute
   locate_image: 
     image: 'audio_mute.png'
-    click: "True"  # default is "False"
-    on_success: "True" # default is "True", but explicit here for clarity
-    on_error: "True" # default is "False", but explicit here for clarity
+    click: True  # default is False
+    on_success: True # default is True, but explicit here for clarity
+    on_error: True # default is False, but explicit here for clarity
 
 play_hello_audio: &play_hello_audio
   locate_image: 
     image: 'audio_unmute.png'
-    click: "True"  # default is "False"
-    on_error: "True" # continue if failed, default is "False"
+    click: True  # default is False
+    on_error: True # continue if failed, default is False
     on_success:
       # check if host has disabled the ability to unmute participants
       locate_image: 
@@ -122,13 +122,13 @@ play_hello_audio: &play_hello_audio
             image: 'stay_muted_button.png'
             iterate: 3
             sleep: 1
-            click: "True"  # default is "False"
-            on_success: "True" # could not unmute but no reason to exit join process
-            on_error:   "True" # could not unmute but no reason to exit join process  
+            click: True  # default is False
+            on_success: True # could not unmute but no reason to exit join process
+            on_error:   True # could not unmute but no reason to exit join process  
         on_error: 
           # no popup found, play audio
           play_audio: 
-            audio: 'hello.wav' # remove entry yo play random file from directory
+            audio: 'hello.wav' # remove entry to play random file from directory
             on_success: *audio_mute
             on_error: *audio_mute
 
@@ -136,44 +136,44 @@ play_hello_audio: &play_hello_audio
 waiting_for_host: &waiting_for_host
   locate_image: 
     image: 'waiting_for_host_to_start_meeting.png'
-    on_error: "True" # if image is not found, it means the meeting has started
+    on_error: True # if image is not found, it means the meeting has started
     on_success: # image found, waiting for host to start
       locate_image:
         image: 'waiting_for_host_to_start_meeting.png'
         iterate: 600         # wait for 10 minutes
-        until_found: 'False' # until image not found anymore/meeting started (success) or until max interation reached/timeout (failure),  default is 'True'
+        until_found: False # until image not found anymore/meeting started (success) or until max interation reached/timeout (failure),  default is True
         sleep: 1
 
 # click on view options fullscreen
 view_option_fullscreen: &view_option_fullscreen
   locate_image: 
     image: 'view_options.png'
-    click: "True"    # default is "False"
-    on_error: "True" # continue even if not found, default is "False"
+    click: True    # default is False
+    on_error: True # continue even if not found, default is False
     on_success: 
       locate_image: 
         image: 'view_options_fullscreen.png'
         minSearchTime: 0.5
         iterate: 5    # options menu is sliding in, so first iteration may not be there or final position
         sleep: 1         # delays next iteration by 1 sec 
-        click: "True"      # default is "False"
-        on_success: "True" # default is "True", but explicit here for clarity
-        on_error: "True"   # continue even if not found, default is "False"
+        click: True      # default is False
+        on_success: True # default is True, but explicit here for clarity
+        on_error: True   # continue even if not found, default is False
     
 # click on view options speaker view
 view_option_speaker: &view_option_speaker
   locate_image: 
     image: 'view_options.png'
-    click: "True"    # default is "False"
-    on_error: "True" # continue even if not found, default is "False"
+    click: True    # default is False
+    on_error: True # continue even if not found, default is False
     on_success: 
       locate_image: 
         image: 'view_options_speaker.png'
         iterate: 5    # options menu is sliding in, so first iteration may not be there or final position
         sleep: 1         # delays next iteration by 1 sec
-        click: "True"      # default is "False"
-        on_success: "True" # default is "True", but explicit here for clarity
-        on_error: "True"   # continue even if not found, default is "False" 
+        click: True      # default is False
+        on_success: True # default is True, but explicit here for clarity
+        on_error: True   # continue even if not found, default is False 
 
 # minimize the video panel
 minimize_video_panel: &minimize_video_panel
@@ -181,54 +181,55 @@ minimize_video_panel: &minimize_video_panel
     iterate: 5    # allow some time to display
     sleep: 1      # delays next iteration by 1 sec
     image: 'video_panel_minimize.png'
-    click: "True"     # default is "False"
-    on_error: "True" # continue even if not found, default is "False"
-    on_success: "True" # default is "True", but explicit here for clarity
+    click: True     # default is False
+    on_error: True # continue even if not found, default is False
+    on_success: True # default is True, but explicit here for clarity
 
 # check if meeting has ended
 check_meeting_ended: &check_meeting_ended
   locate_image: 
     image: 'toolbar_leave.png'
-    on_success: "True" # meeting continues
+    on_success: True # meeting continues
     on_error:
       locate_image: 
         image: 'the_host_ended_this_meeting.png'
         iterate: 2
         sleep: 1
-        on_error: "False" # meeting duration ended
+        on_error: False # meeting duration ended
         on_success: # the host ended the meeting
           set_variable:
             name: "HOST_ENDED_MEETING"
-            value: "True"
+            value: True
             on_success:
               locate_image: 
                 image: 'the_host_ended_this_meeting_close_popup.png'
-                click: "True"      # default is "False"
-                on_success: "False" # meeting has ended
-                on_error: "False" # meeting has ended
+                click: True      # default is False
+                on_success: False # meeting has ended
+                on_error: False # meeting has ended
 
 # close message info is here (if shown)
 close_message_info_is_here: &close_message_info_is_here
   locate_image: 
     image: 'message_meeting_info_is_here.png'
+    debug_screenshot: False # default is True
     #  set these variables: variables[name].center_x, `center_y, width, height, left, top, right, bottom
     set_variable: "message_meeting_info_is_here"
-    on_error: "True" # no message shown, continue meeting
+    on_error: True # no message shown, continue meeting
     on_success:
       # click close icon
       locate_image: 
         image: 'message_close_icon.png'
-        click: "True"  # default is "False"
+        click: True  # default is False
         region:
           top_left_x:  variables['message_meeting_info_is_here'].center_x
           top_left_y:  variables['message_meeting_info_is_here'].center_y - variables['message_meeting_info_is_here'].height
           bottom_right_x: variables['message_meeting_info_is_here'].center_x + (2* variables['message_meeting_info_is_here'].width)
           bottom_right_y: variables['message_meeting_info_is_here'].center_y + variables['message_meeting_info_is_here'].height
-        on_success: "True" # continue meeting
-        on_error:   "True" # continue meeting
+        on_success: True # continue meeting
+        on_error:   True # continue meeting
 
 join:
-  # list is processed from the top until a step returns false -> join failed, otherwise join successfull
+  # list is processed from the top until a step returns False -> join failed, otherwise join successfull
   - *join_popup_with_id 
   - *join_check_workplace
   - *waiting_for_host
@@ -236,9 +237,9 @@ join:
   - *view_option_fullscreen
   - *minimize_video_panel
   - *check_toolbar
-  # - *play_hello_audio
+  - *play_hello_audio
   
 ongoing:
-  # list is processed from the top until a step returns false -> meeting ended, otherwise meeting continues
+  # list is processed from the top until a step returns False -> meeting ended, otherwise meeting continues
   - *check_meeting_ended
   - *close_message_info_is_here

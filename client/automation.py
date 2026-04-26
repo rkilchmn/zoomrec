@@ -97,14 +97,11 @@ class Automation:
             return self.config
 
     @staticmethod
-    def str_to_bool(str):
-        """Convert string representation of boolean to actual boolean."""
-        if str.lower() == "true":
-            return True
-        elif str.lower() == "false":
-            return False
-        else:
-            raise ValueError(f"Invalid boolean value: {str}")
+    def validate_bool(value):
+        """Validate that value is a boolean."""
+        if not isinstance(value, bool):
+            raise ValueError(f"Invalid boolean value: {value}")
+        return value
     
     @staticmethod
     def read_config(file_path):
@@ -200,15 +197,15 @@ class Automation:
             variables = {}
                 
         image = locate_image.get('image')
-        click = self.str_to_bool(locate_image.get('click', 'False'))
+        click = self.validate_bool(locate_image.get('click', False))
         iterate = locate_image.get('iterate', 1)
-        until_found = self.str_to_bool(locate_image.get('until_found', 'True'))
+        until_found = self.validate_bool(locate_image.get('until_found', True))
         sleep_time = locate_image.get('sleep', 0)
         confidence = locate_image.get('confidence', 0.9)
         minSearchTime = locate_image.get('minSearchTime', 0)
         region_def = locate_image.get('region')
         set_variable = locate_image.get('set_variable')
-        debug_screenshot = self.str_to_bool(locate_image.get('debug_screenshot', 'True'))
+        debug_screenshot = self.validate_bool(locate_image.get('debug_screenshot', True))
 
         breadcrumbs += f"/LocateImage:[{os.path.splitext(image)[0]}]"
         logging.debug(f"{breadcrumbs}")
@@ -267,8 +264,8 @@ class Automation:
             # Handle on_success
             on_success = locate_image.get('on_success')
             if on_success is not None:
-                if isinstance(on_success, str):
-                    return self.str_to_bool(on_success)
+                if isinstance(on_success, bool):
+                    return on_success
                 elif isinstance(on_success, dict):
                     # If it's a dictionary, recursively process it
                     return self.execute_operation(breadcrumbs, on_success, variables)
@@ -286,8 +283,8 @@ class Automation:
             # Handle on_error or on_error
             on_error = locate_image.get('on_error')
             if on_error is not None:
-                if isinstance(on_error, str):
-                    return self.str_to_bool(on_error)
+                if isinstance(on_error, bool):
+                    return on_error
                 elif isinstance(on_error, dict):
                     return self.execute_operation(breadcrumbs, on_error, variables)
             return False
@@ -357,8 +354,8 @@ class Automation:
             # Handle on_success
             on_success = keyboard_input.get('on_success')
             if on_success is not None:
-                if isinstance(on_success, str):
-                    return self.str_to_bool(on_success)
+                if isinstance(on_success, bool):
+                    return on_success
                 elif isinstance(on_success, dict):
                     # If it's a dictionary, recursively process it
                     return self.execute_operation(breadcrumbs, on_success, variables)
@@ -367,8 +364,8 @@ class Automation:
             # Handle on_error or on_error
             on_error = keyboard_input.get('on_error')
             if on_error is not None:
-                if isinstance(on_error, str):
-                    return self.str_to_bool(on_error)
+                if isinstance(on_error, bool):
+                    return on_error
                 elif isinstance(on_error, dict):
                     return self.execute_operation(breadcrumbs, on_error, variables)
             return False
@@ -422,8 +419,8 @@ class Automation:
             # Handle on_success
             on_success = play_audio.get('on_success')
             if on_success is not None:
-                if isinstance(on_success, str):
-                    return self.str_to_bool(on_success)
+                if isinstance(on_success, bool):
+                    return on_success
                 elif isinstance(on_success, dict):
                     # If it's a dictionary, recursively process it
                     return self.execute_operation(breadcrumbs, on_success, variables)
@@ -432,8 +429,8 @@ class Automation:
             # Handle on_error
             on_error = play_audio.get('on_error')
             if on_error is not None:
-                if isinstance(on_error, str):
-                    return self.str_to_bool(on_error)
+                if isinstance(on_error, bool):
+                    return on_error
                 elif isinstance(on_error, dict):
                     # If it's a dictionary, recursively process it
                     return self.execute_operation(breadcrumbs, on_error, variables)
@@ -466,7 +463,7 @@ class Automation:
         
         success = False
         try:
-            variables[name] = eval(value)
+            variables[name] = value
             success = True
             logging.debug(f"Set variable '{name}' to '{value}'")
         except Exception as e:
@@ -477,8 +474,8 @@ class Automation:
             # Handle on_success
             on_success = set_variable.get('on_success')
             if on_success is not None:
-                if isinstance(on_success, str):
-                    return self.str_to_bool(on_success)
+                if isinstance(on_success, bool):
+                    return on_success
                 elif isinstance(on_success, dict):
                     # If it's a dictionary, recursively process it
                     return self.execute_operation(breadcrumbs, on_success, variables)
@@ -487,8 +484,8 @@ class Automation:
             # Handle on_error
             on_error = set_variable.get('on_error')
             if on_error is not None:
-                if isinstance(on_error, str):
-                    return self.str_to_bool(on_error)
+                if isinstance(on_error, bool):
+                    return on_error
                 elif isinstance(on_error, dict):
                     # If it's a dictionary, recursively process it
                     return self.execute_operation(breadcrumbs, on_error, variables)
@@ -528,8 +525,8 @@ class Automation:
                 # Handle on_success
                 on_success = check_variable.get('on_success')
                 if on_success is not None:
-                    if isinstance(on_success, str):
-                        return self.str_to_bool(on_success)
+                    if isinstance(on_success, bool):
+                        return on_success
                     elif isinstance(on_success, dict):
                         return self.execute_operation(breadcrumbs, on_success, variables)
                 return True
@@ -537,8 +534,8 @@ class Automation:
                 # Handle on_error
                 on_error = check_variable.get('on_error')
                 if on_error is not None:
-                    if isinstance(on_error, str):
-                        return self.str_to_bool(on_error)
+                    if isinstance(on_error, bool):
+                        return on_error
                     elif isinstance(on_error, dict):
                         return self.execute_operation(breadcrumbs, on_error, variables)
                 return False
@@ -548,8 +545,8 @@ class Automation:
             # Handle error case
             on_error = check_variable.get('on_error')
             if on_error is not None:
-                if isinstance(on_error, str):
-                    return self.str_to_bool(on_error)
+                if isinstance(on_error, bool):
+                    return on_error
                 elif isinstance(on_error, dict):
                     return self.execute_operation(breadcrumbs, on_error, variables)
             return False
