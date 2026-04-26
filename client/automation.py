@@ -208,7 +208,7 @@ class Automation:
         minSearchTime = locate_image.get('minSearchTime', 0)
         region_def = locate_image.get('region')
         set_variable = locate_image.get('set_variable')
-        debug_screenshot = locate_image.get('debug_screenshot', 'True')
+        debug_screenshot = self.str_to_bool(locate_image.get('debug_screenshot', 'True'))
 
         breadcrumbs += f"/LocateImage:[{os.path.splitext(image)[0]}]"
         logging.debug(f"{breadcrumbs}")
