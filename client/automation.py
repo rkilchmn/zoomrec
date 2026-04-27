@@ -144,7 +144,7 @@ class Automation:
             return None
     
     @staticmethod
-    def determineValue(attribute, context):
+    def resolve_value(attribute, context):
        
         # Handle ExprNode instances
         if isinstance(attribute, ExprNode):
@@ -167,9 +167,7 @@ class Automation:
             The resolved value, with ExprNode instances evaluated
         """
         value = config.get(key, default)
-        if isinstance(value, ExprNode):
-            return value.eval(context)
-        return value
+        return Automation.resolve_value(value, context)
     
     @staticmethod
     def wrap(func, *args, **kwargs):
@@ -324,12 +322,12 @@ class Automation:
         try:
             for action in sequence:
                 if 'press' in action:
-                    key = self.determineValue(action['press'], context)
+                    key = self.resolve_value(action['press'], context)
                     pyautogui.press(key)
                     logging.debug(f"Pressed key: '{key}'")
             
                 elif 'write' in action:
-                    text = self.determineValue(action['write'], context)
+                    text = self.resolve_value(action['write'], context)
                     interval = self.resolve_config_value(action, 'interval', context, 0.1)  # Default interval
                     pyautogui.write(text, interval=interval)
                     logging.debug(f"Wrote text: '{text}'")
@@ -340,10 +338,10 @@ class Automation:
                     
                     # Convert the hotkey data to a list of keys
                     if isinstance(hotkey_data, list):
-                        keys = [self.determineValue(k, context) for k in hotkey_data]
+                        keys = [self.resolve_value(k, context) for k in hotkey_data]
                     else:
                         # It's a string that needs parsing
-                        hotkey_str = self.determineValue(hotkey_data, context)
+                        hotkey_str = self.resolve_value(hotkey_data, context)
                         
                         # Clean up the string to extract keys (handles format like "['ctrl', 'a']")
                         hotkey_str = hotkey_str.strip('[]')

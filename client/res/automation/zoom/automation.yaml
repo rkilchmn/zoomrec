@@ -1,7 +1,7 @@
 ######################################################################
 # General rules
 # use YAML 1.2 style boolean true/false (in lowercase)
-# value is not true/false and not a nmber, it is interpreted as string
+# value is not true/false and not a number, it is interpreted as string
 # even without ''
 # Strings with "" honor control chars like \\n
 # Strings with '' are taken litterally and not interpreted
