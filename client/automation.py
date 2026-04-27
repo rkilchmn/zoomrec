@@ -153,6 +153,25 @@ class Automation:
         return attribute
     
     @staticmethod
+    def resolve_config_value(config, key, context, default=None):
+        """
+        Resolve a configuration value, automatically evaluating ExprNode instances.
+        
+        Args:
+            config: Dictionary containing the configuration
+            key: Key to look up
+            context: Evaluation context for ExprNode expressions
+            default: Default value if key not found
+            
+        Returns:
+            The resolved value, with ExprNode instances evaluated
+        """
+        value = config.get(key, default)
+        if isinstance(value, ExprNode):
+            return value.eval(context)
+        return value
+    
+    @staticmethod
     def wrap(func, *args, **kwargs):
         """
         Wrapper function to catch exceptions
@@ -185,26 +204,26 @@ class Automation:
                     logging.error(f"Error converting {name} to float: {e}")
                     return None
             
-            tlx = to_float(self.determineValue(region.get('top_left_x'), context), 'top_left_x')
-            tly = to_float(self.determineValue(region.get('top_left_y'), context), 'top_left_y')
-            brx = to_float(self.determineValue(region.get('bottom_right_x'), context), 'bottom_right_x')
-            bry = to_float(self.determineValue(region.get('bottom_right_y'), context), 'bottom_right_y')
+            tlx = to_float(self.resolve_config_value(region, 'top_left_x', context), 'top_left_x')
+            tly = to_float(self.resolve_config_value(region, 'top_left_y', context), 'top_left_y')
+            brx = to_float(self.resolve_config_value(region, 'bottom_right_x', context), 'bottom_right_x')
+            bry = to_float(self.resolve_config_value(region, 'bottom_right_y', context), 'bottom_right_y')
             
             if None in (tlx, tly, brx, bry):
                 return None
             else:
                 return (int(tlx), int(tly), int(brx), int(bry))
                 
-        image = locate_image.get('image')
-        click = self.validate_bool(locate_image.get('click', False))
-        iterate = locate_image.get('iterate', 1)
-        until_found = self.validate_bool(locate_image.get('until_found', True))
-        sleep_time = locate_image.get('sleep', 0)
-        confidence = locate_image.get('confidence', 0.9)
-        minSearchTime = locate_image.get('minSearchTime', 0)
-        region_def = locate_image.get('region')
-        set_variable = locate_image.get('set_variable')
-        debug_screenshot = self.validate_bool(locate_image.get('debug_screenshot', True))
+        image = self.resolve_config_value(locate_image, 'image', context)
+        click = self.validate_bool(self.resolve_config_value(locate_image, 'click', context, False))
+        iterate = self.resolve_config_value(locate_image, 'iterate', context, 1)
+        until_found = self.validate_bool(self.resolve_config_value(locate_image, 'until_found', context, True))
+        sleep_time = self.resolve_config_value(locate_image, 'sleep', context, 0)
+        confidence = self.resolve_config_value(locate_image, 'confidence', context, 0.9)
+        minSearchTime = self.resolve_config_value(locate_image, 'minSearchTime', context, 0)
+        region_def = self.resolve_config_value(locate_image, 'region', context)
+        set_variable = self.resolve_config_value(locate_image, 'set_variable', context)
+        debug_screenshot = self.validate_bool(self.resolve_config_value(locate_image, 'debug_screenshot', context, True))
 
         breadcrumbs += f"/LocateImage:[{os.path.splitext(image)[0]}]"
         logging.debug(f"{breadcrumbs}")
@@ -311,7 +330,7 @@ class Automation:
             
                 elif 'write' in action:
                     text = self.determineValue(action['write'], context)
-                    interval = action.get('interval', 0.1)  # Default interval
+                    interval = self.resolve_config_value(action, 'interval', context, 0.1)  # Default interval
                     pyautogui.write(text, interval=interval)
                     logging.debug(f"Wrote text: '{text}'")
                 
@@ -373,9 +392,15 @@ class Automation:
             return False
     
     def execute_play_audio(self, breadcrumbs, play_audio, variables=None):
+        if variables is None:
+            variables = {}
+        
+        # Prepare context with 'VARIABLES' key
+        context = {'VARIABLES': variables}
+        
         try:
             # Check if specific audio file is specified
-            specific_audio = play_audio.get('audio')
+            specific_audio = self.resolve_config_value(play_audio, 'audio', context)
 
             breadcrumbs += f"/PlayAudio:[{specific_audio}]"
             logging.debug(f"{breadcrumbs}")
@@ -453,12 +478,11 @@ class Automation:
         if variables is None:
             variables = {}
         
-        name = set_variable.get('name')
-        value = set_variable.get('value')
+        # Prepare context with 'VARIABLES' key
+        context = {'VARIABLES': variables}
         
-        # Process template variables in value if it's a string
-        if isinstance(value, str):
-            value = self.determineValue(value, variables)
+        name = self.resolve_config_value(set_variable, 'name', context)
+        value = self.resolve_config_value(set_variable, 'value', context)
         
         breadcrumbs += f"/SetVariable:[{name}={value}]"
         logging.debug(f"{breadcrumbs}")
@@ -511,10 +535,10 @@ class Automation:
         # Prepare context with 'VARIABLES' key
         context = {'VARIABLES': variables}
         
-        condition = check.get('condition')
+        # Evaluate condition using resolve_config_value to support !expr
+        condition = self.resolve_config_value(check, 'condition', context)
         
-        # Evaluate condition using determineValue to support !expr
-        result = self.determineValue(condition, context)
+        result = condition
         
         breadcrumbs += f"/Check[{condition}]"
         logging.debug(f"{breadcrumbs}")
