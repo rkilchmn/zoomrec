@@ -90,6 +90,8 @@ if DISPLAY_NAME is None or  len(DISPLAY_NAME) < 3:
     ]
     DISPLAY_NAME = random.choice(NAME_LIST)
 
+JOIN_AUDIO = os.getenv('JOIN_AUDIO')
+
 def find_process_id_by_name(process_name):
     list_of_process_objects = []
     # Iterate over the all the running process
@@ -261,11 +263,14 @@ async def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lea
                             INSTRUCTION_JOIN_DISPLAY_NAME in join_config):
                             display_name = join_config[INSTRUCTION_JOIN_DISPLAY_NAME]
                             break
+
+            join_audio = JOIN_AUDIO
             
             variables = {
                 constants.AUTOMATION_VARIABLE_MEET_ID: meet_id,
                 constants.AUTOMATION_VARIABLE_DISPLAY_NAME: display_name,
                 constants.AUTOMATION_VARIABLE_PASSWORD: meet_pw,
+                constants.AUTOMATION_VARIABLE_JOIN_AUDIO: join_audio,
                 constants.AUTOMATION_VARIABLE_HOST_ENDED_MEETING: False
             }
             
@@ -382,7 +387,7 @@ async def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lea
                     logging.error(f"Error updating event status to POSTPROCESS: {e}")
            
                 # start postprocessing using temporal.io
-                handle = await schedulePostprocess(postprocess, recording_basename, event, CLIENT_ID)
+                handle = await schedulePostprocess(postprocess, event_basename, event, CLIENT_ID)
                 logging.info(f"Started postprocessing with workflow id: '{handle.id}'")
             else:
                 # update event to ENDED to prevent re-joining 

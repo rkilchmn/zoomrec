@@ -7,9 +7,30 @@ import pyautogui
 import subprocess
 import random
 from types import SimpleNamespace
+from simpleeval import SimpleEval
 
 import shared.constants as constants
 from shared.utilities import convert_to_safe_filename
+
+
+class ExprNode:
+    def __init__(self, expr: str):
+        self.expr = expr
+
+    def eval(self, context: dict):
+        e = SimpleEval()
+        for key, value in context.items():
+            e.names[key] = value
+        return e.eval(self.expr)
+
+    def __repr__(self):
+        return f"ExprNode({self.expr!r})"
+
+def expr_constructor(loader, node):
+    value = loader.construct_scalar(node)
+    return ExprNode(value)
+
+yaml.SafeLoader.add_constructor("!expr", expr_constructor)
 
 # Disable failsafe
 pyautogui.FAILSAFE = False
@@ -123,32 +144,13 @@ class Automation:
             return None
     
     @staticmethod
-    def process_template_vars(text, variables):
-        """
-        Replace template variables in format {{VAR_NAME}} with their values
-        
-        Args:
-            text: Text containing template variables
-            variables: Dictionary of variables to replace
-            
-        Returns:
-            Text with variables replaced
-        """
-        if not isinstance(text, str):
-            return text
-            
-        # Find all template variables in the format {{VAR_NAME}}
-        pattern = r'\{\{(\w+)\}\}'
-        matches = re.findall(pattern, text)
-        
-        result = text
-        for var_name in matches:
-            if var_name in variables:
-                result = result.replace(f"{{{{{var_name}}}}}", str(variables[var_name]))
-            else:
-                logging.warning(f"Variable {var_name} not found in provided variables")
-        
-        return result
+    def determineValue(attribute, context):
+       
+        # Handle ExprNode instances
+        if isinstance(attribute, ExprNode):
+            return attribute.eval(context)
+
+        return attribute
     
     @staticmethod
     def wrap(func, *args, **kwargs):
@@ -166,35 +168,32 @@ class Automation:
     
     def execute_locate_image(self, breadcrumbs, locate_image, variables=None):
 
-        def compute_region( region):
+        if variables is None:
+            variables = {}
+        
+        # Prepare context with 'VARIABLES' key
+        context = {'VARIABLES': variables}
 
-            def _eval_num(v):
-                if isinstance(v, (int, float)):
-                    return v
-                if isinstance(v, str):
-                    try:
-                        # Allow formulas to access both top-level keys (e.g., anchor.center_x)
-                        # and the variables mapping itself (e.g., variables["anchor"].center_x)
-                        _locals = dict(variables)
-                        _locals['variables'] = variables
-                        return float(eval(v, {}, _locals))
-                    except Exception:
-                        return None
-                return None
-
+        def compute_region(region):
             if not isinstance(region, dict):
                 return None
-            tlx = _eval_num(region.get('top_left_x'))
-            tly = _eval_num(region.get('top_left_y'))
-            brx = _eval_num(region.get('bottom_right_x'))
-            bry = _eval_num(region.get('bottom_right_y'))
+            
+            def to_float(value, name):
+                try:
+                    return float(value) if value is not None else None
+                except (TypeError, ValueError) as e:
+                    logging.error(f"Error converting {name} to float: {e}")
+                    return None
+            
+            tlx = to_float(self.determineValue(region.get('top_left_x'), context), 'top_left_x')
+            tly = to_float(self.determineValue(region.get('top_left_y'), context), 'top_left_y')
+            brx = to_float(self.determineValue(region.get('bottom_right_x'), context), 'bottom_right_x')
+            bry = to_float(self.determineValue(region.get('bottom_right_y'), context), 'bottom_right_y')
+            
             if None in (tlx, tly, brx, bry):
                 return None
             else:
                 return (int(tlx), int(tly), int(brx), int(bry))
-
-        if variables is None:
-            variables = {}
                 
         image = locate_image.get('image')
         click = self.validate_bool(locate_image.get('click', False))
@@ -293,6 +292,9 @@ class Automation:
 
         if variables is None:
             variables = {}
+        
+        # Prepare context with 'VARIABLES' key
+        context = {'VARIABLES': variables}
             
         sequence = keyboard_input.get('sequence', [])
 
@@ -303,12 +305,12 @@ class Automation:
         try:
             for action in sequence:
                 if 'press' in action:
-                    key = self.process_template_vars(action['press'], variables)
+                    key = self.determineValue(action['press'], context)
                     pyautogui.press(key)
                     logging.debug(f"Pressed key: '{key}'")
             
                 elif 'write' in action:
-                    text = self.process_template_vars(action['write'], variables)
+                    text = self.determineValue(action['write'], context)
                     interval = action.get('interval', 0.1)  # Default interval
                     pyautogui.write(text, interval=interval)
                     logging.debug(f"Wrote text: '{text}'")
@@ -319,10 +321,10 @@ class Automation:
                     
                     # Convert the hotkey data to a list of keys
                     if isinstance(hotkey_data, list):
-                        keys = [self.process_template_vars(k, variables) for k in hotkey_data]
+                        keys = [self.determineValue(k, context) for k in hotkey_data]
                     else:
                         # It's a string that needs parsing
-                        hotkey_str = self.process_template_vars(hotkey_data, variables)
+                        hotkey_str = self.determineValue(hotkey_data, context)
                         
                         # Clean up the string to extract keys (handles format like "['ctrl', 'a']")
                         hotkey_str = hotkey_str.strip('[]')
@@ -456,7 +458,7 @@ class Automation:
         
         # Process template variables in value if it's a string
         if isinstance(value, str):
-            value = self.process_template_vars(value, variables)
+            value = self.determineValue(value, variables)
         
         breadcrumbs += f"/SetVariable:[{name}={value}]"
         logging.debug(f"{breadcrumbs}")
@@ -491,13 +493,13 @@ class Automation:
                     return self.execute_operation(breadcrumbs, on_error, variables)
             return False
             
-    def execute_check_variable(self, breadcrumbs, check_variable, variables=None):
+    def execute_check(self, breadcrumbs, check, variables=None):
         """
-        Execute a check_variable operation
+        Execute a check operation
         
         Args:
             breadcrumbs: String tracking execution path
-            check_variable: Dictionary containing check_variable configuration
+            check: Dictionary containing check configuration with 'condition' key
             variables: Dictionary of variables to check against
             
         Returns:
@@ -506,24 +508,25 @@ class Automation:
         if variables is None:
             variables = {}
         
-        name = check_variable.get('name')
-        result_expr = check_variable.get('result')
+        # Prepare context with 'VARIABLES' key
+        context = {'VARIABLES': variables}
         
-        # Process template variables in result expression if it's a string
-        if isinstance(result_expr, str):
-            result_expr = self.process_template_vars(result_expr, variables)
+        condition = check.get('condition')
         
-        breadcrumbs += f"/CheckVariable[{name}={result_expr}]"
+        # Evaluate condition using determineValue to support !expr
+        result = self.determineValue(condition, context)
+        
+        breadcrumbs += f"/Check[{condition}]"
         logging.debug(f"{breadcrumbs}")
         
         try:
-            # Evaluate the result expression
-            result = bool(eval(str(result_expr), {}, variables))
-            logging.debug(f"Checked variable '{name}': {result_expr} -> {result}")
+            # Convert to boolean
+            result = bool(result)
+            logging.debug(f"Check condition: {condition} -> {result}")
             
             if result:
                 # Handle on_success
-                on_success = check_variable.get('on_success')
+                on_success = check.get('on_success')
                 if on_success is not None:
                     if isinstance(on_success, bool):
                         return on_success
@@ -532,7 +535,7 @@ class Automation:
                 return True
             else:
                 # Handle on_error
-                on_error = check_variable.get('on_error')
+                on_error = check.get('on_error')
                 if on_error is not None:
                     if isinstance(on_error, bool):
                         return on_error
@@ -541,9 +544,9 @@ class Automation:
                 return False
                 
         except Exception as e:
-            logging.error(f"Error checking variable '{name}' with expression '{result_expr}': {e}", exc_info=True)
+            logging.error(f"Error evaluating condition '{condition}': {e}", exc_info=True)
             # Handle error case
-            on_error = check_variable.get('on_error')
+            on_error = check.get('on_error')
             if on_error is not None:
                 if isinstance(on_error, bool):
                     return on_error
@@ -574,8 +577,8 @@ class Automation:
             return self.execute_play_audio(breadcrumbs, operation.get('play_audio'), variables)
         elif 'set_variable' in operation:
             return self.execute_set_variable(breadcrumbs, operation.get('set_variable'), variables)
-        elif 'check_variable' in operation:
-            return self.execute_check_variable(breadcrumbs, operation.get('check_variable'), variables)
+        elif 'check' in operation:
+            return self.execute_check(breadcrumbs, operation.get('check'), variables)
         else:
             # For nested operations, try to process each key
             for key, value in operation.items():

@@ -18,5 +18,7 @@ humanfriendly
 temporalio
 # postprocessing: for whisper audio transcription
 whisper-ctranslate2-remote-api
+# automation secure evaluation
+simpleeval
 
 
