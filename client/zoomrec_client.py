@@ -13,7 +13,7 @@ from pathlib import Path
 from datetime import datetime
 import asyncio
 
-from shared.events import Events, EventType, EventField, EventStatus, EventInstructionAttribute, EventInstructionProcess, INSTRUCTION_JOIN_DISPLAY_NAME
+from shared.events import Events, EventType, EventField, EventStatus, EventInstructionAttribute, EventInstructionProcess, INSTRUCTION_JOIN_DISPLAY_NAME, INSTRUCTION_JOIN_AUDIO
 from shared.events_api import EventAPI
 from shared.users_api import UserAPI
 from shared.utilities import start_debug, end_process, convert_to_safe_filename, create_unique_filename, start_logging, format_template, notify_low_disk_space
@@ -91,6 +91,27 @@ if DISPLAY_NAME is None or  len(DISPLAY_NAME) < 3:
     DISPLAY_NAME = random.choice(NAME_LIST)
 
 JOIN_AUDIO = os.getenv('JOIN_AUDIO')
+
+def get_instruction_config(process_instructions, instruction_type, config_key, default_value=None):
+    """
+    Extract a configuration value from process instructions for a given instruction type.
+    
+    Args:
+        process_instructions: List of instruction steps from event
+        instruction_type: The instruction type to look for (e.g., EventInstructionProcess.JOIN.value)
+        config_key: The configuration key to extract
+        default_value: Default value if config not found
+        
+    Returns:
+        The configured value or default_value
+    """
+    if isinstance(process_instructions, list):
+        for step in process_instructions:
+            if isinstance(step, dict) and instruction_type in step:
+                instruction_config = step[instruction_type]
+                if isinstance(instruction_config, dict) and config_key in instruction_config:
+                    return instruction_config[config_key]
+    return default_value
 
 def find_process_id_by_name(process_name):
     list_of_process_objects = []
@@ -254,17 +275,8 @@ async def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lea
 
             # get instructions for process
             process_instructions = Events.get_instruction_attribute(EventInstructionAttribute.PROCESS, event) 
-            display_name = DISPLAY_NAME  # Default value
-            if isinstance(process_instructions, list):
-                for step in process_instructions:
-                    if isinstance(step, dict) and EventInstructionProcess.JOIN.value in step:
-                        join_config = step[EventInstructionProcess.JOIN.value]
-                        if (isinstance(join_config, dict) and 
-                            INSTRUCTION_JOIN_DISPLAY_NAME in join_config):
-                            display_name = join_config[INSTRUCTION_JOIN_DISPLAY_NAME]
-                            break
-
-            join_audio = JOIN_AUDIO
+            display_name = get_instruction_config(process_instructions, EventInstructionProcess.JOIN.value, INSTRUCTION_JOIN_DISPLAY_NAME, DISPLAY_NAME)
+            join_audio = get_instruction_config(process_instructions, EventInstructionProcess.JOIN.value, INSTRUCTION_JOIN_AUDIO, JOIN_AUDIO)
             
             variables = {
                 constants.AUTOMATION_VARIABLE_MEET_ID: meet_id,

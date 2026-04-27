@@ -84,6 +84,7 @@ class EventInstructionPostprocess(Enum):
 
 # instructions for process
 INSTRUCTION_JOIN_DISPLAY_NAME = "display-name"
+INSTRUCTION_JOIN_AUDIO = "join-audio"
 
 # Constants for postprocess instruction keys
 

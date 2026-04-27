@@ -5,6 +5,7 @@
 # even without ''
 # Strings with "" honor control chars like \\n
 # Strings with '' are taken litterally and not interpreted
+# empty node like empty: is null/None 
 ######################################################################
 
 # leave audio and video settings without changes

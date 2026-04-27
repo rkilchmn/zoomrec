@@ -44,11 +44,35 @@ emails:
         url_attribute: "location"
         instruction_value:
           process:
-            - record: {}
+            - join:
+                display-name: 'Johndoe'
+                join-audio: # no join audio, use '' for random audio file from audio dir or specific audio file 'hello.wav'
+            - record:
           postprocess:
-            - transcribe: {}
+            - transcribe:
+                # task: translate # default is transcribe
+                # source-language: 'de' only reqired for translate
             - upload:
                 delete: True
+            - custom:
+                - task: "summarize_transcript.py"
+                  model: "google/gemini-2.0-flash-exp:free"
+                  api-url: "https://openrouter.ai/api/v1"
+                  api-key-env: "AI_API_KEY"
+                  prompt: "You are a helpful assistant. Analyze the following transcript and create a html:\\n1. Identify all major topic changes.\\n2. Summarize each topic with:\\n   - Title and timestamp range \\n   - Very Detailed Summary\\n   - Link to recording file (example): <a target=\"popup\" onclick=\"window.open(this.href, 'popup', 'width=1000,height=700'); return false;\" href=\"{recording-link}.video-player.html?seconds=<replace with start timestamp in seconds>\">Play Video</a>)\\n\\nTranscript (as VTT file with timestamp format Minutes:Seconds:Milliseconds)\\n{content}"
+                  content-filename-regex: "\\.[^.]+$|||.vtt"
+                  recording-link-regex: "^.*[\\/\\\\](.*)\\.(.*)$|||\\1"
+                  output-extension: ".html"
+                  video-player-template: "/home/zoomrec/client/res/video-player.html"
+                - task: "custom_task_test.py"
+                  param1: "value1"
+                  param2: "value2"
+            - access:
+                - http-server-access:
+                    # access-key: "34tql0MN02KztivzqYF1"
+                    expire-after-seconds: 604800
+                    notify-user: True
+                    additional-emails: "serv000001@kilchenmann.net, serv000002@kilchenmann.net "
             - custom:
                 task: "test"
                 option1: "option1"
