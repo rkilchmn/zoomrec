@@ -463,6 +463,23 @@ async def schedulePostprocess(postprocess, recording_basename, event, client_id)
 
     if isinstance(postprocess, list) and len(postprocess) > 0:
     
+        # Preprocess: move http-server-access from upload subnode to standalone ACCESS task
+        for step in postprocess:
+            if isinstance(step, dict) and EventInstructionPostprocess.UPLOAD.value in step:
+                upload_config = step[EventInstructionPostprocess.UPLOAD.value]
+                if isinstance(upload_config, dict) and INSTRUCTION_ACCESS_HTTP_SERVER in upload_config:
+                    # Extract http-server-access config
+                    access_config = upload_config[INSTRUCTION_ACCESS_HTTP_SERVER]
+                    # Remove from upload
+                    del upload_config[INSTRUCTION_ACCESS_HTTP_SERVER]
+                    # Add as standalone ACCESS task
+                    postprocess.append({
+                        EventInstructionPostprocess.ACCESS.value: [
+                            {INSTRUCTION_ACCESS_HTTP_SERVER: access_config}
+                        ]
+                    })
+                    break  # Only process first upload with http-server-access
+    
         # sequence postprocessing instruction
         postprocess_sorted = sorted(postprocess, key=postprocess_order)
         
