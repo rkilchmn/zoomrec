@@ -90,6 +90,7 @@ INSTRUCTION_JOIN_AUDIO = "join-audio"
 
 # Upload keys
 INSTRUCTION_UPLOAD_KEY_DELETE = "delete"
+INSTRUCTION_UPLOAD_KEY_FILE_FILTER = "file-filter"
 
 # transcribe keys
 INSTRUCTION_TRANSCRIBE_TASK = "task"

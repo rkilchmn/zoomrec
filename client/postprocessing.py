@@ -16,7 +16,7 @@ import secrets
 with workflow.unsafe.imports_passed_through():
     from shared.events import (
         Events, EventField, EventStatus, EventInstructionAttribute, EventInstructionPostprocess,
-        INSTRUCTION_UPLOAD_KEY_DELETE, INSTRUCTION_ACCESS_HTTP_SERVER,
+        INSTRUCTION_UPLOAD_KEY_DELETE, INSTRUCTION_UPLOAD_KEY_FILE_FILTER, INSTRUCTION_ACCESS_HTTP_SERVER,
         INSTRUCTION_ACCESS_KEY, INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS,
         INSTRUCTION_ACCESS_NOTIFY_USER, INSTRUCTION_ACCESS_ADDITIONAL_EMAILS,
         INSTRUCTION_TRANSCRIBE_TASK, INSTRUCTION_TRANSCRIBE_SOURCE_LANGUAGE 
@@ -338,11 +338,13 @@ class PostprocessWorkflow:
                                 summary=f"Get User login for User with key: '{input.event[EventField.USER_KEY.value]}'",
                                 start_to_close_timeout=timedelta(minutes=10)
                             )
+                            file_filter = value.get(INSTRUCTION_UPLOAD_KEY_FILE_FILTER, "")
                             command = (
                                 f"{SCRIPT_DIR}/sftp_upload.sh '{REC_PATH}/{input.recording_basename}' "
                                 f"'{SFTP_ADMIN_USERNAME}@{SSH_SERVER_URL}' "
                                 f"'{BASE_PATH}/{SFTP_ADMIN_USER_IDENTITY_FILE}' "
-                                f"'{user_login}/{SFTP_RECORDINGS_DIR}' {value[INSTRUCTION_UPLOAD_KEY_DELETE] if INSTRUCTION_UPLOAD_KEY_DELETE in value else 'true'}"
+                                f"'{user_login}/{SFTP_RECORDINGS_DIR}' {value[INSTRUCTION_UPLOAD_KEY_DELETE] if INSTRUCTION_UPLOAD_KEY_DELETE in value else 'true'} "
+                                f"'{file_filter}'"
                             )
                         else:
                             logging.error(f"{get_context_prefix()} SFTP transfer to server cannot be initiated: SSH_SERVER_URL not specified.")
