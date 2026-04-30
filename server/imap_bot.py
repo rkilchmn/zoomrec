@@ -511,6 +511,15 @@ def run_bot():
                 raise e
             else:
                 logging.error(f"An error occurred: {e}", exc_info=True)  # Enhanced to include full stack trace
+                # Ensure connection cleanup on error
+                try:
+                    if 'imap' in locals():
+                        imap.close()
+                        imap.logout()
+                except:
+                    pass
+                # Wait before retrying to avoid rapid retry loops
+                time.sleep(30)
             
 if __name__ == "__main__":
     if not (IMAP_PASSWORD and IMAP_SERVER and IMAP_PORT and IMAP_USERNAME and SERVER_URL and SERVER_USERNAME and SERVER_PASSWORD):
