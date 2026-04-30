@@ -375,40 +375,45 @@ class SQLLiteEvents(Events):
         conn.execute('PRAGMA foreign_keys = ON;')
         return conn
 
-    def _initialize_db(self):
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            
-            # Check if the table exists
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='events'")
-            table_exists = cursor.fetchone()
+    def _get_schema(self):
+        """
+        Return the desired schema as a dict of {column_name: (type, constraints)}.
+        This is the single source of truth for the table structure.
+        """
+        return {
+            EventField.KEY.value: ('TEXT', 'PRIMARY KEY'),
+            EventField.TYPE.value: ('INTEGER', ''),
+            EventField.TITLE.value: ('TEXT', ''),
+            EventField.DTSTART.value: ('TEXT', ''),
+            EventField.TIMEZONE.value: ('TEXT', ''),
+            EventField.DURATION.value: ('INTEGER', ''),
+            EventField.RRULE.value: ('TEXT', ''),
+            EventField.ID.value: ('TEXT', ''),
+            EventField.PASSWORD.value: ('TEXT', ''),
+            EventField.URL.value: ('TEXT', ''),
+            EventField.INSTRUCTION.value: ('TEXT', ''),
+            EventField.USER_KEY.value: ('TEXT', 'NOT NULL'),
+            EventField.STATUS.value: ('INTEGER', ''),
+            EventField.ASSIGNED.value: ('TEXT', ''),
+            EventField.ASSIGNED_TIMESTAMP.value: ('TEXT', ''),
+            EventField.CREATED_TIMESTAMP.value: ('TEXT', ''),
+            EventField.LAST_UPDATED_TIMESTAMP.value: ('TEXT', ''),
+        }
 
-            # IMPORTANT: order of field needs to align with EventFields order
-            if not table_exists:
-                cursor.execute(f'''
-                    CREATE TABLE events (
-                        {EventField.KEY.value} TEXT PRIMARY KEY,
-                        {EventField.TYPE.value} INTEGER,
-                        {EventField.TITLE.value} TEXT,
-                        {EventField.DTSTART.value} TEXT,
-                        {EventField.TIMEZONE.value} TEXT,
-                        {EventField.DURATION.value} INTEGER,
-                        {EventField.RRULE.value} TEXT,
-                        {EventField.ID.value} TEXT,
-                        {EventField.PASSWORD.value} TEXT,
-                        {EventField.URL.value} TEXT,
-                        {EventField.INSTRUCTION.value} TEXT,
-                        {EventField.USER_KEY.value} TEXT NOT NULL,
-                        {EventField.STATUS.value} INTEGER,
-                        {EventField.ASSIGNED.value} TEXT,
-                        {EventField.ASSIGNED_TIMESTAMP.value} TEXT,
-                        {EventField.CREATED_TIMESTAMP.value} TEXT,
-                        {EventField.LAST_UPDATED_TIMESTAMP.value} TEXT,
-                        FOREIGN KEY ({EventField.USER_KEY.value}) REFERENCES users({UserField.KEY.value})
-                        ON DELETE RESTRICT
-                    );
-                ''')
-                conn.commit()
+    def _get_constraints(self):
+        """
+        Return table-specific constraints (foreign keys, primary keys, etc.).
+        """
+        return [
+            f"FOREIGN KEY ({EventField.USER_KEY.value}) REFERENCES users({UserField.KEY.value}) ON DELETE RESTRICT"
+        ]
+
+    def _initialize_db(self):
+        from shared.db_migration import initialize_table
+
+        with self._get_connection() as conn:
+            # Initialize table using generic migration utility
+            initialize_table(conn, 'events', self._get_schema(), self._get_constraints())
 
     def create(self, event):
         event = Events.clean(event)

@@ -245,28 +245,39 @@ class SQLLiteUser(Users):
         conn.execute('PRAGMA foreign_keys = ON;')
         return conn
 
+    def _get_schema(self):
+        """
+        Return the desired schema as a dict of {column_name: (type, constraints)}.
+        This is the single source of truth for the table structure.
+        """
+        return {
+            UserField.KEY.value: ('TEXT', 'PRIMARY KEY'),
+            UserField.NAME.value: ('TEXT', 'NOT NULL'),
+            UserField.LOGIN.value: ('TEXT', 'NOT NULL UNIQUE'),
+            UserField.PASSWORD.value: ('TEXT', 'NOT NULL'),
+            UserField.TWO_FA_KEY.value: ('TEXT', ''),
+            UserField.EMAIL.value: ('TEXT', ''),
+            UserField.MESSENGER.value: ('TEXT', ''),
+            UserField.MOBILE_NUMBER.value: ('TEXT', ''),
+            UserField.SFTP_USERNAME.value: ('TEXT', ''),
+            UserField.ROLE.value: ('INTEGER', 'NOT NULL'),
+            UserField.TIMEZONE.value: ('TEXT', "DEFAULT 'UTC'"),
+            UserField.CREATED_TIMESTAMP.value: ('TIMESTAMP', 'DEFAULT CURRENT_TIMESTAMP'),
+            UserField.LAST_UPDATED_TIMESTAMP.value: ('TIMESTAMP', 'DEFAULT CURRENT_TIMESTAMP'),
+        }
+
+    def _get_constraints(self):
+        """
+        Return table-specific constraints (foreign keys, primary keys, etc.).
+        """
+        return []  # Primary key is already in schema
+
     def _initialize_db(self):
+        from shared.db_migration import initialize_table
+
         with self._get_connection() as conn:
-            cursor = conn.cursor()
-            # IMPORTANT: order of field needs to align with EventFields order
-            cursor.execute(f'''
-                CREATE TABLE IF NOT EXISTS users (
-                    {UserField.KEY.value} TEXT PRIMARY KEY,
-                    {UserField.NAME.value} TEXT NOT NULL,
-                    {UserField.LOGIN.value} TEXT NOT NULL UNIQUE,
-                    {UserField.PASSWORD.value} TEXT NOT NULL,
-                    {UserField.TWO_FA_KEY.value} TEXT,
-                    {UserField.EMAIL.value} TEXT,
-                    {UserField.MESSENGER.value} TEXT,
-                    {UserField.MOBILE_NUMBER.value} TEXT,
-                    {UserField.SFTP_USERNAME.value} TEXT,
-                    {UserField.ROLE.value} INTEGER NOT NULL,
-                    {UserField.TIMEZONE.value} TEXT DEFAULT 'UTC',
-                    {UserField.CREATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    {UserField.LAST_UPDATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            conn.commit()
+            # Initialize table using generic migration utility
+            initialize_table(conn, 'users', self._get_schema(), self._get_constraints())
 
     def create(self, user):
         user = Users.clean(user)
