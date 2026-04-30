@@ -38,6 +38,7 @@ AUTOMATION_VARIABLE_JOIN_AUDIO = 'JOIN_AUDIO'
 LOG_CLIENT_FILENAME = 'client_log.txt'
 LOG_POSTPROCESS_FILENAME = 'postprocessing_log.txt'
 LOG_SERVER_FILENAME = 'server_log.txt'
+LOG_PERIODIC_MAINTENANCE = 'periodic_maintenance_log.txt'
 LOG_IMAP_BOT_FILENAME = 'imap_bot_log.txt'
 LOG_TELEGRAM_BOT_FILENAME = 'telegram_bot_log.txt'
 LOG_GUNICORN_ACCESS_LOG_FILENAME = 'gunicorn_access_log.txt'
@@ -70,6 +71,7 @@ DEBUG_MODULE_POSTPROCESS = 'postprocessing'
 DEBUG_MODULE_IMAP_BOT = 'imap_bot'
 DEBUG_MODULE_TELEGRAM_BOT = 'telegram_bot'
 DEBUG_MODULE_ZOOMREC_SERVER = 'zoomrec_server'
+DEBUG_MODULE_PERIODIC_MAINTENANCE = 'periodic_maintenance'
 
 # terminal dimensions
 TERMINAL_WIDTH = 85
@@ -101,7 +103,11 @@ STALE_EVENT_THRESHOLD_SECS = 60 * 60 * 2 # 2h
 # environment variables to suppress sftp user creation for debugging in non docker environment
 SKIP_SFTP_USER_CREATION = 'SKIP_SFTP_USER_CREATION'
 
+# periodic maintenance cron environment variable
+PERIODIC_MAINTENANCE_CRON = 'PERIODIC_MAINTENANCE_CRON'
+
 DEFAULT_NOTIFICATION_SUBJECT = "ZoomRec Notification"
 DEFAULT_NOTIFICATION_FROM_EMAIL = 'no-reply@zoomrec-default-email.com'
 
-
+# periodic maintenance
+DEFAULT_PERIODIC_MAINTENANCE_CRON = "0 2 * * *"  # Daily at 2 AM UTC

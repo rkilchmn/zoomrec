@@ -4,9 +4,10 @@ services:
       - DEBUG_PORT_CLIENT=${DEBUG_PORT_CLIENT:-}  
     ports:
       - "${DEBUG_PORT_CLIENT_EXPOSED:-}:${DEBUG_PORT_CLIENT:-}"
-      - 8233:8233
+      - 8233:8233 # temporal UI
   zoomrec_server:
     environment:
       - DEBUG_PORT_SERVER=${DEBUG_PORT_SERVER:-}
     ports:
       - "${DEBUG_PORT_SERVER_EXPOSED:-}:${DEBUG_PORT_SERVER:-}"
+      - 8234:8233 # temporal UI

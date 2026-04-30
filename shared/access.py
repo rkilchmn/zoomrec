@@ -20,12 +20,14 @@ class AccessField(Enum):
     USER_KEY = 'user_key'
     NOTIFY_USER = 'notify_user'
     ADDITIONAL_EMAILS = 'additional_emails'
+    DELETE_ON_EXPIRE = 'delete_on_expire'
     CREATED_TIMESTAMP = 'created_timestamp'
     LAST_UPDATED_TIMESTAMP = 'last_updated_timestamp'
 
 ACCESS_DEFAULT_VALUES = {
     AccessField.NOTIFY_USER.value: False,  # Default to not notifying user (becomes 0 in database)
     AccessField.ADDITIONAL_EMAILS.value: None,  # Default to no additional emails
+    AccessField.DELETE_ON_EXPIRE.value: False,  # Default to not deleting files on expire
 }
 
 class AccessType(Enum):
@@ -184,25 +186,39 @@ class SQLLiteAccess(Access):
         conn.execute('PRAGMA foreign_keys = ON;')
         return conn
 
+    def _get_schema(self):
+        """
+        Return the desired schema as a dict of {column_name: (type, constraints)}.
+        This is the single source of truth for the table structure.
+        """
+        return {
+            AccessField.RESOURCE.value: ('TEXT', 'NOT NULL'),
+            AccessField.ACCESS_KEY.value: ('TEXT', 'NOT NULL'),
+            AccessField.ACCESS_TYPE.value: ('INTEGER', 'NOT NULL'),
+            AccessField.EXPIRES_AT.value: ('TIMESTAMP', 'NULL'),
+            AccessField.USER_KEY.value: ('TEXT', 'NOT NULL'),
+            AccessField.NOTIFY_USER.value: ('INTEGER', 'NULL'),
+            AccessField.ADDITIONAL_EMAILS.value: ('TEXT', 'NULL'),
+            AccessField.DELETE_ON_EXPIRE.value: ('INTEGER', 'NULL'),
+            AccessField.CREATED_TIMESTAMP.value: ('TIMESTAMP', 'DEFAULT CURRENT_TIMESTAMP'),
+            AccessField.LAST_UPDATED_TIMESTAMP.value: ('TIMESTAMP', 'DEFAULT CURRENT_TIMESTAMP'),
+        }
+
+    def _get_constraints(self):
+        """
+        Return table-specific constraints (foreign keys, primary keys, etc.).
+        """
+        return [
+            f"FOREIGN KEY ({AccessField.USER_KEY.value}) REFERENCES users({UserField.KEY.value}) ON DELETE CASCADE",
+            f"PRIMARY KEY ({AccessField.ACCESS_TYPE.value}, {AccessField.RESOURCE.value}, {AccessField.ACCESS_KEY.value})"
+        ]
+
     def _initialize_db(self):
+        from shared.db_migration import initialize_table
+
         with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(f'''
-                CREATE TABLE IF NOT EXISTS access (
-                    {AccessField.RESOURCE.value} TEXT NOT NULL,
-                    {AccessField.ACCESS_KEY.value} TEXT NOT NULL,
-                    {AccessField.ACCESS_TYPE.value} INTEGER NOT NULL,
-                    {AccessField.EXPIRES_AT.value} TIMESTAMP NULL,
-                    {AccessField.USER_KEY.value} TEXT NOT NULL,
-                    {AccessField.NOTIFY_USER.value} INTEGER NULL,
-                    {AccessField.ADDITIONAL_EMAILS.value} TEXT NULL,
-                    {AccessField.CREATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    {AccessField.LAST_UPDATED_TIMESTAMP.value} TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY ({AccessField.USER_KEY.value}) REFERENCES users({UserField.KEY.value}) ON DELETE CASCADE,
-                    PRIMARY KEY ({AccessField.ACCESS_TYPE.value}, {AccessField.RESOURCE.value}, {AccessField.ACCESS_KEY.value})
-                )
-            ''')
-            conn.commit()
+            # Initialize table using generic migration utility
+            initialize_table(conn, 'access', self._get_schema(), self._get_constraints())
 
     def convert_to_internal(self, access):
         """
@@ -218,6 +234,11 @@ class SQLLiteAccess(Access):
         if AccessField.NOTIFY_USER.value in access and access[AccessField.NOTIFY_USER.value] is not None:
             if isinstance(access[AccessField.NOTIFY_USER.value], bool):
                 access[AccessField.NOTIFY_USER.value] = 1 if access[AccessField.NOTIFY_USER.value] else 0
+        
+        # Convert delete_on_expire to integer if it's a boolean
+        if AccessField.DELETE_ON_EXPIRE.value in access and access[AccessField.DELETE_ON_EXPIRE.value] is not None:
+            if isinstance(access[AccessField.DELETE_ON_EXPIRE.value], bool):
+                access[AccessField.DELETE_ON_EXPIRE.value] = 1 if access[AccessField.DELETE_ON_EXPIRE.value] else 0
         
         # Convert additional_emails to JSON string if it's a list
         if AccessField.ADDITIONAL_EMAILS.value in access and access[AccessField.ADDITIONAL_EMAILS.value] is not None:
@@ -239,6 +260,10 @@ class SQLLiteAccess(Access):
         # Convert notify_user back to boolean if present
         if AccessField.NOTIFY_USER.value in access and access[AccessField.NOTIFY_USER.value] is not None:
             access[AccessField.NOTIFY_USER.value] = bool(access[AccessField.NOTIFY_USER.value])
+        
+        # Convert delete_on_expire back to boolean if present
+        if AccessField.DELETE_ON_EXPIRE.value in access and access[AccessField.DELETE_ON_EXPIRE.value] is not None:
+            access[AccessField.DELETE_ON_EXPIRE.value] = bool(access[AccessField.DELETE_ON_EXPIRE.value])
         
         # Convert additional_emails back from JSON if present
         if AccessField.ADDITIONAL_EMAILS.value in access and access[AccessField.ADDITIONAL_EMAILS.value]:

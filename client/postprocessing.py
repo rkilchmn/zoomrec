@@ -19,6 +19,7 @@ with workflow.unsafe.imports_passed_through():
         INSTRUCTION_UPLOAD_KEY_DELETE, INSTRUCTION_UPLOAD_KEY_FILE_FILTER, INSTRUCTION_ACCESS_HTTP_SERVER,
         INSTRUCTION_ACCESS_KEY, INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS,
         INSTRUCTION_ACCESS_NOTIFY_USER, INSTRUCTION_ACCESS_ADDITIONAL_EMAILS,
+        INSTRUCTION_ACCESS_DELETE_ON_EXPIRE,
         INSTRUCTION_TRANSCRIBE_TASK, INSTRUCTION_TRANSCRIBE_SOURCE_LANGUAGE 
     )
     from shared.events_api import EventAPI
@@ -178,6 +179,8 @@ async def provideAccess(input: ProvideAccessInput) -> dict:
             additional_emails = input.access_config.get(INSTRUCTION_ACCESS_ADDITIONAL_EMAILS)
             if additional_emails:
                 additional_emails = [email.strip() for email in additional_emails.split(',')]
+            
+            delete_on_expire = input.access_config.get(INSTRUCTION_ACCESS_DELETE_ON_EXPIRE)
 
             access_key = input.access_config.get(INSTRUCTION_ACCESS_KEY)
             if access_key is None:
@@ -190,7 +193,8 @@ async def provideAccess(input: ProvideAccessInput) -> dict:
                 AccessField.ACCESS_KEY.value: access_key,
                 AccessField.ACCESS_TYPE.value: AccessType.HTTP_SERVER_ACCESS.value,
                 AccessField.NOTIFY_USER.value: notify_user,
-                AccessField.ADDITIONAL_EMAILS.value: additional_emails
+                AccessField.ADDITIONAL_EMAILS.value: additional_emails,
+                AccessField.DELETE_ON_EXPIRE.value: delete_on_expire
             }, expire_after_seconds=expire_after_seconds)
             logging.info(f"{get_context_prefix()} Successfully created HTTP access for {input.resource}")
             return access

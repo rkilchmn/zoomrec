@@ -53,6 +53,15 @@ def cleanup():
 
 atexit.register(cleanup)
 
+def start_postprocessing():
+    command = ["python3", f"{SCRIPT_DIR}/postprocessing.py"]
+    postprocess = subprocess.Popen(command, preexec_fn=os.setsid)
+
+    atexit.register(os.killpg, os.getpgid(
+        postprocess.pid), signal.SIGQUIT)
+    
+    logging.info("Postprocessing process started")
+
 def getIntEnv( env_str, default_value):
     int_val = default_value
     try:
@@ -455,6 +464,9 @@ def print_console(message, no_scroll=True):
         print(padded_message, flush=True)
 
 async def main():
+    # start postprocessing worker
+    start_postprocessing()
+    
     # loop to retrive next event and wait for it to join
     with EventAPI(SERVER_URL, SERVER_USERNAME, SERVER_PASSWORD) as event_api:
         while True:

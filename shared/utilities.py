@@ -99,6 +99,10 @@ def start_logging( log_filename):
 
         # # Configure the logging
         # logging.basicConfig(filename=log_filepath, filemode="a", format=constants.LOG_FORMAT, level=LOG_LEVEL)
+        
+        # Suppress verbose Temporal SDK debug messages (omit JSON payloads)
+        logging.getLogger("temporalio").setLevel(logging.WARNING)
+        
         logging.info(f"Starting logging {log_filename}")
         return True
     except Exception as e:

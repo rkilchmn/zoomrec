@@ -20,7 +20,7 @@ services:
     volumes:
       - ${ZOOMREC_HOME}/data:/home/zoomrec/data
       - ${ZOOMREC_HOME}/config:/home/zoomrec/config
-      - /root/sftp-data:/root/sftp-data
+      - ${ZOOMREC_HOME}/data/sftp-data:/root/sftp-data
     ports:
       - "${SERVER_PORT_EXPOSED}:${SERVER_PORT}"
       - "${SSH_PORT_EXPOSED}:${SSH_PORT}"

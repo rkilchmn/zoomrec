@@ -23,6 +23,10 @@ RUN apt update && apt install -y \
     sudo \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Temporal CLI into /home/zoomrec/.temporalio/bin/temporal
+RUN curl -sSfL https://temporal.download/cli.sh | bash && \
+    echo "alias tctl='/home/zoomrec/.temporalio/bin/temporal'" >> ${HOME}/.bashrc
+
 # Set up Python virtual environment
 RUN mkdir -p ${PYTHON_VENV_PATH} && \
     python3 -m venv ${PYTHON_VENV_PATH}

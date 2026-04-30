@@ -63,6 +63,15 @@ def create_sftp_users():
     
     logging.info("SFTP users process started")
 
+def start_periodic_maintenance():
+    command = ["python3", f"{SCRIPT_DIR}/periodic_maintenance.py"]
+    periodic_maintenance = subprocess.Popen(command, preexec_fn=os.setsid)
+
+    atexit.register(os.killpg, os.getpgid(
+        periodic_maintenance.pid), signal.SIGQUIT)
+    
+    logging.info("Periodic maintenance process started")
+
 def main():
 
     # start bots
@@ -75,6 +84,9 @@ def main():
     # create sftp users
     time.sleep(3) # give time for API server to start
     create_sftp_users()
+
+    # start periodic maintenance worker
+    start_periodic_maintenance()
     
     # Run the bot until the user presses Ctrl-C
     while True:

@@ -90,9 +90,6 @@ pactl set-source-volume 3 60%
 
 echo -e "\nStart Zoomrec Client.."
 
-# start temporal postprocessing worker
-python3 -u "$HOME/client/postprocessing.py" &> "$HOME/data/logs/starting_log.txt" &
-
 # Start python script in separated terminal
 if [[ "$LOG_LEVEL" == "DEBUG" ]]; then
   # Wait if something failed
