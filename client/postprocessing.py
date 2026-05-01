@@ -240,11 +240,13 @@ class PostprocessWorkflowInput:
     event: dict
     client_id: str
     postprocess_sorted: list
+    wait_time_minutes: int
     
 @workflow.defn
 class PostprocessWorkflow:
     def __init__(self):
         self.skipped_tasks = set()
+        self.ready = False
 
     @workflow.signal(name="skipSteps")
     def skip_steps_signal(self, task_names) -> None:
@@ -257,6 +259,12 @@ class PostprocessWorkflow:
             task_names = [task_names]
         self.skipped_tasks.update(task_names)
         logging.info(f"{get_context_prefix()} Added tasks to skip: {', '.join(task_names)}")
+
+    @workflow.signal
+    def hostEndedMeeting(self) -> None:
+        """Signal handler to trigger immediate continuation of postprocessing."""
+        self.ready = True
+        logging.info(f"{get_context_prefix()} Received hostEndedMeeting signal, proceeding with postprocessing")
 
     def should_skip_step(self, step_name: str) -> bool:
         """Check if the current step should be skipped.
@@ -280,6 +288,19 @@ class PostprocessWorkflow:
         workflow.upsert_search_attributes({"Event_Start": [dtstart.isoformat()]})
         workflow.upsert_search_attributes({"Event_Start_Instance": [input.event['dtstart_instance']]})
         workflow.upsert_search_attributes({"Event_Filename": [input.recording_basename]})
+
+        # Wait for signal or timeout before starting postprocessing
+        logging.info(f"{get_context_prefix()} Waiting for hostEndedMeeting signal or {input.wait_time_minutes} minute timeout")
+        
+        try:
+            await workflow.wait_condition(
+                lambda: self.ready,
+                timeout=timedelta(minutes=input.wait_time_minutes),
+            )
+        except TimeoutError:
+            # Timeout is expected - continue with postprocessing
+            logging.info(f"{get_context_prefix()} Timeout expired, proceeding with postprocessing")
+        logging.info(f"{get_context_prefix()} Proceeding with postprocessing")
 
         # set status to POSTPROCESS
         update_status_input = UpdateStatusInput(
@@ -432,6 +453,17 @@ class PostprocessWorkflow:
             start_to_close_timeout=timedelta(minutes=10)
         )
 
+def generate_workflow_id(recording_basename: str) -> str:
+    """Generate a unique workflow ID for a postprocessing workflow.
+    
+    Args:
+        recording_basename: Base name of the recording file
+        
+    Returns:
+        Unique workflow ID string
+    """
+    return f"zoomrec-client-postprocess-{recording_basename}"
+
 async def get_temporal_client():
     """Get or create a shared Temporal client connection.
     
@@ -449,23 +481,38 @@ async def get_temporal_client():
     return _temporal_client
 
 
-async def schedulePostprocess(postprocess, recording_basename, event, client_id):
+async def schedulePostprocess(postprocess, recording_basename, event, client_id, wait_time_minutes):
     """Schedule a postprocessing workflow for a recording.
     
     This function reuses a shared Temporal client connection, allowing
     multiple calls without creating new connections each time.
+    If a workflow with the same ID already exists, it returns the existing handle.
     
     Args:
         postprocess: List of postprocessing instructions
         recording_basename: Base name of the recording file
         event: Event dictionary using EventField keys
         client_id: ID of the client scheduling the postprocess
+        wait_time_minutes: Maximum wait time in minutes before auto-continuing
         
     Returns:
-        Workflow handle for the started workflow
+        Workflow handle for the started or existing workflow
     """
     # Get shared Temporal client
     client = await get_temporal_client()
+    
+    # Generate workflow ID
+    workflow_id = generate_workflow_id(recording_basename)
+    
+    # Check if workflow already exists
+    try:
+        existing_handle = client.get_workflow_handle(workflow_id)
+        workflow_description = await existing_handle.describe()
+        logging.info(f"Workflow '{workflow_id}' already exists with status: {workflow_description.status}")
+        return existing_handle
+    except Exception:
+        # Workflow doesn't exist, proceed to create it
+        pass
 
     if isinstance(postprocess, list) and len(postprocess) > 0:
     
@@ -489,9 +536,6 @@ async def schedulePostprocess(postprocess, recording_basename, event, client_id)
         # sequence postprocessing instruction
         postprocess_sorted = sorted(postprocess, key=postprocess_order)
         
-        # Generate workflow ID based on event
-        workflow_id = f"zoomrec-client-postprocess-{recording_basename}"
-        
         # Start the workflow
         handle = await client.start_workflow(
             PostprocessWorkflow.run,
@@ -499,17 +543,49 @@ async def schedulePostprocess(postprocess, recording_basename, event, client_id)
                 recording_basename=recording_basename,
                 event=event,
                 client_id=client_id,
-                postprocess_sorted=postprocess_sorted
+                postprocess_sorted=postprocess_sorted,
+                wait_time_minutes=wait_time_minutes
             ),
             id=workflow_id,
             task_queue="postprocess-task-queue",
         )
         
-        logging.info(f"Scheduled posprocessing workflow id: '{workflow_id}' and handle: '{handle.id}'")
+        logging.info(f"Scheduled posprocessing with workflow id: '{workflow_id}' and handle: '{handle.id}'")
         return handle
     else:
         logging.error("No postprocessing instructions found for '{recording_basename}'")
         return None
+
+async def triggerPostprocessContinuation(recording_basename: str):
+    """Trigger immediate continuation of a waiting postprocessing workflow.
+    
+    This function sends a hostEndedMeeting signal to a workflow that is currently
+    waiting for the signal or timeout. This should be called when the meeting
+    ends successfully to avoid waiting for the timeout.
+    
+    Args:
+        recording_basename: Base name of the recording file (used to generate workflow ID)
+        
+    Returns:
+        True if signal was sent successfully, False otherwise
+    """
+    # Get shared Temporal client
+    client = await get_temporal_client()
+    
+    # Generate workflow ID
+    workflow_id = generate_workflow_id(recording_basename)
+    
+    try:
+        # Get workflow handle
+        handle = client.get_workflow_handle(workflow_id)
+        
+        # Send hostEndedMeeting signal
+        await handle.signal(PostprocessWorkflow.hostEndedMeeting)
+        logging.info(f"Successfully sent hostEndedMeeting signal to workflow '{workflow_id}'")
+        return True
+    except Exception as e:
+        logging.error(f"Failed to send hostEndedMeeting signal to workflow '{workflow_id}': {e}")
+        return False
 
 async def main():
     """Main function to start the Temporal worker for postprocessing.

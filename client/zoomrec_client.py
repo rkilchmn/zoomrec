@@ -19,7 +19,7 @@ from shared.users_api import UserAPI
 from shared.utilities import start_debug, end_process, convert_to_safe_filename, create_unique_filename, start_logging, format_template, notify_low_disk_space
 import shared.constants as constants
 from client.automation import Automation
-from client.postprocessing import schedulePostprocess
+from client.postprocessing import schedulePostprocess, triggerPostprocessContinuation
 
 start_logging(constants.LOG_CLIENT_FILENAME)
 start_debug(constants.DEBUG_MODULE_ZOOMREC_CLIENT, os.getenv('DEBUG_PORT_CLIENT'))
@@ -358,6 +358,18 @@ async def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lea
                             logging.error("No user_key found in event for notification")
                     except Exception as e:
                         logging.error(f"Error sending recording failure notification: {e}")
+                else:
+                    # Recording started successfully, schedule postprocessing workflow
+                    postprocess = Events.get_instruction_attribute(EventInstructionAttribute.POSTPROCESS, event)
+                    if isinstance(postprocess, list) and len(postprocess) > 0:
+                        # Calculate wait time from now to scheduled end (with trail time)
+                        now = Events.now(event)
+                        wait_time_minutes = int((dtend_instance_trail - now).total_seconds() / 60)
+                        if wait_time_minutes < 1:
+                            wait_time_minutes = 1  # Minimum 1 minute
+                        
+                        handle = await schedulePostprocess(postprocess, event_basename, event, CLIENT_ID, wait_time_minutes)
+                        logging.info(f"Scheduled posprocessing workflow id: '{handle.id}'")
 
             # update event
             try:
@@ -407,9 +419,12 @@ async def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lea
                 except Exception as e:
                     logging.error(f"Error updating event status to POSTPROCESS: {e}")
            
-                # start postprocessing using temporal.io
-                handle = await schedulePostprocess(postprocess, event_basename, event, CLIENT_ID)
-                logging.info(f"Started postprocessing with workflow id: '{handle.id}'")
+                # Trigger postprocessing continuation now that meeting ended successfully
+                success = await triggerPostprocessContinuation(event_basename)
+                if success:
+                    logging.info(f"Triggered postprocessing continuation for '{event_basename}'")
+                else:
+                    logging.warning(f"Failed to trigger postprocessing continuation for '{event_basename}', workflow will continue after timeout")
             else:
                 # update event to ENDED to prevent re-joining 
                 try:
