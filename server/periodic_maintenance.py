@@ -9,7 +9,7 @@ import os
 from typing import Optional
 
 # Import constants needed by activities (outside sandbox)
-from shared.constants import SFTP_DATA_MOUNT_PATH, SFTP_RECORDINGS_DIR
+from shared.constants import SFTP_DATA_MOUNT_PATH, SFTP_RECORDINGS_DIR, MIN_FREE_DISK_SPACE, DEFAULT_MIN_FREE_DISK_SPACE
 
 # Import with sandbox passthrough for modules that use http.client and other restricted modules
 with workflow.unsafe.imports_passed_through():
@@ -17,7 +17,7 @@ with workflow.unsafe.imports_passed_through():
     from shared.access import AccessField, AccessType
     from shared.users_api import UserAPI
     from shared.users import UserField
-    from shared.utilities import start_logging, start_debug
+    from shared.utilities import start_logging, start_debug, notify_low_disk_space
     from shared.constants import LOG_PERIODIC_MAINTENANCE, DEBUG_MODULE_PERIODIC_MAINTENANCE
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -166,8 +166,46 @@ async def deleteAccessRecord(input: DeleteAccessRecordInput) -> bool:
         raise
 
 @dataclass
+class CheckDiskSpaceInput:
+    base_path: str
+    mount_path: str
+    min_disk_size: str
+    context: str
+
+@dataclass
 class AccessCleanupWorkflowInput:
-    pass
+    min_disk_size: str = DEFAULT_MIN_FREE_DISK_SPACE
+
+@activity.defn
+async def checkDiskSpace(input: CheckDiskSpaceInput) -> bool:
+    """Check disk space and notify admin users if below threshold.
+    
+    Args:
+        input: CheckDiskSpaceInput containing base_path, mount_path, min_disk_size, and context
+        
+    Returns:
+        bool: True if low disk space was reported (notifications sent), False otherwise
+    """
+    try:
+        check_path = os.path.join(input.base_path, input.mount_path)
+        logging.debug(f"{get_context_prefix()} Checking disk space on {check_path} with minimum threshold: {input.min_disk_size}")
+        low_disk_reported = notify_low_disk_space(
+            user_key=None,  # Empty user_key - only admin users will be notified
+            check_path=check_path,
+            min_disk_size=input.min_disk_size,
+            context=input.context,
+            server_url=SERVER_URL,
+            server_username=SERVER_USERNAME,
+            server_password=SERVER_PASSWORD
+        )
+        if low_disk_reported:
+            logging.warning(f"{get_context_prefix()} Low disk space reported for {check_path} (threshold: {input.min_disk_size})")
+        else:
+            logging.debug(f"{get_context_prefix()} Disk space check passed for {check_path} (threshold: {input.min_disk_size})")
+        return low_disk_reported
+    except Exception as e:
+        logging.error(f"{get_context_prefix()} Failed to check disk space: {str(e)}")
+        raise
 
 @workflow.defn
 class AccessCleanupWorkflow:
@@ -186,47 +224,64 @@ class AccessCleanupWorkflow:
         
         if not expired_access:
             logging.info(f"{get_context_prefix()} No expired access records to clean up")
-            return
+        else:
+            # Process each expired access record
+            deleted_count = 0
+            for access in expired_access:
+                resource = access[AccessField.RESOURCE.value]
+                access_key = access[AccessField.ACCESS_KEY.value]
+                access_type = access[AccessField.ACCESS_TYPE.value]
+                user_key = access[AccessField.USER_KEY.value]
+                
+                logging.info(f"{get_context_prefix()} Processing expired access for resource: {resource}")
+                
+                # Delete file from SFTP
+                try:
+                    file_deleted = await workflow.execute_activity(
+                        deleteSftpFile,
+                        DeleteSftpFileInput(resource=resource, user_key=user_key),
+                        start_to_close_timeout=timedelta(minutes=5),
+                        summary=f"Delete SFTP file for {resource}"
+                    )
+                except Exception as e:
+                    logging.error(f"{get_context_prefix()} Failed to delete SFTP file for {resource}: {str(e)}")
+                    file_deleted = False
+                
+                # Delete access record from database
+                try:
+                    await workflow.execute_activity(
+                        deleteAccessRecord,
+                        DeleteAccessRecordInput(
+                            resource=resource,
+                            access_key=access_key,
+                            access_type=access_type
+                        ),
+                        start_to_close_timeout=timedelta(minutes=5),
+                        summary=f"Delete access record for {resource}"
+                    )
+                    deleted_count += 1
+                except Exception as e:
+                    logging.error(f"{get_context_prefix()} Failed to delete access record for {resource}: {str(e)}")
+            
+            logging.info(f"{get_context_prefix()} Access cleanup completed. Deleted {deleted_count} access records")
         
-        # Process each expired access record
-        deleted_count = 0
-        for access in expired_access:
-            resource = access[AccessField.RESOURCE.value]
-            access_key = access[AccessField.ACCESS_KEY.value]
-            access_type = access[AccessField.ACCESS_TYPE.value]
-            user_key = access[AccessField.USER_KEY.value]
-            
-            logging.info(f"{get_context_prefix()} Processing expired access for resource: {resource}")
-            
-            # Delete file from SFTP
-            try:
-                file_deleted = await workflow.execute_activity(
-                    deleteSftpFile,
-                    DeleteSftpFileInput(resource=resource, user_key=user_key),
-                    start_to_close_timeout=timedelta(minutes=5),
-                    summary=f"Delete SFTP file for {resource}"
-                )
-            except Exception as e:
-                logging.error(f"{get_context_prefix()} Failed to delete SFTP file for {resource}: {str(e)}")
-                file_deleted = False
-            
-            # Delete access record from database
-            try:
-                await workflow.execute_activity(
-                    deleteAccessRecord,
-                    DeleteAccessRecordInput(
-                        resource=resource,
-                        access_key=access_key,
-                        access_type=access_type
-                    ),
-                    start_to_close_timeout=timedelta(minutes=5),
-                    summary=f"Delete access record for {resource}"
-                )
-                deleted_count += 1
-            except Exception as e:
-                logging.error(f"{get_context_prefix()} Failed to delete access record for {resource}: {str(e)}")
-        
-        logging.info(f"{get_context_prefix()} Access cleanup completed. Deleted {deleted_count} access records")
+        # Check disk space - runs completely independent of access cleanup
+        try:
+            logging.debug(f"{get_context_prefix()} Starting independent disk space check")
+            await workflow.execute_activity(
+                checkDiskSpace,
+                CheckDiskSpaceInput(
+                    base_path=BASE_PATH,
+                    mount_path=SFTP_DATA_MOUNT_PATH,
+                    min_disk_size=input.min_disk_size,
+                    context="Periodic maintenance check"
+                ),
+                start_to_close_timeout=timedelta(minutes=5),
+                summary=f"Check disk space (threshold: {input.min_disk_size})"
+            )
+            logging.debug(f"{get_context_prefix()} Disk space check completed successfully")
+        except Exception as e:
+            logging.error(f"{get_context_prefix()} Failed to execute disk space check: {str(e)}")
 
 async def get_temporal_client():
     """Get or create a shared Temporal client connection."""
@@ -256,6 +311,7 @@ async def scheduleAccessCleanup():
     client = await get_temporal_client()
     
     CRON_SCHEDULE = os.getenv(PERIODIC_MAINTENANCE_CRON, DEFAULT_PERIODIC_MAINTENANCE_CRON)
+    MIN_DISK_SIZE = os.getenv(MIN_FREE_DISK_SPACE, DEFAULT_MIN_FREE_DISK_SPACE)
     schedule_id = "zoomrec-access-cleanup-periodic"
     
     try:
@@ -265,7 +321,7 @@ async def scheduleAccessCleanup():
             Schedule(
                 action=ScheduleActionStartWorkflow(
                     AccessCleanupWorkflow.run,
-                    AccessCleanupWorkflowInput(),  # Input for workflow
+                    AccessCleanupWorkflowInput(min_disk_size=MIN_DISK_SIZE),  # Input for workflow
                     id=schedule_id,
                     task_queue="access-cleanup-task-queue",
                 ),
@@ -306,7 +362,8 @@ async def main():
         activities=[
             queryExpiredAccess,
             deleteSftpFile,
-            deleteAccessRecord
+            deleteAccessRecord,
+            checkDiskSpace
         ]
     )
     

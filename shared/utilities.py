@@ -204,10 +204,10 @@ def format_template(
     return result
 
 def notify_low_disk_space(user_key, check_path, min_disk_size, context, server_url, server_username, server_password):
-    """Check free disk space and notify user if below threshold.
+    """Check free disk space and notify all admin users if below threshold.
 
     Args:
-        user_key (str): User key for notification.
+        user_key (str): User key for notification (kept for backward compatibility, now optional).
         check_path (str): Path to the directory to check.
         min_disk_size (str): Minimum free disk space as human-readable string (e.g. '5 GB').
         context (str): Context string for logging/notification (e.g. event name).
@@ -215,13 +215,17 @@ def notify_low_disk_space(user_key, check_path, min_disk_size, context, server_u
         server_username (str): Server username for UserAPI.
         server_password (str): Server password for UserAPI.
 
+    Returns:
+        bool: True if low disk space was reported (notifications sent), False otherwise.
+
     Parses min_disk_size to bytes and checks if free space is below threshold.
+    Notifies all admin users if disk space is below threshold.
     """
     try:
         min_free_space_bytes = parse_size(min_disk_size)
     except Exception:
         logging.error(f"Invalid min_disk_size value '{min_disk_size}'. Skipping disk space check.")
-        return
+        return False
 
     try:
         disk_usage = psutil.disk_usage(check_path)
@@ -235,15 +239,50 @@ def notify_low_disk_space(user_key, check_path, min_disk_size, context, server_u
             )
             logging.warning(warning_msg)
             try:
-                if user_key:
-                    with UserAPI(server_url, server_username, server_password) as user_api:
-                        user_api.notify(
-                            user_key=user_key,
-                            message=warning_msg,
-                            subject="⚠️ Low Disk Space Warning"
-                        )
+                with UserAPI(server_url, server_username, server_password) as user_api:
+                    # Query all admin users
+                    from .users import UserField, UserRole
+                    admin_users = user_api.get(filters=[[UserField.ROLE.value, "=", UserRole.ADMIN.value]])
+                    
+                    # Collect unique user keys to notify (admin users + user_key if provided)
+                    notify_keys = set()
+                    if admin_users:
+                        for admin_user in admin_users:
+                            admin_key = admin_user.get(UserField.KEY.value)
+                            if admin_key:
+                                notify_keys.add(admin_key)
+                    
+                    # Add user_key if provided (set ensures no duplicates)
+                    if user_key:
+                        notify_keys.add(user_key)
+                    
+                    if notify_keys:
+                        for notify_key in notify_keys:
+                            user_api.notify(
+                                user_key=notify_key,
+                                message=warning_msg,
+                                subject="⚠️ Low Disk Space Warning"
+                            )
+                            # Find user name for logging
+                            user_name = "unknown"
+                            if admin_users:
+                                for admin_user in admin_users:
+                                    if admin_user.get(UserField.KEY.value) == notify_key:
+                                        user_name = admin_user.get(UserField.NAME.value)
+                                        break
+                            if notify_key == user_key and user_name == "unknown":
+                                user_name = user_key
+                            logging.info(f"Sent low disk space notification to user: {user_name}")
+                    else:
+                        logging.warning("No users found to notify about low disk space")
+                return True
             except Exception as e:
                 logging.error(f"Error sending low disk space notification: {e}")
+                return False
+        else:
+            logging.debug(f"Disk space check passed: {disk_usage.free / (1024 ** 3):.2f} GB free (threshold: {min_free_space_bytes / (1024 ** 3):.2f} GB)")
+            return False
     except Exception as e:
         logging.error(f"Error checking disk space: {e}")
+        return False
         
