@@ -242,6 +242,41 @@ close_message_info_is_here: &close_message_info_is_here
         on_success: true # continue meeting
         on_error:   true # continue meeting
 
+# close message info is here (if shown)
+close_polls_quizzes_window: &close_polls_quizzes_window
+  locate_image: 
+    image: 'polls_quizzes_window_title.png'
+    debug_screenshot: false # not an error, hence no debug screenshots required and would create one every second, default is true
+    #  set these VARIABLES: VARIABLES[name].center_x, `center_y, width, height, left, top, right, bottom
+    set_variable: 'close_polls_quizzes_window'
+    on_error: *close_message_info_is_here # next check
+    on_success:
+      # click close icon
+      locate_image: 
+        image: 'polls_quizzes_window_title_close.png'
+        click: true  # default is false
+        region:
+          top_left_x:     !expr VARIABLES['close_polls_quizzes_window'].center_x
+          top_left_y:     !expr VARIABLES['close_polls_quizzes_window'].center_y - VARIABLES['close_polls_quizzes_window'].height
+          bottom_right_x: !expr VARIABLES['close_polls_quizzes_window'].center_x + (2* VARIABLES['close_polls_quizzes_window'].width)
+          bottom_right_y: !expr VARIABLES['close_polls_quizzes_window'].center_y + VARIABLES['close_polls_quizzes_window'].height
+        on_success: true # continue meeting
+        on_error:   true # continue meeting
+
+# acknowledge meeting is recorded (if not acknowledge participant gets removed from meeting)
+acknowledge_meeting_recorded: &acknowledge_meeting_recorded
+  locate_image: 
+    image: 'this_meeting_is_beeing_recorded.png'
+    debug_screenshot: false # not an error, hence no debug screenshots required and would create one every second, default is true
+    on_error: *close_polls_quizzes_window # next check
+    on_success:
+      # click ok botton to acknowlege
+      locate_image: 
+        image: 'this_meeting_is_beeing_recorded_button_ok.png'
+        click: true  # default is false
+        on_success: true # continue meeting
+        on_error:   true # continue meeting
+
 join:
   # list is processed from the top until a step returns false -> join failed, otherwise join successfull
   - *join_popup_with_id 
@@ -255,5 +290,8 @@ join:
   
 ongoing:
   # list is processed from the top until a step returns false -> meeting ended, otherwise meeting continues
+  # this needs to be checked every seconds as the message is only visible max 2 secs before disappearing
   - *check_meeting_ended
-  - *close_message_info_is_here
+  # chained acknowledge_meeting_recorded, close_polls_quizzes_window, close_message_info_is_here
+  # idea is to execute next check when not found to process faster as 
+  - *acknowledge_meeting_recorded
