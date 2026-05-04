@@ -16,6 +16,34 @@ from .events import Events
 
 # Pre-compile regex pattern for better performance
 _TEMPLATE_PATTERN = re.compile(r'\{(?P<field>[a-zA-Z0-9_.]+)(?::(?P<format>[^}]*))?\}')
+# Pattern to match {{CONSTANT_NAME}} placeholders
+_CONSTANT_PLACEHOLDER_PATTERN = re.compile(r'\{\{([A-Z_]+)\}\}')
+
+def replace_constant_placeholders(template_str: str) -> str:
+    """
+    Replace {{CONSTANT_NAME}} placeholders in a string with values from constants module.
+    
+    Args:
+        template_str (str): The string containing {{CONSTANT_NAME}} placeholders
+        
+    Returns:
+        str: The string with placeholders replaced by their constant values
+        
+    Example:
+        >>> replace_constant_placeholders("Format: {{DATETIME_FORMAT}}")
+        "Format: %d/%m/%Y %H:%M"
+    """
+    def replace_match(match: Match) -> str:
+        constant_name = match.group(1)
+        # Try to get the constant from the constants module
+        if hasattr(constants, constant_name):
+            value = getattr(constants, constant_name)
+            return str(value)
+        else:
+            logging.warning(f"Constant '{constant_name}' not found in constants module. Keeping placeholder.")
+            return match.group(0)  # Return original placeholder if not found
+    
+    return _CONSTANT_PLACEHOLDER_PATTERN.sub(replace_match, template_str)
 
 def convert_to_safe_filename(filename):
     invalid_chars = '\\/:*?"\'<>|'

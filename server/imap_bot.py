@@ -24,8 +24,7 @@ from shared.events import Events, EventField, DATETIME_FORMAT, EventStatus
 from shared.events_api import EventAPI
 from shared.users import UserField, Users
 from shared.users_api import UserAPI
-from shared.utilities import start_logging, start_debug
-from shared import constants
+from shared import constants, utilities
 from shared.constants import LOG_IMAP_BOT_FILENAME, DEBUG_MODULE_IMAP_BOT, DATE_FORMAT, TIME_FORMAT
 from server.telegram_bot import CMD_ADD_EVENT
 
@@ -149,7 +148,9 @@ def mapping_ai(attribute_name: str, attribute_value: str, ai_config: dict) -> Op
             api_url=ai_config["api_url"],
             api_key_env=ai_config["api_key_env"]
         )
-        prompt = ai_config["prompt_template"].format(input=attribute_value)
+        # Replace {{CONSTANT_NAME}} placeholders with actual constant values
+        prompt_template = utilities.replace_constant_placeholders(ai_config["prompt_template"])
+        prompt = prompt_template.format(input=attribute_value)
         result = llm.ask(prompt)
         if result is not None:
             return result
@@ -344,19 +345,27 @@ def run_bot():
                                         attribute, category = key.split("_")
                                         if category == "regex":
                                             # retrieve from content via regex
-                                            if attribute == EventField.DTSTART.value:
-                                                datetime_matches = re.compile(value).findall(content[section['section']])
+                                            match = re.compile(value.replace("\\\\", "\\")).search(content[section['section']])
+                                            if match:
                                                 try:
-                                                    event[attribute] = datetime.strptime(datetime_matches[0], section['dtstart_format']) if datetime_matches else ''
-                                                except ValueError as error:
-                                                    event[attribute] = ''
-                                            else:
-                                                match = re.compile(value.replace("\\\\", "\\")).search(content[section['section']])
-                                                if match:
                                                     # group(1) is the first () in regex
                                                     event[attribute] = match.group(1)
-                                                else:
+                                                except IndexError:
+                                                    logging.error(f"Regex for attribute '{attribute}' has no capture groups. Please add parentheses to capture the value. Regex: {value}")
                                                     event[attribute] = ""
+                                            else:
+                                                event[attribute] = ""
+
+                                            # Handle DTSTART format parsing if needed
+                                            if attribute == EventField.DTSTART.value and 'dtstart_format' in section and section['dtstart_format']:
+                                                dtstart_value = event[EventField.DTSTART.value]
+                                                if isinstance(dtstart_value, str) and dtstart_value:
+                                                    try:
+                                                        event[EventField.DTSTART.value] = datetime.strptime(dtstart_value, section['dtstart_format'])
+                                                    except ValueError as error:
+                                                        logging.warning(f"Failed to parse dtstart with format {section['dtstart_format']}: {dtstart_value}")
+                                                        event[EventField.DTSTART.value] = ''  
+                                                          
                                         elif category == "value":
                                             # value is directly specified
                                             if isinstance(value, str):
@@ -419,16 +428,28 @@ def run_bot():
                                     logging.warning(f"Timezone not provided for event {event[EventField.TITLE.value]}. Using user timezone {user[UserField.TIMEZONE.value]}")
                                     event[EventField.TIMEZONE.value] = user[UserField.TIMEZONE.value]
 
-                                # if no date was provided, use todays date in events local timezone
-                                dtstart = event[EventField.DTSTART.value]
-                                if dtstart.year == 1900 and dtstart.month == 1 and dtstart.day == 1:
+                                # if only time, but no date was provided, use todays date in events local timezone
+                                dtstart_str = event[EventField.DTSTART.value]
+                                # Parse dtstart from string to datetime if it's a string
+                                if isinstance(dtstart_str, str) and dtstart_str:
+                                    try:
+                                        dtstart = datetime.strptime(dtstart_str, DATETIME_FORMAT)
+                                    except ValueError:
+                                        logging.warning(f"Failed to parse dtstart string with DATETIME_FORMAT: {dtstart_str}")
+                                        dtstart = None
+                                else:
+                                    dtstart = dtstart_str  # Already a datetime or None
+                                
+                                # Apply date replacement if dtstart is a valid datetime with default date
+                                if dtstart and isinstance(dtstart, datetime) and dtstart.year == 1900 and dtstart.month == 1 and dtstart.day == 1:
                                     if event[EventField.TIMEZONE.value] is not None:
-                                        today_local = datetime.now(ZoneInfo(event[EventField.TIMEZONE.value])).date()
+                                        today_local = Events.now(event).date()
                                         dtstart = dtstart.replace(year=today_local.year, month=today_local.month, day=today_local.day)
                                         # add local timezone of event
                                         dtstart = dtstart.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
-                                # convert to date/time string (as events exoects that)
-                                event[EventField.DTSTART.value] = dtstart.strftime(DATETIME_FORMAT)
+                                # convert to date/time string (as events expects that)
+                                if dtstart and isinstance(dtstart, datetime):
+                                    event[EventField.DTSTART.value] = dtstart.strftime(DATETIME_FORMAT)
 
                                 eventStr = f"Event {event[EventField.TITLE.value]} {event[EventField.DTSTART.value]} {event[EventField.TIMEZONE.value]}"
 
