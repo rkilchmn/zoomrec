@@ -188,7 +188,7 @@ def event_state_changed_callback(old_event, new_event):
             for user in message_users:
                 Users.send_message(user, message)
     except Exception as e:
-        print(f"Error in event_state_changed_callback: {str(e)}")
+        app.logger.error(f"Error in event_state_changed_callback: {str(e)}", exc_info=True)
 
 # Initialize event storage with the callback
 events = SQLLiteEvents(ZOOMREC_DB_PATH, stateChanged=event_state_changed_callback)
@@ -315,7 +315,7 @@ def render_notify_access_template(access, action_type, html=True):
         )
         
     except Exception as e:
-        app.logger.error(f"Error rendering access template: {str(e)}")
+        app.logger.error(f"Error rendering access template: {str(e)}", exc_info=True)
         # Fallback to simple message
         action_messages = {
             'created': f"Access created for {access[AccessField.RESOURCE.value]}",
@@ -334,6 +334,7 @@ def create_user():
         created_user = users.create(user_data)
         return jsonify(created_user), 201
     except Exception as e:
+        app.logger.error(f"Error in create_user: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 # Retrieve a user by key or all users if no key is provided
@@ -354,6 +355,7 @@ def get_user():
             return jsonify({}), 204 # sucsess, but "204 No Content"
 
     except Exception as e:
+        app.logger.error(f"Error in get_user: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 # Update a user by key
@@ -367,6 +369,7 @@ def update_user(key):
         updated_user = users.get(filters=[[UserField.KEY.value, '=', key]])[0]
         return jsonify(updated_user), 200
     except Exception as e:
+        app.logger.error(f"Error in update_user: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 # Delete a user by key
@@ -377,6 +380,7 @@ def delete_user(key):
         users.delete(key)
         return jsonify({"message": f"User with key: {key} deleted successfully"}), 200
     except Exception as e:
+        app.logger.error(f"Error in delete_user: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 # Send notification to user
@@ -402,7 +406,7 @@ def notify_user():
         
         return jsonify({"status": "success"}), 200
     except Exception as e:
-        app.logger.error(f"Error sending notification: {str(e)}")
+        app.logger.error(f"Error sending notification: {str(e)}", exc_info=True)
         return jsonify({"Error sending notification": str(e)}), 500
 
 # Access CRUD endpoints
@@ -415,6 +419,7 @@ def create_access():
         access_response = access_persistence.create(access_request)
         return jsonify(access_response), 201
     except Exception as e:
+        app.logger.error(f"Error in create_access: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 @app.route(f"{constants.ROUTE_ACCESS}", methods=['GET'])
@@ -446,6 +451,7 @@ def delete_access():
         else:
             return jsonify({"error": "not found"}), 404
     except Exception as e:
+        app.logger.error(f"Error in delete_access: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 @app.route(f"{constants.ROUTE_ACCESS}", methods=['PUT'])
@@ -457,6 +463,7 @@ def update_access():
         access_response = access_persistence.update(access_request)
         return jsonify(access_response), 200
     except Exception as e:
+        app.logger.error(f"Error in update_access: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 # Validation endpoint (no auth):
@@ -478,6 +485,7 @@ def validate_access():
             # no access provided, return empty response
             return jsonify(), 204
     except Exception as e:
+        app.logger.error(f"Error in validate_access: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 # create event
@@ -505,6 +513,7 @@ def create_event():
         event = events.create( event)
         return jsonify(event), 200 
     except Exception as e:
+        app.logger.error(f"Error in create_event: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 # curl -u myuser:mypassword -X PUT -H "Content-Type: application/json" \
@@ -526,6 +535,7 @@ def update_event(key):
         event = events.update(event)
         return jsonify(event), 200
     except Exception as e:
+        app.logger.error(f"Error in update_event: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 # curl -u myuser:mypassword \
@@ -538,6 +548,7 @@ def delete_event(key):
         events.delete(key)
         return jsonify({"message": f"Event with key: {key} deleted successfully"}), 200
     except Exception as e:
+        app.logger.error(f"Error in delete_event: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 # Get all events:
@@ -575,6 +586,7 @@ def get_event():
             return jsonify({}), 204  # success, but "204 No Content"
 
     except Exception as e:
+        app.logger.error(f"Error in get_event: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 # curl -u myuser:mypassword \
@@ -649,6 +661,7 @@ def log_handler():
             log_file.write(log_content)
 
     except Exception as e:  
+        app.logger.error(f"Error in log_handler: {str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
     return jsonify({'message': 'Log appended successfully'}), 200
