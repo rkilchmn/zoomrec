@@ -463,14 +463,14 @@ def run_bot():
                                             user_api.notify(
                                                 user_key=user[UserField.KEY.value],
                                                 message=f"Event '{eventStr}' not valid. {error}",
-                                                subject="Event Validation Failed"
+                                                subject="⚠️ Event Validation Failed"
                                             )
                                             # format add event command to help user create the event manually
                                             add_event_msg = format_event_command(event, type['user_login'])
                                             user_api.notify(
                                                 user_key=user[UserField.KEY.value],
                                                 message=add_event_msg,
-                                                subject="Event Creation Command"
+                                                subject="⚠️ Event Creation Command"
                                             )
                                     except Exception as format_error:
                                         logging.error(f"Error sending notification: {format_error}")
