@@ -10,7 +10,7 @@ FILE_FILTER="$6"
 
 # Ensure all parameters are provided
 if [[ -z "$BASE_NAME" || -z "$SSH_SERVER_URL" || -z "$IDENTITY_FILE" || -z "$TARGET_DIR" ]]; then
-    echo "Usage: $0 <base_filename_without_extension> <ssh_server_url> <identity_file> <target_directory> [delete source files true/false] [file_filter_regex]"
+    echo "Usage: $0 <base_filename_without_extension> <ssh_server_url> <identity_file> <target_directory> [delete source files true/false] [file_filter_glob]"
     exit 1
 fi
 
@@ -21,14 +21,16 @@ fi
 
 # Find matching files
 shopt -s nullglob  # Avoids error when no files match
+shopt -s extglob   # Enable extended globbing for pattern matching
 
 if [[ -n "$FILE_FILTER" ]]; then
-    # Use regex filter if provided
+    # Use glob pattern filter if provided
     FILE_LIST=( "${BASE_NAME}"* )
-    # Filter files using regex
+    # Filter files using glob pattern
     FILTERED_LIST=()
     for file in "${FILE_LIST[@]}"; do
-        if [[ "$(basename "$file")" =~ $FILE_FILTER ]]; then
+        filename=$(basename "$file")
+        if [[ "$filename" == $FILE_FILTER ]]; then
             FILTERED_LIST+=("$file")
         fi
     done

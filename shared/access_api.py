@@ -65,14 +65,18 @@ class AccessAPI:
                 return last_response
             raise
 
-    def create(self, access, expire_after_seconds=None):
+    def create(self, access, expire_after_seconds=None, email_attach_files=None):
 
         access = Access.clean(access)
-        
+
         # Add expire_after_seconds as a separate field
         if expire_after_seconds is not None:
             access[Access.EXPIRE_AFTER_SECONDS] = expire_after_seconds
-        
+
+        # Add email_attach_files as a separate field (transient, not in DB)
+        if email_attach_files is not None:
+            access['email_attach_files'] = email_attach_files
+
         url = f"{self.server_url}/{ROUTE_ACCESS}"
         headers = {'Content-Type': 'application/json'}
         response = self._make_request(

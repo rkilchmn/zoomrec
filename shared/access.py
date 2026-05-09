@@ -389,7 +389,9 @@ class SQLLiteAccess(Access):
         old_records = self.get(filters=[[AccessField.RESOURCE.value, '=', resource], 
                                        [AccessField.ACCESS_KEY.value, '=', access_key], 
                                        [AccessField.ACCESS_TYPE.value, '=', access_type]])
-        old_record = old_records[0] if old_records else None
+        if not old_records:
+            raise ValueError(f"Access record not found for resource={resource}, access_key={access_key}, access_type={access_type}")
+        old_record = old_records[0]
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -398,11 +400,15 @@ class SQLLiteAccess(Access):
                 (resource, access_key, access_type)
             )
             conn.commit()
-            
+
+        # Check if any rows were actually deleted
+        if cursor.rowcount == 0:
+            raise RuntimeError(f"Failed to delete access record for resource={resource}, access_key={access_key}, access_type={access_type}")
+
         # Call callback if deletion was successful
-        if cursor.rowcount > 0 and self.stateChanged and old_record:
+        if self.stateChanged and old_record:
             self.stateChanged(old_record, None)
-        
-        return cursor.rowcount > 0
+
+        return True
 
     

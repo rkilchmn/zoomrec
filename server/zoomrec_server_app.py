@@ -63,6 +63,7 @@ if __name__ != '__main__':
         app.logger.handlers = gunicorn_logger.handlers
         app.logger.setLevel(gunicorn_logger.level)
         app.logger.propagate = False
+        app.logger.info(f"Gunicorn logger configured (level: {logging.getLevelName(gunicorn_logger.level)})")
 
 else:
     # ------------------------------
@@ -196,6 +197,83 @@ events = SQLLiteEvents(ZOOMREC_DB_PATH, stateChanged=event_state_changed_callbac
 # Initialize user manager
 users = SQLLiteUser(ZOOMREC_DB_PATH)
 
+# In-memory cache for email attachment patterns (keyed by resource:access_key)
+# This cache stores attachment patterns temporarily for notification callbacks
+_email_attachments_cache = {}
+
+def cache_email_attachments(resource, access_key, file_patterns):
+    """
+    Cache email attachment patterns for a specific access.
+    
+    Args:
+        resource: The resource name
+        access_key: The access key
+        file_patterns: List of file patterns (e.g., ["*.vtt", "*.txt"])
+    """
+    cache_key = f"{resource}:{access_key}"
+    _email_attachments_cache[cache_key] = file_patterns
+
+def get_cached_email_attachments(resource, access_key):
+    """
+    Retrieve and remove cached email attachment patterns.
+    
+    Args:
+        resource: The resource name
+        access_key: The access key
+        
+    Returns:
+        List of file patterns or None if not found
+    """
+    cache_key = f"{resource}:{access_key}"
+    patterns = _email_attachments_cache.pop(cache_key, None)
+    return patterns
+
+def resolve_email_attachments(resource, file_patterns, user_login):
+    """
+    Resolve file patterns to actual file paths for email attachments.
+    
+    Args:
+        resource: The resource name (e.g., recording basename)
+        file_patterns: List of file patterns (e.g., ["*.vtt", "*.txt"])
+        user_login: The user login name for SFTP directory lookup
+        
+    Returns:
+        List of file paths matching the patterns, or None if no files found
+    """
+    import glob
+    import os
+    
+    if not file_patterns:
+        return None
+    
+    # Build the file path using BASE_PATH + SFTP_DATA_MOUNT_PATH
+    resource_dir = os.path.join(BASE_PATH, constants.SFTP_DATA_MOUNT_PATH, user_login, constants.SFTP_RECORDINGS_DIR)
+
+    if not os.path.exists(resource_dir):
+        app.logger.warning(f"Resource directory does not exist: {resource_dir}")
+        return None
+
+    # List directory contents for debugging
+    try:
+        dir_contents = os.listdir(resource_dir)
+    except Exception as e:
+        app.logger.error(f"Error listing directory: {e}")
+
+    attachments = []
+    for pattern in file_patterns:
+        pattern_path = os.path.join(resource_dir, pattern)
+        # Expand the pattern
+        matched_files = glob.glob(pattern_path)
+        for file_path in matched_files:
+            if os.path.isfile(file_path):
+                attachments.append(file_path)
+
+    if attachments:
+        return attachments
+    else:
+        app.logger.warning(f"No files found matching patterns: {file_patterns} in {resource_dir}")
+        return None
+
 # Define the access_state_changed_callback function
 def access_state_changed_callback(old_access, new_access):
     """
@@ -212,7 +290,7 @@ def access_state_changed_callback(old_access, new_access):
         if access[AccessField.NOTIFY_USER.value] == False:
             app.logger.debug(f"Access notification disabled for {Access.nameStr(access)}")
             return
-            
+
         # Determine action type
         if old_access is None:
             action_type = 'created'
@@ -226,20 +304,40 @@ def access_state_changed_callback(old_access, new_access):
 
         # generate plain text body
         plain_body = render_notify_access_template(access, action_type, html=False)
-        
+
         # Generate HTML body
         html_body = render_notify_access_template(access, action_type, html=True)
 
+        # Get user for SFTP directory lookup
+        user = users.get(filters=[[UserField.KEY.value, "=", access[AccessField.USER_KEY.value]]])[0]
+
+        # Resolve file patterns for email attachments from cache
+        # Only attach files when access is created, not when deleted or updated
+        attachments = None
+        if action_type == 'created':
+            file_patterns = get_cached_email_attachments(
+                access[AccessField.RESOURCE.value],
+                access[AccessField.ACCESS_KEY.value]
+            )
+            if file_patterns:
+                attachments = resolve_email_attachments(
+                    access[AccessField.RESOURCE.value],
+                    file_patterns,
+                    user[UserField.LOGIN.value]
+                )
+        else:
+            pass
+
         # Send notification
-        user = users.get(filters=[[UserField.KEY.value, "=", access[AccessField.USER_KEY.value]]])[0] 
         users.notify(
             user,
             plain_body,
             subject,
             html_body,
-            additional_emails=access[AccessField.ADDITIONAL_EMAILS.value]
+            additional_emails=access[AccessField.ADDITIONAL_EMAILS.value],
+            attachments=attachments
         )
-        
+
     except Exception as e:
         app.logger.error(f"Error in access_state_changed_callback: {str(e)}", exc_info=True)
 
@@ -415,6 +513,16 @@ def notify_user():
 def create_access():
     try:
         access_request = request.json
+        
+        # Extract email_attach_files for temporary caching (not stored in DB)
+        email_attach_files = access_request.pop('email_attach_files', None)
+        if email_attach_files:
+            # Cache the attachment patterns for the notification callback
+            resource = access_request.get(AccessField.RESOURCE.value)
+            access_key = access_request.get(AccessField.ACCESS_KEY.value)
+            if resource and access_key:
+                cache_email_attachments(resource, access_key, email_attach_files)
+        
         access_request = Access.set_expiry(access_request, access_request.pop(Access.EXPIRE_AFTER_SECONDS, None))
         access_response = access_persistence.create(access_request)
         return jsonify(access_response), 201
@@ -445,11 +553,15 @@ def delete_access():
         access_type = request.args.get('access_type')
         if not resource or not access_key or not access_type:
             return jsonify({"error": "both resource and access_key parameters are required"}), 400
-            
-        if access_persistence.delete(resource, access_key, access_type):
-            return jsonify({"status": "deleted"}), 200
-        else:
-            return jsonify({"error": "not found"}), 404
+
+        access_persistence.delete(resource, access_key, access_type)
+        return jsonify({"status": "deleted"}), 200
+    except ValueError as e:
+        # Record not found - return 204
+        return  jsonify({"error": str(e)}), 204
+    except RuntimeError as e:
+        # Delete failed (0 rows affected)
+        return jsonify({"error": str(e)}), 404
     except Exception as e:
         app.logger.error(f"Error in delete_access: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
@@ -1186,4 +1298,5 @@ if __name__ == '__main__':
     # Add any custom MIME types if needed
     # mimetypes.add_type('application/wasm', '.wasm')
     
+    app.run(debug=True, host='0.0.0.0', port=os.getenv("SERVER_PORT"))
     app.run(debug=True, host='0.0.0.0', port=os.getenv("SERVER_PORT"))

@@ -156,7 +156,7 @@ class Users(ABC):
                     raise ValueError(f"User '{Users.nameStr(user)}' has no Telegram chat ID.")
 
     @staticmethod
-    def notify(user, msg_body, subject="ZoomRec Notification", msg_body_html=None, additional_emails=None):
+    def notify(user, msg_body, subject="ZoomRec Notification", msg_body_html=None, additional_emails=None, attachments=None):
 
         # Send the message
         Users.send_message(user, msg_body)
@@ -178,7 +178,8 @@ class Users(ABC):
                 from_email=os.getenv('EMAIL_FROM', os.getenv('SMTP_USERNAME', DEFAULT_NOTIFICATION_FROM_EMAIL)),
                 subject=subject,
                 body=msg_body,
-                body_html=msg_body_html
+                body_html=msg_body_html,
+                attachments=attachments
             )
 
     @staticmethod

@@ -15,9 +15,8 @@ from typing import List, Optional, Union, Dict, Any
 from pathlib import Path
 import logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Configure logging - use root logger to inherit from calling module (e.g., gunicorn)
+logger = logging.getLogger()
 
 class EmailSender:
     """
@@ -116,24 +115,35 @@ class EmailSender:
         
         try:
             # Create message container
-            msg = MIMEMultipart('alternative' if body_html else 'mixed')
+            # Use nested structure for HTML emails with attachments:
+            # - Root: multipart/mixed
+            #   - Part 1: multipart/alternative (text + HTML)
+            #   - Part 2+: attachments
+            if attachments or body_html:
+                msg = MIMEMultipart('mixed')
+            else:
+                msg = MIMEMultipart('plain')
             msg['Subject'] = subject
             msg['From'] = formataddr((from_name, from_email)) if from_name else from_email
             msg['To'] = ', '.join(to_emails)
-            
+
             if cc:
                 msg['Cc'] = ', '.join(cc)
             if bcc:
                 msg['Bcc'] = ', '.join(bcc)
             if reply_to:
                 msg['Reply-To'] = reply_to
-            
-            # Attach the plain text body
-            msg.attach(MIMEText(body, 'plain'))
-            
-            # Attach the HTML body if provided
+
+            # Attach the body (text and HTML as alternative representations)
             if body_html:
-                msg.attach(MIMEText(body_html, 'html'))
+                # Use multipart/alternative for text + HTML
+                alternative_part = MIMEMultipart('alternative')
+                alternative_part.attach(MIMEText(body, 'plain'))
+                alternative_part.attach(MIMEText(body_html, 'html'))
+                msg.attach(alternative_part)
+            else:
+                # Just plain text
+                msg.attach(MIMEText(body, 'plain'))
             
             # Add attachments if any
             if attachments:
@@ -150,7 +160,7 @@ class EmailSender:
                         filename = os.path.basename(file_path)
                         with open(file_path, 'rb') as f:
                             part = MIMEApplication(f.read())
-                    
+
                     part.add_header('Content-Disposition', 'attachment', filename=filename)
                     msg.attach(part)
             

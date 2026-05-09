@@ -531,7 +531,7 @@ def run_bot():
                 # Exit the program if the exception is a KeyboardInterrupt
                 raise e
             else:
-                logging.error(f"An error occurred: {e}", exc_info=True)  # Enhanced to include full stack trace
+                logging.error(f"An error occurred: {e}", exc_info=True)
                 # Ensure connection cleanup on error
                 try:
                     if 'imap' in locals():
@@ -540,7 +540,9 @@ def run_bot():
                 except:
                     pass
                 # Wait before retrying to avoid rapid retry loops
+                logging.info("Waiting 30 seconds before retrying...")
                 time.sleep(30)
+                logging.info("Retrying IMAP connection...")
             
 if __name__ == "__main__":
     if not (IMAP_PASSWORD and IMAP_SERVER and IMAP_PORT and IMAP_USERNAME and SERVER_URL and SERVER_USERNAME and SERVER_PASSWORD):
