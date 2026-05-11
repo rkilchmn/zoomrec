@@ -20,7 +20,7 @@ with workflow.unsafe.imports_passed_through():
         INSTRUCTION_ACCESS_KEY, INSTRUCTION_ACCESS_EXPIRE_AFTER_SECONDS,
         INSTRUCTION_ACCESS_NOTIFY_USER, INSTRUCTION_ACCESS_ADDITIONAL_EMAILS,
         INSTRUCTION_ACCESS_DELETE_ON_EXPIRE, INSTRUCTION_ACCESS_EMAIL_ATTACH_FILES,
-        INSTRUCTION_TRANSCRIBE_TASK, INSTRUCTION_TRANSCRIBE_SOURCE_LANGUAGE 
+        INSTRUCTION_TRANSCRIBE_TASK, INSTRUCTION_TRANSCRIBE_SOURCE_LANGUAGE
     )
     from shared.events_api import EventAPI
     from shared.users import UserField
@@ -75,6 +75,9 @@ REC_PATH = os.path.join(BASE_PATH, RECORDINGS_DIR)
 
 # Temporal client (initialized on first use)
 _temporal_client = None
+
+# Import shared temporal utilities
+from shared.temporal import get_temporal_client as _get_temporal_client
 
 
 # Define desired postprocess execution order
@@ -473,18 +476,21 @@ def generate_workflow_id(recording_basename: str) -> str:
 
 async def get_temporal_client():
     """Get or create a shared Temporal client connection.
-    
+
     Returns:
-        Temporal Client instance
+        Temporal Client instance or None if connection fails
     """
     global _temporal_client
-    
+
     if _temporal_client is None:
         TEMPORAL_SERVER = os.getenv('TEMPORAL_SERVER', 'localhost:7233')
         logging.info(f"Creating Temporal client connection to {TEMPORAL_SERVER}")
-        _temporal_client = await Client.connect(TEMPORAL_SERVER)
-        logging.info("Temporal client connected")
-    
+        _temporal_client = await _get_temporal_client(TEMPORAL_SERVER)
+        if _temporal_client:
+            logging.info("Temporal client connected")
+        else:
+            logging.error("Postprocessing will not run until Temporal server is available.")
+
     return _temporal_client
 
 
@@ -503,10 +509,13 @@ async def schedulePostprocess(postprocess, recording_basename, event, client_id,
         wait_time_minutes: Maximum wait time in minutes before auto-continuing
         
     Returns:
-        Workflow handle for the started or existing workflow
+        Workflow handle for the started or existing workflow, or None if connection failed
     """
     # Get shared Temporal client
     client = await get_temporal_client()
+    if client is None:
+        logging.error("Cannot schedule postprocessing: Temporal client is None (connection failed)")
+        return None
     
     # Generate workflow ID
     workflow_id = generate_workflow_id(recording_basename)
@@ -578,6 +587,9 @@ async def triggerPostprocessContinuation(recording_basename: str):
     """
     # Get shared Temporal client
     client = await get_temporal_client()
+    if client is None:
+        logging.error("Cannot trigger postprocessing continuation: Temporal client is None (connection failed)")
+        return False
     
     # Generate workflow ID
     workflow_id = generate_workflow_id(recording_basename)
@@ -603,7 +615,10 @@ async def main():
     
     # Get shared Temporal client
     client = await get_temporal_client()
-    
+    if client is None:
+        logging.error("Cannot start Temporal worker: Temporal client is None")
+        return
+
     logging.info("Connected to Temporal server")
 
     worker = Worker(

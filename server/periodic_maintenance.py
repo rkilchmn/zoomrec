@@ -32,6 +32,9 @@ if BASE_PATH is None:
 # Temporal client (initialized on first use)
 _temporal_client = None
 
+# Import shared temporal utilities
+from shared.temporal import get_temporal_client as _get_temporal_client
+
 start_logging(LOG_PERIODIC_MAINTENANCE)
 start_debug(DEBUG_MODULE_PERIODIC_MAINTENANCE, os.getenv('DEBUG_PORT_SERVER'))
 
@@ -286,30 +289,36 @@ class AccessCleanupWorkflow:
 async def get_temporal_client():
     """Get or create a shared Temporal client connection."""
     global _temporal_client
-    
+
     if _temporal_client is None:
         TEMPORAL_SERVER = os.getenv('TEMPORAL_SERVER', 'localhost:7233')
         logging.info(f"Creating Temporal client connection to {TEMPORAL_SERVER}")
-        _temporal_client = await Client.connect(TEMPORAL_SERVER)
-        logging.info("Temporal client connected")
-    
+        _temporal_client = await _get_temporal_client(TEMPORAL_SERVER)
+        if _temporal_client:
+            logging.info("Temporal client connected")
+        else:
+            logging.error("Periodic maintenance will not run until Temporal server is available.")
+
     return _temporal_client
 
 async def scheduleAccessCleanup():
     """Schedule the periodic access cleanup workflow to run daily.
-    
+
     This function creates a Temporal Schedule for the AccessCleanupWorkflow.
     It reuses a shared Temporal client connection.
-    
+
     Returns:
         Schedule handle for the scheduled workflow
     """
     from temporalio.client import Schedule, ScheduleActionStartWorkflow, ScheduleSpec, ScheduleAlreadyRunningError
     from shared.constants import DEFAULT_PERIODIC_MAINTENANCE_CRON, PERIODIC_MAINTENANCE_CRON
-    
+
     # Get shared Temporal client
     client = await get_temporal_client()
-    
+    if client is None:
+        logging.error("Cannot schedule periodic cleanup: Temporal client is None (connection failed)")
+        return None
+
     CRON_SCHEDULE = os.getenv(PERIODIC_MAINTENANCE_CRON, DEFAULT_PERIODIC_MAINTENANCE_CRON)
     MIN_DISK_SIZE = os.getenv(MIN_FREE_DISK_SPACE, DEFAULT_MIN_FREE_DISK_SPACE)
     schedule_id = "zoomrec-access-cleanup-periodic"
@@ -346,13 +355,20 @@ async def scheduleAccessCleanup():
 
 async def main():
     """Main function to start the Temporal worker for access cleanup."""
-    
+
     # Schedule the periodic access cleanup workflow
     handle = await scheduleAccessCleanup()
+    if handle is None:
+        logging.error("Cannot start Temporal worker: Failed to schedule periodic cleanup")
+        return
+
     logging.info(f"Started schedule cleanup with workflow id: '{handle.id}'")
-    
+
     client = await get_temporal_client()
-    
+    if client is None:
+        logging.error("Cannot start Temporal worker: Temporal client is None")
+        return
+
     logging.info("Connected to Temporal server")
 
     worker = Worker(
