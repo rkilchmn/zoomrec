@@ -45,7 +45,7 @@ emails:
         instruction_value:
           process:
             - join:
-                display-name: 'Johndoe'
+                display-name: 'Johndoe' # this takes precedence over env var DISPLAY_NAME, if nothing specified a random name is used
                 join-audio: # no join audio, use '' for random audio file from audio dir or specific audio file 'hello.wav'
             - record:
           postprocess:

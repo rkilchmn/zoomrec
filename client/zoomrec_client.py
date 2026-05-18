@@ -285,6 +285,9 @@ async def join(event_key, dtstart_instance, dtend_instance, dtstart_instance_lea
             # get instructions for process
             process_instructions = Events.get_instruction_attribute(EventInstructionAttribute.PROCESS, event) 
             display_name = get_instruction_config(process_instructions, EventInstructionProcess.JOIN.value, INSTRUCTION_JOIN_DISPLAY_NAME, DISPLAY_NAME)
+            if display_name is None or not display_name:
+                display_name = DISPLAY_NAME
+
             join_audio = get_instruction_config(process_instructions, EventInstructionProcess.JOIN.value, INSTRUCTION_JOIN_AUDIO, JOIN_AUDIO)
             
             variables = {
