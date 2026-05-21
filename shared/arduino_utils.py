@@ -40,7 +40,7 @@ def parse_version_string(version_str: str) -> Tuple[str, datetime]:
         version_time = datetime.strptime(date_str, '%b %d %Y-%H:%M:%S')
         return base_name, version_time.replace(microsecond=0)
     except ValueError as e:
-        raise ValueError(f"Invalid date format in version string: {date_str}") from e
+        raise ValueError(f"Invalid date format in version string: {version_str}") from e
 
 def get_config_file_path(CONFIG_PATH: str, firmware_name: str, firmware_version: datetime, current_config_version: datetime) -> Tuple[Optional[str], Optional[dict]]:
     """
