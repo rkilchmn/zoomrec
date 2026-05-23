@@ -74,7 +74,7 @@ class EventAPI:
         """
         event = Events.clean(event)
         event_key = event[EventField.KEY.value]
-        url = f"{self.server_url}/{ROUTE_EVENT}/{event_key}"
+        url = f"{self.server_url}{ROUTE_EVENT}/{event_key}"
         
         try:
             response = self._make_request(
@@ -96,7 +96,7 @@ class EventAPI:
         Create a new event by calling the API.
         """
         event = Events.clean(event)
-        url = f"{self.server_url}/{ROUTE_EVENT}"
+        url = f"{self.server_url}{ROUTE_EVENT}"
         
         try:
             response = self._make_request(
@@ -119,7 +119,7 @@ class EventAPI:
         """
         Delete an event by calling the API.
         """
-        url = f"{self.server_url}/{ROUTE_EVENT}/{event_key}"
+        url = f"{self.server_url}{ROUTE_EVENT}/{event_key}"
         
         try:
             response = self._make_request(
@@ -141,7 +141,7 @@ class EventAPI:
         the second is the operator, and the third is the value.
         To retrieve an event by its key, use filters=[[EventField.KEY.value, "=", key_value]]
         """
-        url = f"{self.server_url}/{ROUTE_EVENT}"
+        url = f"{self.server_url}{ROUTE_EVENT}"
         params = {}
         if filters:
             for i, entry in enumerate(filters):
@@ -183,7 +183,7 @@ class EventAPI:
         Returns:
             The next event as a dictionary, or None if no events are available
         """
-        url = f"{self.server_url}/{ROUTE_EVENT}/{ROUTE_EVENT_NEXT}"
+        url = f"{self.server_url}{ROUTE_EVENT}/{ROUTE_EVENT_NEXT}"
         params = {
             'client_id': client_id,
             'event_type': event_type,

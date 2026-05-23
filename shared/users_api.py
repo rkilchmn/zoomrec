@@ -106,7 +106,7 @@ class UserAPI:
         Create a new user by calling the API.
         """
         user = Users.clean(user)
-        url = f"{self.server_url}/{ROUTE_USER}"
+        url = f"{self.server_url}{ROUTE_USER}"
         headers = {'Content-Type': 'application/json'}
         
         response = self._make_request(
@@ -128,7 +128,7 @@ class UserAPI:
         Each filter parameter should be an array where the first element is the attribute,
         the second is the operator, and the third is the value.
         """
-        url = f"{self.server_url}/{ROUTE_USER}"
+        url = f"{self.server_url}{ROUTE_USER}"
         params = {}
         if filters:
             for i, entry in enumerate(filters):
@@ -159,7 +159,7 @@ class UserAPI:
         """
         user = Users.clean(user)
         user_key = user[UserField.KEY.value]
-        url = f"{self.server_url}/{ROUTE_USER}/{user_key}"
+        url = f"{self.server_url}{ROUTE_USER}/{user_key}"
         
         response = self._make_request(
             "PUT",
@@ -178,7 +178,7 @@ class UserAPI:
         """
         Delete a user by calling the API.
         """
-        url = f"{self.server_url}/{ROUTE_USER}/{user_key}"
+        url = f"{self.server_url}{ROUTE_USER}/{user_key}"
         
         response = self._make_request(
             "DELETE",

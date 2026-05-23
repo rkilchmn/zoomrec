@@ -77,7 +77,7 @@ class AccessAPI:
         if email_attach_files is not None:
             access['email_attach_files'] = email_attach_files
 
-        url = f"{self.server_url}/{ROUTE_ACCESS}"
+        url = f"{self.server_url}{ROUTE_ACCESS}"
         headers = {'Content-Type': 'application/json'}
         response = self._make_request(
             "POST",
@@ -92,7 +92,7 @@ class AccessAPI:
             raise Exception(f"Failed to create access. Response code: {response.status_code}, Response: {response.text}")
 
     def get(self, filters=None):
-        url = f"{self.server_url}/{ROUTE_ACCESS}"
+        url = f"{self.server_url}{ROUTE_ACCESS}"
         params = {}
         if filters:
             for i, entry in enumerate(filters):
@@ -124,7 +124,7 @@ class AccessAPI:
         if AccessField.RESOURCE.value not in access or AccessField.ACCESS_KEY.value not in access:
             raise ValueError("Both resource and access_key are required for update")
             
-        url = f"{self.server_url}/{ROUTE_ACCESS}"
+        url = f"{self.server_url}{ROUTE_ACCESS}"
         response = self._make_request(
             "PUT",
             url,
@@ -138,7 +138,7 @@ class AccessAPI:
             raise Exception(f"Failed to update access. Response code: {response.status_code}, Response: {response.text}")
 
     def delete(self, resource, access_key, access_type):
-        url = f"{self.server_url}/{ROUTE_ACCESS}"
+        url = f"{self.server_url}{ROUTE_ACCESS}"
         params = {
             AccessField.RESOURCE.value: resource,
             AccessField.ACCESS_KEY.value: access_key,
@@ -181,7 +181,7 @@ class AccessAPI:
             AccessField.ACCESS_TYPE.value: access_type
         }
             
-        response = self._make_request('GET', f"{self.server_url}/{ROUTE_ACCESS}/validate", params=params)
+        response = self._make_request('GET', f"{self.server_url}{ROUTE_ACCESS}/validate", params=params)
         if response.status_code == 200:
             # has access, return access data    
             return response.json()
