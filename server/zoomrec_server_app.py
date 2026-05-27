@@ -266,7 +266,9 @@ def resolve_email_attachments(resource, file_patterns, user_login):
         matched_files = glob.glob(pattern_path)
         for file_path in matched_files:
             if os.path.isfile(file_path):
-                attachments.append(file_path)
+                # Ensure the file name starts with the resource prefix
+                if os.path.basename(file_path).startswith(resource):
+                    attachments.append(file_path)
 
     if attachments:
         return attachments
