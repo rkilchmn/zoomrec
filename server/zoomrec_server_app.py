@@ -382,17 +382,17 @@ def render_notify_access_template(access, action_type, html=True):
         # Set action-specific content
         action_config = {
             'created': {
-                'title': '✅ Access Granted',
+                'title': 'Access Granted',
                 'icon': '✅',
                 'message': f'You have been granted access to the following resource:'
             },
             'updated': {
-                'title': '🔄 Access Updated',
+                'title': 'Access Updated',
                 'icon': '🔄',
                 'message': f'Your access to the following resource has been updated:'
             },
             'deleted': {
-                'title': '🗑️ Access Revoked',
+                'title': 'Access Revoked',
                 'icon': '🗑️',
                 'message': f'Your access to the following resource has been revoked:'
             }
