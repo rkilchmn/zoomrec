@@ -1,0 +1,17 @@
+services:
+  remote-faster-whisper:
+    build:
+      context: https://github.com/rkilchmn/remote-faster-whisper.git
+    image: rkilchmn/remote-faster-whisper:latest
+    container_name: remote-faster-whisper
+    restart: unless-stopped
+    ports:
+      - "9876:9876"
+    volumes:
+      - ${ZOOMREC_HOME}/whisper-cache:/app/whisper-cache
+    networks:
+      - zoomrec-net
+
+networks:
+  zoomrec-net:
+    driver: bridge
