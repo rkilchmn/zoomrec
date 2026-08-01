@@ -153,6 +153,7 @@ def mapping_ai(attribute_name: str, attribute_value: str, ai_config: dict) -> Op
         prompt = prompt_template.format(input=attribute_value)
         result = llm.ask(prompt)
         if result is not None:
+            logging.info(f"Mapping AI attribute: {attribute_name} value: {attribute_value} using AI. Result: {result}")
             return result
         else:
             logging.error(f"Error mapping attribute: No response from LLM. Returning 'default' {default}")
@@ -443,7 +444,11 @@ def run_bot():
                                 # Apply date replacement if dtstart is a valid datetime with default date
                                 if dtstart and isinstance(dtstart, datetime) and dtstart.year == 1900 and dtstart.month == 1 and dtstart.day == 1:
                                     if event[EventField.TIMEZONE.value] is not None:
-                                        today_local = Events.now(event).date()
+                                        try:
+                                            today_local = Events.now(event).date()
+                                        except Exception as error:
+                                            logging.error(f"Error getting local time for timezone '{event[EventField.TIMEZONE.value]}': {error}")
+                                            continue
                                         dtstart = dtstart.replace(year=today_local.year, month=today_local.month, day=today_local.day)
                                         # add local timezone of event
                                         dtstart = dtstart.replace(tzinfo=ZoneInfo(event[EventField.TIMEZONE.value]))
