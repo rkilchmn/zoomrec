@@ -16,30 +16,6 @@ import mimetypes
 
 from shared.utilities import start_debug
 
-def parse_filter_parameters(request_args) -> List[List[Optional[str]]]:
-    """Parse filter parameters from request arguments.
-    
-    Returns a list of filters where each filter is [Name, Operator, Value].
-    """
-    filters = []
-    
-    # Retrieve filter parameters from the request
-    for key, value in request_args.items():
-        if key.startswith("Filter."):
-            # Extract the filter index
-            parts = key.split('.')
-            if len(parts) == 3:  # Ensure we have the correct format
-                index = parts[1]
-                if len(filters) < int(index):  # Ensure the filters list is long enough
-                    filters.append([None, None, None])  # Initialize with None
-                if parts[2] == "Name":
-                    filters[int(index) - 1][0] = value  # Set attribute
-                elif parts[2] == "Operator":
-                    filters[int(index) - 1][1] = value  # Set operator
-                elif parts[2] == "Value":
-                    filters[int(index) - 1][2] = value  # Set value
-    
-    return filters
 from shared.arduino_utils import (
     parse_version_string, get_config_file_path, find_compatible_firmware,
     ERROR_CONFIG_DIR_NOT_FOUND, ERROR_CONFIG_DIR_READ, ERROR_NO_COMPATIBLE_CONFIG,
@@ -48,7 +24,99 @@ from shared.arduino_utils import (
     ERROR_NO_COMPATIBLE_FIRMWARE, ERROR_INVALID_FIRMWARE_VERSION, ERROR_UNEXPECTED
 )
 
-start_debug(constants.DEBUG_MODULE_ZOOMREC_SERVER_APP, os.getenv('DEBUG_PORT_SERVER'))
+# Allowlist of valid SQL comparison operators for filter parameters
+ALLOWED_FILTER_OPERATORS = frozenset({
+    '=', '!=', '<', '>', '<=', '>=',
+    'LIKE', 'NOT LIKE',
+    'IN', 'NOT IN',
+    'IS', 'IS NOT',
+})
+
+# Allowlist of valid column names for filter parameters (union of all table columns)
+ALLOWED_FILTER_FIELDS = frozenset({
+    # Event fields
+    EventField.KEY.value,
+    EventField.TYPE.value,
+    EventField.TITLE.value,
+    EventField.DTSTART.value,
+    EventField.TIMEZONE.value,
+    EventField.DURATION.value,
+    EventField.RRULE.value,
+    EventField.ID.value,
+    EventField.PASSWORD.value,
+    EventField.URL.value,
+    EventField.INSTRUCTION.value,
+    EventField.USER_KEY.value,
+    EventField.STATUS.value,
+    EventField.ASSIGNED.value,
+    EventField.ASSIGNED_TIMESTAMP.value,
+    EventField.CREATED_TIMESTAMP.value,
+    EventField.LAST_UPDATED_TIMESTAMP.value,
+    # User fields
+    UserField.KEY.value,
+    UserField.NAME.value,
+    UserField.LOGIN.value,
+    UserField.PASSWORD.value,
+    UserField.TWO_FA_KEY.value,
+    UserField.EMAIL.value,
+    UserField.MESSENGER.value,
+    UserField.MOBILE_NUMBER.value,
+    UserField.SFTP_USERNAME.value,
+    UserField.ROLE.value,
+    UserField.TIMEZONE.value,
+    UserField.CREATED_TIMESTAMP.value,
+    UserField.LAST_UPDATED_TIMESTAMP.value,
+    # Access fields
+    AccessField.RESOURCE.value,
+    AccessField.ACCESS_KEY.value,
+    AccessField.ACCESS_TYPE.value,
+    AccessField.EXPIRES_AT.value,
+    AccessField.USER_KEY.value,
+    AccessField.NOTIFY_USER.value,
+    AccessField.ADDITIONAL_EMAILS.value,
+    AccessField.DELETE_ON_EXPIRE.value,
+    AccessField.CREATED_TIMESTAMP.value,
+    AccessField.LAST_UPDATED_TIMESTAMP.value,
+})
+
+
+def parse_filter_parameters(request_args) -> List[List[Optional[str]]]:
+    """Parse and validate filter parameters from request arguments.
+
+    Returns a list of filters where each filter is [Name, Operator, Value].
+    Only field names and operators from the allowlists are accepted;
+    invalid values raise ValueError to prevent SQL injection.
+    """
+    filters = []
+
+    for key, value in request_args.items():
+        if key.startswith("Filter."):
+            parts = key.split('.')
+            if len(parts) == 3:
+                index = parts[1]
+                field_type = parts[2]
+
+                if field_type == "Name":
+                    if value not in ALLOWED_FILTER_FIELDS:
+                        raise ValueError(f"Invalid filter field name: '{value}'")
+                    while len(filters) < int(index):
+                        filters.append([None, None, None])
+                    filters[int(index) - 1][0] = value
+                elif field_type == "Operator":
+                    if value not in ALLOWED_FILTER_OPERATORS:
+                        raise ValueError(f"Invalid filter operator: '{value}'")
+                    while len(filters) < int(index):
+                        filters.append([None, None, None])
+                    filters[int(index) - 1][1] = value
+                elif field_type == "Value":
+                    while len(filters) < int(index):
+                        filters.append([None, None, None])
+                    filters[int(index) - 1][2] = value
+
+    return filters
+
+
+debug_active = start_debug(constants.DEBUG_MODULE_ZOOMREC_SERVER_APP, os.getenv('DEBUG_PORT_SERVER'))
 
 app = Flask(__name__)
 
@@ -88,6 +156,12 @@ HTTP_CONTENT_URL_PREFIX = os.getenv('HTTP_CONTENT_URL_PREFIX').rstrip('/')
 # Configure basic authentication
 app.config['BASIC_AUTH_USERNAME'] = os.getenv('SERVER_USERNAME')
 app.config['BASIC_AUTH_PASSWORD'] = os.getenv('SERVER_PASSWORD')
+
+if not app.config['BASIC_AUTH_USERNAME'] or not app.config['BASIC_AUTH_PASSWORD']:
+    raise RuntimeError(
+        "SERVER_USERNAME and SERVER_PASSWORD environment variables must be set and non-empty"
+    )
+
 basic_auth = BasicAuth(app)
 
 # Type variable for generic dictionary
@@ -621,6 +695,7 @@ def validate_access():
 #   }' \
 #   "http://localhost:8081/event"
 @app.route(f"{constants.ROUTE_EVENT}", methods=["POST"])
+@basic_auth.required
 def create_event():
     try:
         event = request.json
@@ -1300,5 +1375,8 @@ if __name__ == '__main__':
     # Add any custom MIME types if needed
     # mimetypes.add_type('application/wasm', '.wasm')
     
-    app.run(debug=True, host='0.0.0.0', port=os.getenv("SERVER_PORT"))
-    app.run(debug=True, host='0.0.0.0', port=os.getenv("SERVER_PORT"))
+    if debug_active:
+        # debug only for localhost
+        app.run(debug=True, host='127.0.0.1', port=os.getenv("SERVER_PORT"))
+    else:
+        app.run(debug=False, host='0.0.0.0', port=os.getenv("SERVER_PORT"))

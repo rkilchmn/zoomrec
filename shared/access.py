@@ -331,6 +331,10 @@ class SQLLiteAccess(Access):
                     if len(entry) == 3:
                         attribute, operator, value = entry
                         if attribute and value is not None:
+                            if attribute not in {f.value for f in AccessField}:
+                                raise ValueError(f"Invalid filter field name: '{attribute}'")
+                            if operator not in {'=', '!=', '<', '>', '<=', '>=', 'LIKE', 'NOT LIKE', 'IN', 'NOT IN', 'IS', 'IS NOT'}:
+                                raise ValueError(f"Invalid filter operator: '{operator}'")
                             conditions.append(f"{attribute} {operator} ?")
                             parameters.append(value)
                     else:

@@ -329,6 +329,10 @@ class SQLLiteUser(Users):
                     if len(entry) == 3:  # Ensure the query has three elements
                         attribute, operator, value = entry
                         if attribute and value is not None:
+                            if attribute not in {f.value for f in UserField}:
+                                raise ValueError(f"Invalid filter field name: '{attribute}'")
+                            if operator not in {'=', '!=', '<', '>', '<=', '>=', 'LIKE', 'NOT LIKE', 'IN', 'NOT IN', 'IS', 'IS NOT'}:
+                                raise ValueError(f"Invalid filter operator: '{operator}'")
                             conditions.append(f"{attribute} {operator} ?")
                             parameters.append(value)
                     else:
