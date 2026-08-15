@@ -1173,7 +1173,7 @@ def _range_response(path, mimetype='video/mp4'):
         return Response('Internal Server Error', status=500, headers=headers)
 
 # List files for a resource
-@app.route(f"{constants.ROUTE_LIST}/<access_key>/<path:resource")
+@app.route(f"{constants.ROUTE_LIST}/<access_key>/<path:resource>")
 def list_files(access_key, resource):
     """
     List all files for a resource that the access key has access to.
