@@ -218,7 +218,10 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ] && [ "$GPU_BUILD_SUBTYPE" = "INTEL-WSL2" ]; th
 RUN if [ "$GPU_BUILD" = "VAAPI" ] && [ "$GPU_BUILD_SUBTYPE" = "INTEL" ]; then \
         apt-get update && \
         apt-get install --no-install-recommends -y \
+            # "iHD" for Broadwell and above Intel iGPUs
             intel-media-va-driver-non-free  \
+            # "i965" Ivy bridge like HD4000
+            i965-va-driver \
             vainfo && \
         groupadd -g ${RENDER_GROUPID} render && \
         adduser zoomrec render && \
