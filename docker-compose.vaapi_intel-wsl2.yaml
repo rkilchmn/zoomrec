@@ -6,7 +6,8 @@ services:
         GPU_BUILD_SUBTYPE: INTEL-WSL2
         RENDER_GROUPID: ${RENDER_GROUPID}
     environment:
-      FFMPEG_INPUT_PARAMS: "-vaapi_device /dev/dri/renderD128"
+      LIBVA_RENDER_NODE: ${LIBVA_RENDER_NODE:-renderD128}
+      FFMPEG_INPUT_PARAMS: "-vaapi_device /dev/dri/${LIBVA_RENDER_NODE:-renderD128}"
       FFMPEG_OUTPUT_PARAMS: "-acodec aac -b:a 128k -vf 'hwupload,scale_vaapi=format=nv12' -c:v hevc_vaapi -b:v 1M"
       LIBVA_DRIVER_NAME: ${LIBVA_DRIVER_NAME}
       LD_LIBRARY_PATH: /usr/lib/wsl/lib
