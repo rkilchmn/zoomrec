@@ -49,7 +49,11 @@ done
 OUTPUT_FILE="${BASE_NAME}.${EXTENSION}"
 
 # Run ffmpeg to concatenate
-ffmpeg -f concat -safe 0 -i "$INPUT_FILE" -c copy "$OUTPUT_FILE"
+if ! ffmpeg -f concat -safe 0 -i "$INPUT_FILE" -c copy "$OUTPUT_FILE"; then
+    echo "ERROR: ffmpeg concatenation failed. Output file removed. Source files preserved."
+    rm -f "$OUTPUT_FILE"
+    exit 3
+fi
 
 # Cleanup
 rm -f "$INPUT_FILE"
