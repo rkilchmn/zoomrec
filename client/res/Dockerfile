@@ -202,13 +202,6 @@ RUN if [ "$GPU_BUILD" = "VAAPI" ] && [ "$GPU_BUILD_SUBTYPE" = "INTEL-WSL2" ]; th
             # "radeonsi" for RX4x0/RC5x0
             # " " for IrisXE under WSL2
             vainfo && \
-            # "i965" Ivy bridge like HD4000
-            i965-va-driver && \
-            # untested: "iHD" for Broadwell and above Intel iGPUs   
-        # va-api related tools for testing
-        # apt-get install --no-install-recommends -y \
-        #     vainfo \
-        #     clinfo && \
         # provide access to devices
         groupadd -g ${RENDER_GROUPID} render && \
         adduser zoomrec render && \
